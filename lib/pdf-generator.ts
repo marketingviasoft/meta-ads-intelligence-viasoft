@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import type { RangeDays } from "@/lib/types";
+import { PDF_VIEWPORT } from "@/pdf/layout-preset";
 import { isValidRangeDays } from "@/utils/date-range";
 
 function sleep(ms: number): Promise<void> {
@@ -29,8 +30,8 @@ export async function generateDashboardPdf(params: {
   try {
     const page = await browser.newPage();
     await page.setViewport({
-      width: 1754,
-      height: 1240,
+      width: PDF_VIEWPORT.width,
+      height: PDF_VIEWPORT.height,
       deviceScaleFactor: 1
     });
 

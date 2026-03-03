@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, FileDown, Loader2, RefreshCw } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { CampaignStructurePanel } from "@/components/campaign-structure-panel";
 import { CampaignSelector } from "@/components/campaign-selector";
 import { CampaignHeaderCard, DashboardReport } from "@/components/dashboard-report";
@@ -374,9 +375,14 @@ export function DashboardClient() {
       <header className="surface-panel enter-fade p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="inline-flex items-center rounded-full bg-viasoft/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-viasoft">
-              DASHBOARD META ADS VIASOFT
-            </p>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+              <span className="inline-flex size-6 items-center justify-center rounded-md bg-viasoft text-white">
+                <BrandMark variant="icon" size={13} />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                Meta Ads Intelligence | VIASOFT
+              </span>
+            </div>
             <h1 className="mt-1 text-3xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
               Períodos sempre excluem o dia atual e comparam automaticamente contra o período anterior equivalente.

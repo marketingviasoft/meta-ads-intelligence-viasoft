@@ -7,6 +7,7 @@ type InsightsPanelProps = {
   insights: InsightMessage[];
   recommendations: Recommendation[];
   isPdf?: boolean;
+  fillHeight?: boolean;
 };
 
 function getInsightTone(type: InsightMessage["type"]): string {
@@ -36,15 +37,19 @@ function getInsightIcon(type: InsightMessage["type"]) {
 export function InsightsPanel({
   insights,
   recommendations,
-  isPdf = false
+  isPdf = false,
+  fillHeight = false
 }: InsightsPanelProps) {
   const panelPadding = isPdf ? "p-4" : "p-5";
   const insightsTopSpacing = isPdf ? "mt-2.5" : "mt-3";
   const recommendationTopSpacing = isPdf ? "mt-2.5" : "mt-3";
+  const panelStretchClass = fillHeight ? "h-full" : "";
 
   return (
-    <section className={`grid ${isPdf ? "gap-3 sm:grid-cols-2 pdf-block" : "gap-4 lg:grid-cols-2"}`}>
-      <div className={`surface-panel ${panelPadding}`}>
+    <section
+      className={`grid ${isPdf ? "gap-3 sm:grid-cols-2 pdf-block" : "gap-4 lg:grid-cols-2"} ${fillHeight ? "h-full items-stretch" : ""}`}
+    >
+      <div className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <Lightbulb size={17} className="text-viasoft" />
           Insights automáticos
@@ -66,7 +71,7 @@ export function InsightsPanel({
           ))}
         </div>
       </div>
-      <div className={`surface-panel ${panelPadding}`}>
+      <div className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <ListChecks size={17} className="text-viasoft" />
           Recomendações por objetivo

@@ -8,6 +8,7 @@ import {
   Wallet
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/brand-mark";
 import { CampaignHeaderCard } from "@/components/dashboard-report";
 import { InsightsPanel } from "@/components/insights-panel";
 import { MetricCard } from "@/components/metric-card";
@@ -15,6 +16,7 @@ import { PerformanceChart } from "@/components/performance-chart";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
 import { TrendCard } from "@/components/trend-card";
 import { getActiveCampaigns, getAdSetAds, getCampaignAdSets, getDashboardPayload } from "@/lib/meta-dashboard";
+import { PDF_BRAND_SIGNATURE, PDF_LAYOUT_VERSION, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
 import type { DailyMetricPoint, DashboardPayload } from "@/lib/types";
 import { parseRangeDays } from "@/utils/date-range";
 import { formatCurrencyBRL, formatNumberBR, formatPercentBR } from "@/utils/formatters";
@@ -170,6 +172,28 @@ function PdfSelectorField({
   );
 }
 
+function PdfPageFooter({
+  pageNumber,
+  generatedAtLabel
+}: {
+  pageNumber: number;
+  generatedAtLabel: string;
+}) {
+  return (
+    <footer className="pdf-footer mt-auto flex items-center justify-between gap-4 border-t border-viasoft/15 pt-3 text-[11px] text-slate-600">
+      <p className="inline-flex items-center gap-2">
+        <span className="inline-flex size-5 items-center justify-center rounded-md bg-viasoft/10 text-viasoft">
+          <BrandMark variant="icon" size={11} />
+        </span>
+        <span>{PDF_BRAND_SIGNATURE}</span>
+      </p>
+      <p>
+        Página {pageNumber}/{PDF_TOTAL_PAGES} · Atualizado em {generatedAtLabel} · Layout {PDF_LAYOUT_VERSION}
+      </p>
+    </footer>
+  );
+}
+
 export default async function PdfPage({
   searchParams
 }: {
@@ -289,6 +313,7 @@ export default async function PdfPage({
     payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
       ? payload.campaign.verticalTag
       : "Todas as verticais";
+  const generatedAtLabel = new Date(payload.generatedAt).toLocaleString("pt-BR");
 
   return (
     <main className="min-h-screen bg-white py-3 print:py-0">
@@ -296,9 +321,14 @@ export default async function PdfPage({
       <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
         <div className="pdf-landscape-page pdf-page-break-after">
           <header className="surface-panel p-6">
-            <p className="inline-flex items-center rounded-full bg-viasoft/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-viasoft">
-              DASHBOARD META ADS VIASOFT
-            </p>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+              <span className="inline-flex size-6 items-center justify-center rounded-md bg-viasoft text-white">
+                <BrandMark variant="icon" size={13} />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                {PDF_BRAND_SIGNATURE}
+              </span>
+            </div>
             <h1 className="mt-1 text-4xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
             <p className="mt-2 text-base text-slate-600">
               Períodos sempre excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
@@ -326,7 +356,7 @@ export default async function PdfPage({
           <CampaignHeaderCard campaign={payload.campaign} range={payload.range} isPdf />
 
           <section className="surface-panel p-4">
-            <h2 className="text-base font-semibold text-viasoft">Estrutura da campanha</h2>
+            <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>
             <p className="mt-1 text-sm text-slate-600">
               Grupos de anúncios e anúncios ativos no momento da geração do relatório.
             </p>
@@ -365,11 +395,12 @@ export default async function PdfPage({
               </div>
             </div>
           </section>
+          <PdfPageFooter pageNumber={1} generatedAtLabel={generatedAtLabel} />
         </div>
 
         <div className="pdf-landscape-page pdf-page-break-after">
           <section className="surface-panel p-5">
-            <h2 className="text-base font-semibold text-viasoft">Cards de métricas</h2>
+            <h2 className="pdf-section-title text-base font-semibold text-viasoft">Cards de métricas</h2>
             <p className="mt-1 text-sm text-slate-600">
               Comparativo do período atual em relação ao período anterior equivalente.
             </p>
@@ -392,6 +423,7 @@ export default async function PdfPage({
               ))}
             </div>
           </section>
+          <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
         </div>
 
         <div className="pdf-landscape-page pdf-page-break-after">
@@ -408,7 +440,7 @@ export default async function PdfPage({
           />
 
           <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-5">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
+            <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
               <TrendingUp size={17} className="text-viasoft" />
               Performance diária
             </h3>
@@ -423,13 +455,19 @@ export default async function PdfPage({
               />
             </div>
           </section>
+          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
         </div>
 
         <div className="pdf-landscape-page">
-          <InsightsPanel insights={payload.insights} recommendations={payload.recommendations} isPdf />
-          <p className="mt-auto text-right text-sm text-slate-600">
-            Atualizado em {new Date(payload.generatedAt).toLocaleString("pt-BR")}
-          </p>
+          <div className="flex-1">
+            <InsightsPanel
+              insights={payload.insights}
+              recommendations={payload.recommendations}
+              isPdf
+              fillHeight
+            />
+          </div>
+          <PdfPageFooter pageNumber={4} generatedAtLabel={generatedAtLabel} />
         </div>
       </section>
     </main>
