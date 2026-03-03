@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-top: #e5eef7;
+  --bg-mid: #dbe7f1;
+  --bg-bottom: #e7eef6;
+  --panel: #ffffff;
+  --viasoft: #003a4d;
+  --ink: #142227;
+  --muted: #51616a;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #f43f5e;
+  --info: #334155;
+  --surface-tint: #f8fafc;
+  --ring: rgba(20, 34, 39, 0.15);
+}
+
+* {
+  border-color: rgba(20, 34, 39, 0.12);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 7% 10%, rgba(0, 58, 77, 0.22), transparent 44%),
+    radial-gradient(circle at 88% 7%, rgba(15, 118, 110, 0.14), transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(0, 58, 77, 0.08), transparent 46%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bottom) 100%);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), "Trebuchet MS", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.surface-panel {
+  background: var(--panel);
+  box-shadow:
+    0 16px 32px -20px rgba(20, 34, 39, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  border-radius: 18px;
+}
+
+.data-chip {
+  border: 1px solid rgba(0, 58, 77, 0.24);
+  border-radius: 9999px;
+  background: rgba(0, 58, 77, 0.1);
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.enter-fade {
+  animation: float-in 420ms ease-out forwards;
+}
+
+.hover-lift {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px -22px rgba(20, 34, 39, 0.4);
+}
+
+@media (max-width: 768px) {
+  .surface-panel {
+    border-radius: 14px;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 8mm;
+}
+
+.pdf-shell {
+  width: 794px;
+  min-height: 1123px;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #142227;
+}
+
+.pdf-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.recharts-responsive-container {
+  min-height: 260px;
+}

@@ -1,0 +1,36 @@
+{
+  "version": "0.2",
+  "language": "pt,pt-BR,en",
+  "enabledLanguageIds": [
+    "typescript",
+    "typescriptreact",
+    "javascript",
+    "javascriptreact",
+    "markdown"
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/coverage/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "pt-br",
+      "path": "node_modules/@cspell/dict-pt-br/pt_BR.trie.gz"
+    },
+    {
+      "name": "project-words",
+      "path": ".cspell/project-words.txt",
+      "addWords": true
+    }
+  ],
+  "dictionaries": [
+    "pt-br",
+    "project-words"
+  ]
+}

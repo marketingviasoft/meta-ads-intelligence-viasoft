@@ -1,0 +1,125 @@
+# Meta Ads Performance Dashboard (MVP Local)
+
+Dashboard executivo para campanhas Meta Ads com comparativo de período e exportação em PDF via Puppeteer.
+
+## Stack
+
+- Next.js (App Router)
+- TypeScript
+- TailwindCSS
+- Recharts
+- Node.js
+- Puppeteer
+- Sem banco de dados
+- Sem autenticação (MVP local)
+
+## O que o MVP entrega
+
+- Lista campanhas com delivery `ACTIVE`
+- Seleção de campanha
+- Períodos: 7, 14, 28 e 30 dias
+- Dia atual sempre excluído
+- Comparativo automático com período anterior equivalente
+- KPIs: investimento, impressões, cliques, CTR, CPC e resultado principal por objetivo
+- Tendência consolidada
+- Insights automáticos (CTR, CPC, custo por resultado, queda vs anterior)
+- Recomendações por objetivo (traffic, engagement, recognition, conversions)
+- Cache em memória por campanha + período (TTL 5 min)
+- Botão `Atualizar Dados` com invalidação manual de cache
+- PDF gerado em backend via Puppeteer pela rota `/pdf` (retrato, sem html2canvas/jsPDF)
+
+## Estrutura de pastas
+
+```txt
+/app
+  /api
+    /meta
+      /campaigns
+      /performance
+      /cache/invalidate
+    /pdf
+  /pdf
+/components
+/lib
+/services
+/utils
+/pdf
+/api
+```
+
+## Variáveis de ambiente
+
+Copie `.env.example` para `.env.local` e preencha:
+
+```bash
+META_ACCESS_TOKEN=
+META_AD_ACCOUNT_ID=act_1234567890
+META_API_VERSION=v21.0
+# Opcional: fallback de numero WhatsApp por page_id (JSON)
+META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON=
+APP_BASE_URL=http://localhost:3000
+APP_TIMEZONE=America/Sao_Paulo
+```
+
+## Instalação e execução local
+
+1. Instale Node.js 20+.
+2. Instale dependências:
+
+```bash
+npm install
+```
+
+3. Inicie em desenvolvimento:
+
+```bash
+npm run dev
+```
+
+4. Abra:
+
+```txt
+http://localhost:3000
+```
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run typecheck
+```
+
+## Objetivo -> métrica principal
+
+- TRAFFIC -> `link_clicks`
+- ENGAGEMENT -> `post_engagement`
+- RECOGNITION -> `impressions`
+- CONVERSIONS -> `conversions`
+
+## PDF
+
+Fluxo:
+
+1. Clique em `Gerar PDF`
+2. Backend abre `GET /api/pdf`
+3. Puppeteer renderiza a rota interna `/pdf?campaignId=...&rangeDays=...`
+4. Gera A4 retrato com `printBackground`
+5. Retorna download automático
+
+## API routes
+
+- `GET /api/meta/campaigns`
+- `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
+- `POST /api/meta/cache/invalidate`
+- `GET /api/pdf?campaignId=...&rangeDays=...`
+
+## Regras aplicadas no código
+
+- Fonte de verdade: Meta API
+- Nenhum filtro inclui o dia atual
+- Sem métricas inventadas
+- Lógica separada em módulos (`services`, `utils`, `lib`)
+- Engine de insights isolada em `utils/insights-engine.ts`
