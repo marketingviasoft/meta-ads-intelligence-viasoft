@@ -334,8 +334,8 @@ export default async function PdfPage({
       <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
         <div className="pdf-landscape-page pdf-page-break-after">
           <header className="surface-panel p-6">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
-              <span className="inline-flex size-6 items-center justify-center rounded-md bg-viasoft text-white">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+              <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
                 <BrandMark variant="icon" size={13} />
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">

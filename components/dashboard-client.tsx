@@ -376,8 +376,8 @@ export function DashboardClient() {
       <header className="surface-panel enter-fade p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
-              <span className="inline-flex size-6 items-center justify-center rounded-md bg-viasoft text-white">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+              <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
                 <BrandMark variant="icon" size={13} />
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
