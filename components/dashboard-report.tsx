@@ -200,7 +200,107 @@ function fillMissingChartDates(
   return normalized;
 }
 
-export function CampaignHeaderCard({ campaign, range, isPdf = false }: CampaignHeaderCardProps) {
+function getBudgetProgressTone(utilizationPercent: number): string {
+  if (utilizationPercent >= 100) {
+    return "text-rose";
+  }
+
+  if (utilizationPercent >= 85) {
+    return "text-amber";
+  }
+
+  return "text-emerald";
+}
+
+function getBudgetProgressFillTone(utilizationPercent: number): string {
+  if (utilizationPercent >= 100) {
+    return "bg-[#b42318]";
+  }
+
+  if (utilizationPercent >= 85) {
+    return "bg-[#b45309]";
+  }
+
+  return "bg-[#0f766e]";
+}
+
+type VerticalBudgetSummaryPanelProps = {
+  verticalBudget: DashboardPayload["verticalBudget"];
+};
+
+export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSummaryPanelProps) {
+  const isOverBudget = verticalBudget.overBudgetAmount > 0;
+  const remainingLabel = isOverBudget ? "Excedente no mês" : "Saldo disponível no mês";
+  const remainingValue = isOverBudget
+    ? verticalBudget.overBudgetAmount
+    : verticalBudget.remainingInMonth;
+  const clampedUtilization = Math.max(0, Math.min(verticalBudget.utilizationPercent, 100));
+  const progressTextTone = getBudgetProgressTone(verticalBudget.utilizationPercent);
+  const progressFillTone = getBudgetProgressFillTone(verticalBudget.utilizationPercent);
+  const progressWidthPercent = Number.isFinite(clampedUtilization) ? clampedUtilization : 0;
+  const progressMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+            Investimento da vertical no mês atual
+          </p>
+          <p className="mt-1 text-3xl font-semibold text-ink">
+            {formatCurrencyBRL(verticalBudget.spentInMonth)}
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            Período: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.monthUntil)} (sem considerar o dia atual)
+          </p>
+        </div>
+        <div className="sm:text-right">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+            {remainingLabel}
+          </p>
+          <p className={`mt-1 text-2xl font-semibold ${isOverBudget ? "text-rose" : "text-emerald"}`}>
+            {formatCurrencyBRL(remainingValue)}
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            Teto mensal por vertical: {formatCurrencyBRL(verticalBudget.monthlyCap)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <p className={`font-semibold ${progressTextTone}`}>
+            Consumo do teto: {formatPercentBR(verticalBudget.utilizationPercent, 1)}
+          </p>
+          <p className={`font-medium ${isOverBudget ? "text-rose" : "text-slate-600"}`}>
+            {isOverBudget
+              ? `Acima do teto em ${formatCurrencyBRL(verticalBudget.overBudgetAmount)}`
+              : `Restante para o teto: ${formatCurrencyBRL(verticalBudget.remainingInMonth)}`}
+          </p>
+        </div>
+        <div className="relative mt-2 h-3.5 w-full overflow-hidden rounded-full border border-[#c9d7e1] bg-[#e3edf4]">
+          <div
+            className={`h-full rounded-full ${progressFillTone}`}
+            style={{
+              width: `${progressWidthPercent}%`,
+              minWidth: `${progressMinWidthPx}px`
+            }}
+          />
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+          <span>{formatCurrencyBRL(0)}</span>
+          <span>{formatCurrencyBRL(verticalBudget.monthlyCap)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CampaignHeaderCard({
+  campaign,
+  range,
+  isPdf = false
+}: CampaignHeaderCardProps) {
   return (
     <div className={`surface-panel bg-gradient-to-br from-viasoft/10 via-white to-white p-5 ${isPdf ? "pdf-block" : ""}`}>
       <header className="mb-2 flex flex-wrap items-start justify-between gap-2">
@@ -312,7 +412,13 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
 
   return (
     <section className={isPdf ? "space-y-3" : "space-y-4"}>
-      {!hideCampaignHeader ? <CampaignHeaderCard campaign={campaign} range={range} isPdf={isPdf} /> : null}
+      {!hideCampaignHeader ? (
+        <CampaignHeaderCard
+          campaign={campaign}
+          range={range}
+          isPdf={isPdf}
+        />
+      ) : null}
 
       {noPrevData ? (
         <div className={`surface-panel bg-gradient-to-b from-amber-100/70 to-amber-50 p-4 text-sm text-amber-900 ${isPdf ? "pdf-block" : ""}`}>

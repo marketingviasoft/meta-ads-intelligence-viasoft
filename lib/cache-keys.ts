@@ -39,3 +39,8 @@ export function performanceCacheKey(
 export function performanceCachePrefix(campaignId: string, rangeDays: RangeDays): string {
   return `performance:${campaignId}:${rangeDays}:`;
 }
+
+export function verticalBudgetCacheKey(verticalTag: string, monthUntil: string): string {
+  const normalizedVertical = encodeURIComponent((verticalTag || "sem-vertical").trim().toLowerCase());
+  return `budget:vertical:${normalizedVertical}:${monthUntil}`;
+}

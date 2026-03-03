@@ -5,7 +5,7 @@ import { CircleAlert, FileDown, Loader2, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { CampaignStructurePanel } from "@/components/campaign-structure-panel";
 import { CampaignSelector } from "@/components/campaign-selector";
-import { CampaignHeaderCard, DashboardReport } from "@/components/dashboard-report";
+import { CampaignHeaderCard, DashboardReport, VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
 import { PeriodSelector } from "@/components/period-selector";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
@@ -453,6 +453,11 @@ export function DashboardClient() {
             />
           </div>
         </div>
+        {reportData ? (
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <VerticalBudgetSummaryPanel verticalBudget={reportData.verticalBudget} />
+          </div>
+        ) : null}
       </section>
 
       {errorMessage ? (
@@ -502,7 +507,10 @@ export function DashboardClient() {
             </section>
           ) : null}
 
-          <CampaignHeaderCard campaign={reportData.campaign} range={reportData.range} />
+          <CampaignHeaderCard
+            campaign={reportData.campaign}
+            range={reportData.range}
+          />
 
           <CampaignStructurePanel
             adSets={adSets}

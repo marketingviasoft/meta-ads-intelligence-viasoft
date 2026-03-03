@@ -4,6 +4,7 @@ import {
   adSetsCacheKey,
   adsCacheKey,
   CAMPAIGNS_CACHE_KEY,
+  verticalBudgetCacheKey,
   performanceCacheKey,
   performanceCachePrefix
 } from "@/lib/cache-keys";
@@ -13,18 +14,21 @@ import type {
   MetaAdPreview,
   MetaAdSet,
   MetaCampaign,
-  RangeDays
+  RangeDays,
+  VerticalBudgetSummary
 } from "@/lib/types";
 import {
   fetchAdPreview,
   fetchAdSetAds,
   fetchActiveCampaigns,
+  fetchVerticalSpendInMonthRange,
   fetchCampaignAdSets,
   fetchCampaignById,
   fetchCampaignInsights
 } from "@/services/meta-api";
 import { buildDateRange, isValidRangeDays } from "@/utils/date-range";
 import { generateInsights } from "@/utils/insights-engine";
+import { buildCurrentMonthToYesterdayRange } from "@/utils/month-range";
 import {
   buildDailyMetricPoints,
   buildMetricComparison,
@@ -33,6 +37,7 @@ import {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_MAX_AGE_MS = 15 * 60 * 1000;
+const DEFAULT_VERTICAL_MONTHLY_CAP = 600;
 
 function getStaleCacheValue<T>(key: string): T | null {
   const withOptionalStale = cache as typeof cache & {
@@ -166,6 +171,73 @@ async function resolveCampaign(campaignId: string, forceRefresh = false): Promis
   return fromApi;
 }
 
+function resolveVerticalMonthlyCap(): number {
+  const rawCap = process.env.VERTICAL_MONTHLY_CAP_BRL;
+  if (!rawCap) {
+    return DEFAULT_VERTICAL_MONTHLY_CAP;
+  }
+
+  const parsed = Number.parseFloat(rawCap);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_VERTICAL_MONTHLY_CAP;
+  }
+
+  return parsed;
+}
+
+async function getVerticalBudgetSummary(params: {
+  verticalTag: string;
+  forceRefresh?: boolean;
+}): Promise<VerticalBudgetSummary> {
+  const { verticalTag, forceRefresh = false } = params;
+  const monthRange = buildCurrentMonthToYesterdayRange();
+  const monthlyCap = resolveVerticalMonthlyCap();
+  const cacheKey = verticalBudgetCacheKey(verticalTag, monthRange.until);
+
+  const staleBudget = getStaleCacheValue<VerticalBudgetSummary>(cacheKey);
+  const cachedBudget = cache.get<VerticalBudgetSummary>(cacheKey);
+
+  if (cachedBudget && !forceRefresh) {
+    return cachedBudget;
+  }
+
+  try {
+    const spentInMonth = monthRange.hasElapsedDays
+      ? await fetchVerticalSpendInMonthRange({
+          verticalTag,
+          since: monthRange.since,
+          until: monthRange.until
+        })
+      : 0;
+
+    const remainingInMonth = Math.max(monthlyCap - spentInMonth, 0);
+    const overBudgetAmount = Math.max(spentInMonth - monthlyCap, 0);
+    const utilizationPercent = monthlyCap > 0 ? (spentInMonth / monthlyCap) * 100 : 0;
+
+    const summary: VerticalBudgetSummary = {
+      verticalTag,
+      monthlyCap,
+      monthSince: monthRange.since,
+      monthUntil: monthRange.until,
+      spentInMonth,
+      remainingInMonth,
+      overBudgetAmount,
+      utilizationPercent,
+      hasElapsedDays: monthRange.hasElapsedDays,
+      timezone: monthRange.timeZone
+    };
+
+    cache.set(cacheKey, summary, CACHE_TTL_MS);
+    return summary;
+  } catch (error) {
+    if (staleBudget) {
+      return staleBudget;
+    }
+
+    throw error;
+  }
+}
+
 export async function getDashboardPayload(params: {
   campaignId: string;
   rangeDays: RangeDays;
@@ -189,7 +261,7 @@ export async function getDashboardPayload(params: {
   try {
     const campaign = await resolveCampaign(campaignId, forceRefresh);
 
-    const [currentRows, previousRows, dailyRows] = await Promise.all([
+    const [currentRows, previousRows, dailyRows, verticalBudget] = await Promise.all([
       fetchCampaignInsights({
         campaignId,
         since: range.since,
@@ -205,6 +277,10 @@ export async function getDashboardPayload(params: {
         since: range.since,
         until: range.until,
         timeIncrement: 1
+      }),
+      getVerticalBudgetSummary({
+        verticalTag: campaign.verticalTag,
+        forceRefresh
       })
     ]);
 
@@ -223,6 +299,7 @@ export async function getDashboardPayload(params: {
       campaign,
       range,
       comparison,
+      verticalBudget,
       chart,
       insights,
       recommendations,

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
-import { CampaignHeaderCard } from "@/components/dashboard-report";
+import { CampaignHeaderCard, VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
 import { InsightsPanel } from "@/components/insights-panel";
 import { MetricCard } from "@/components/metric-card";
 import { PerformanceChart } from "@/components/performance-chart";
@@ -364,9 +364,16 @@ export default async function PdfPage({
                 <PdfSelectorField label="Período" value={`Últimos ${payload.range.days} dias`} />
               </div>
             </div>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <VerticalBudgetSummaryPanel verticalBudget={payload.verticalBudget} />
+            </div>
           </section>
 
-          <CampaignHeaderCard campaign={payload.campaign} range={payload.range} isPdf />
+          <CampaignHeaderCard
+            campaign={payload.campaign}
+            range={payload.range}
+            isPdf
+          />
 
           <section className="surface-panel p-4">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>

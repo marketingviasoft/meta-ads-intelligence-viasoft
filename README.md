@@ -67,6 +67,8 @@ INSIGHTS_MIN_RESULTS=5
 INSIGHTS_BASELINE_ACCOUNT_JSON=
 # Baseline por vertical e objetivo (JSON)
 INSIGHTS_BASELINE_BY_VERTICAL_JSON=
+# Teto mensal por vertical (BRL)
+VERTICAL_MONTHLY_CAP_BRL=600
 ```
 
 ## Instalação e execução local

@@ -129,10 +129,24 @@ export interface Recommendation {
   message: string;
 }
 
+export interface VerticalBudgetSummary {
+  verticalTag: string;
+  monthlyCap: number;
+  monthSince: string;
+  monthUntil: string;
+  spentInMonth: number;
+  remainingInMonth: number;
+  overBudgetAmount: number;
+  utilizationPercent: number;
+  hasElapsedDays: boolean;
+  timezone: string;
+}
+
 export interface DashboardPayload {
   campaign: MetaCampaign;
   range: DateRangeSelection;
   comparison: MetricComparison;
+  verticalBudget: VerticalBudgetSummary;
   chart: DailyMetricPoint[];
   insights: InsightMessage[];
   recommendations: Recommendation[];

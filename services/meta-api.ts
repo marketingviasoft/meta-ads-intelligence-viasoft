@@ -6,6 +6,7 @@ import type {
   MetaCampaign,
   NormalizedInsightRow
 } from "@/lib/types";
+import { extractVerticalTagFromCampaignName, FALLBACK_VERTICAL_TAG } from "@/utils/campaign-tags";
 import { toNumber } from "@/utils/numbers";
 import { getObjectiveCategory } from "@/utils/objective";
 
@@ -163,6 +164,8 @@ type MetaInsightAction = {
 };
 
 type MetaInsightResponseItem = {
+  campaign_name?: string;
+  campaign_id?: string;
   date_start: string;
   date_stop: string;
   spend: string;
@@ -176,8 +179,6 @@ type MetaInsightResponseItem = {
 };
 
 type AdSetWithoutDeliveryReason = "COMPLETED" | "ADSET_DISABLED" | "UNKNOWN";
-
-const FALLBACK_VERTICAL_TAG = "Sem vertical";
 
 const GRAPH_API_BASE = "https://graph.facebook.com";
 const META_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
@@ -200,6 +201,14 @@ const INSIGHT_FIELDS = [
   "date_start",
   "date_stop"
 ].join(",");
+
+function normalizeTagKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 function startMetaRateLimitCooldown(): void {
   metaRateLimitUntilMs = Math.max(metaRateLimitUntilMs, Date.now() + META_RATE_LIMIT_COOLDOWN_MS);
@@ -389,7 +398,7 @@ function normalizeCampaign(
   item: MetaCampaignResponseItem,
   deliveryStatus: DeliveryStatus
 ): MetaCampaign {
-  const verticalTag = extractVerticalTag(item.name);
+  const verticalTag = extractVerticalTagFromCampaignName(item.name);
 
   return {
     id: item.id,
@@ -400,17 +409,6 @@ function normalizeCampaign(
     verticalTag,
     deliveryStatus
   };
-}
-
-function extractVerticalTag(campaignName: string): string {
-  const match = campaignName.match(/^\s*\[([^\]]+)\]\s*\[([^\]]+)\]\s*\[([^\]]+)\]\s*/u);
-
-  if (!match) {
-    return FALLBACK_VERTICAL_TAG;
-  }
-
-  const parsedVertical = match[2]?.trim();
-  return parsedVertical || FALLBACK_VERTICAL_TAG;
 }
 
 function normalizeInsightRow(item: MetaInsightResponseItem): NormalizedInsightRow {
@@ -1416,4 +1414,37 @@ export async function fetchCampaignInsights(params: {
   const insights = await fetchMetaList<MetaInsightResponseItem>(`${campaignId}/insights`, queryParams);
 
   return insights.map(normalizeInsightRow);
+}
+
+export async function fetchVerticalSpendInMonthRange(params: {
+  verticalTag: string;
+  since: string;
+  until: string;
+}): Promise<number> {
+  const { adAccountId } = getMetaConfig();
+  const { verticalTag, since, until } = params;
+
+  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adAccountId}/insights`, {
+    fields: "campaign_id,campaign_name,spend",
+    level: "campaign",
+    time_range: JSON.stringify({
+      since,
+      until
+    }),
+    limit: "5000"
+  });
+
+  const targetVertical = normalizeTagKey(verticalTag || FALLBACK_VERTICAL_TAG);
+
+  return insights.reduce((total, row) => {
+    const campaignVertical = normalizeTagKey(
+      extractVerticalTagFromCampaignName(row.campaign_name ?? FALLBACK_VERTICAL_TAG)
+    );
+
+    if (campaignVertical !== targetVertical) {
+      return total;
+    }
+
+    return total + toNumber(row.spend);
+  }, 0);
 }

@@ -59,12 +59,12 @@ function TrendDirectionIcon({ direction, color }: { direction: TrendCardProps["d
 function getExecutiveActionTone(action: "MANTER" | "REVISAR" | "INTERVIR"): string {
   switch (action) {
     case "MANTER":
-      return "border-emerald/45 bg-emerald/12 text-emerald";
+      return "border-[#0f766e73] bg-[#0f766e1f] text-[#0f766e]";
     case "INTERVIR":
-      return "border-rose/45 bg-rose/12 text-rose";
+      return "border-[#b4231873] bg-[#b423181f] text-[#b42318]";
     case "REVISAR":
     default:
-      return "border-amber/45 bg-amber/12 text-amber";
+      return "border-[#b4530973] bg-[#b453091f] text-[#b45309]";
   }
 }
 
