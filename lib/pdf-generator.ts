@@ -39,6 +39,25 @@ export async function generateDashboardPdf(params: {
       timeout: 120000
     });
 
+    await page.addStyleTag({
+      content: `
+        nextjs-portal,
+        #__next-build-watcher,
+        [data-nextjs-dev-tools-button],
+        [data-nextjs-toast],
+        [data-next-badge-root] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+      `
+    });
+
+    await page.evaluate(() => {
+      document.querySelectorAll("nextjs-portal").forEach((node) => {
+        node.remove();
+      });
+    });
+
     try {
       await page.waitForSelector("body[data-pdf-ready='true']", {
         timeout: 12000

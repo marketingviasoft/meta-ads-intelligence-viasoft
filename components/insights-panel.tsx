@@ -39,7 +39,7 @@ export function InsightsPanel({
   isPdf = false
 }: InsightsPanelProps) {
   return (
-    <section className={`grid gap-4 ${isPdf ? "pdf-block" : "lg:grid-cols-2"}`}>
+    <section className={`grid gap-4 ${isPdf ? "" : "lg:grid-cols-2"}`}>
       <div className="surface-panel p-5">
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <Lightbulb size={17} className="text-viasoft" />

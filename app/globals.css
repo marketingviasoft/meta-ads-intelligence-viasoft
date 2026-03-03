@@ -109,3 +109,24 @@ h4 {
 .recharts-responsive-container {
   min-height: 260px;
 }
+
+@media print {
+  body {
+    background: #ffffff !important;
+    min-height: auto;
+  }
+
+  .pdf-shell {
+    min-height: 0 !important;
+    background: #ffffff !important;
+  }
+
+  nextjs-portal,
+  #__next-build-watcher,
+  [data-nextjs-dev-tools-button],
+  [data-nextjs-toast],
+  [data-next-badge-root] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}

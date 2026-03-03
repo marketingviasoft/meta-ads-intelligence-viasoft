@@ -1,7 +1,7 @@
 import { CampaignHeaderCard, DashboardReport } from "@/components/dashboard-report";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
 import { getActiveCampaigns, getAdSetAds, getCampaignAdSets, getDashboardPayload } from "@/lib/meta-dashboard";
-import { PDF_PAGE_MIN_HEIGHT_PX, PDF_PAGE_WIDTH_PX } from "@/pdf/print-config";
+import { PDF_PAGE_WIDTH_PX } from "@/pdf/print-config";
 import { parseRangeDays } from "@/utils/date-range";
 
 export const dynamic = "force-dynamic";
@@ -47,8 +47,7 @@ export default async function PdfPage({
       <section
         className="pdf-shell mx-auto px-7 py-6 print:px-0 print:py-0"
         style={{
-          width: `${PDF_PAGE_WIDTH_PX}px`,
-          minHeight: `${PDF_PAGE_MIN_HEIGHT_PX}px`
+          width: `${PDF_PAGE_WIDTH_PX}px`
         }}
       >
         <div className="space-y-4">
