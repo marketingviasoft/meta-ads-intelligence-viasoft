@@ -8,6 +8,7 @@ import { CampaignSelector } from "@/components/campaign-selector";
 import { CampaignHeaderCard, DashboardReport } from "@/components/dashboard-report";
 import { PeriodSelector } from "@/components/period-selector";
 import { VerticalSelector } from "@/components/vertical-selector";
+import { PUBLICATION_NAME } from "@/lib/branding";
 import type { DashboardPayload, MetaAd, MetaAdSet, MetaCampaign, RangeDays } from "@/lib/types";
 
 type CampaignsResponse = {
@@ -380,7 +381,7 @@ export function DashboardClient() {
                 <BrandMark variant="icon" size={13} />
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
-                Meta Ads Intelligence | VIASOFT
+                {PUBLICATION_NAME}
               </span>
             </div>
             <h1 className="mt-1 text-3xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>

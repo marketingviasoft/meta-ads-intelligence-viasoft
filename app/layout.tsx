@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { PUBLICATION_NAME } from "@/lib/branding";
 import "./globals.css";
 
 const bodyFont = IBM_Plex_Sans({
@@ -16,8 +17,8 @@ const headingFont = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Meta Ads Performance Dashboard",
-  description: "MVP local para análise de performance Meta Ads com exportação em PDF"
+  title: PUBLICATION_NAME,
+  description: `${PUBLICATION_NAME} - publicação executiva para análise de performance Meta Ads com exportação em PDF`
 };
 
 export default function RootLayout({
