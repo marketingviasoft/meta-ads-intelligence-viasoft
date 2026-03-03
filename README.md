@@ -1,6 +1,6 @@
-# Meta Ads Performance Dashboard (MVP Local)
+# Meta Ads Intelligence | VIASOFT (MVP Local)
 
-Dashboard executivo para campanhas Meta Ads com comparativo de período e exportação em PDF via Puppeteer.
+Publicação executiva para campanhas Meta Ads com comparativo de período e exportação em PDF via Puppeteer.
 
 ## Stack
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDashboardPdf } from "@/lib/pdf-generator";
+import { PUBLICATION_SLUG } from "@/lib/branding";
 import { getActiveCampaigns } from "@/lib/meta-dashboard";
 import { isValidRangeDays } from "@/utils/date-range";
 
@@ -92,7 +93,7 @@ async function buildPdfFileName(params: {
     const campaign = campaigns.find((item) => item.id === campaignId);
 
     if (!campaign) {
-      return `dashboard-meta-viasoft-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
+      return `${PUBLICATION_SLUG}-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
     }
 
     const { verticalSlug, objectiveSlug, campaignShortSlug } = parseCampaignSlugParts({
@@ -101,7 +102,7 @@ async function buildPdfFileName(params: {
     });
 
     const slug = compactAndTrimSlug([
-      "dashboard-meta-viasoft",
+      PUBLICATION_SLUG,
       verticalSlug,
       objectiveSlug,
       campaignShortSlug,
@@ -111,7 +112,7 @@ async function buildPdfFileName(params: {
 
     return `${slug}.pdf`;
   } catch {
-    return `dashboard-meta-viasoft-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
+    return `${PUBLICATION_SLUG}-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
   }
 }
 
