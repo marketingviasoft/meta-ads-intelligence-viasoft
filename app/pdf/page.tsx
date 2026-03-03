@@ -445,10 +445,15 @@ export default async function PdfPage({
             costPerResult={comparison.current.costPerResult}
             objectiveCategory={payload.campaign.objectiveCategory}
             resultsDeltaPercent={comparison.deltas.results.percent}
+            ctrDeltaPercent={comparison.deltas.ctr.percent}
             impressionsDeltaPercent={comparison.deltas.impressions.percent}
             clicksDeltaPercent={comparison.deltas.clicks.percent}
             cpcDeltaPercent={comparison.deltas.cpc.percent}
             costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
+            currentImpressions={comparison.current.impressions}
+            currentClicks={comparison.current.clicks}
+            currentResults={comparison.current.results}
+            previousResults={comparison.previous.results}
             isPdf
           />
 

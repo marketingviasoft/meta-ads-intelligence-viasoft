@@ -2,6 +2,7 @@
 
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ObjectiveCategory } from "@/lib/types";
+import { resolveExecutiveSignal } from "@/utils/executive-signal";
 import { formatCurrencyBRL, formatSignedPercentBR } from "@/utils/formatters";
 
 type TrendCardProps = {
@@ -9,10 +10,15 @@ type TrendCardProps = {
   costPerResult: number | null;
   objectiveCategory: ObjectiveCategory;
   resultsDeltaPercent: number | null;
+  ctrDeltaPercent: number | null;
   impressionsDeltaPercent: number | null;
   clicksDeltaPercent: number | null;
   cpcDeltaPercent: number | null;
   costPerResultDeltaPercent: number | null;
+  currentImpressions: number;
+  currentClicks: number;
+  currentResults: number;
+  previousResults: number;
   isPdf?: boolean;
 };
 
@@ -50,16 +56,16 @@ function TrendDirectionIcon({ direction, color }: { direction: TrendCardProps["d
   return <Minus size={17} style={{ color }} />;
 }
 
-function getTrendSituationLabel(direction: TrendCardProps["direction"]): string {
-  if (direction === "positive") {
-    return "Em evolução";
+function getExecutiveActionTone(action: "MANTER" | "REVISAR" | "INTERVIR"): string {
+  switch (action) {
+    case "MANTER":
+      return "border-emerald/45 bg-emerald/12 text-emerald";
+    case "INTERVIR":
+      return "border-rose/45 bg-rose/12 text-rose";
+    case "REVISAR":
+    default:
+      return "border-amber/45 bg-amber/12 text-amber";
   }
-
-  if (direction === "negative") {
-    return "Atenção necessária";
-  }
-
-  return "Estável";
 }
 
 function formatDeltaDriver(value: number | null): string {
@@ -98,10 +104,15 @@ export function TrendCard({
   costPerResult,
   objectiveCategory,
   resultsDeltaPercent,
+  ctrDeltaPercent,
   impressionsDeltaPercent,
   clicksDeltaPercent,
   cpcDeltaPercent,
   costPerResultDeltaPercent,
+  currentImpressions,
+  currentClicks,
+  currentResults,
+  previousResults,
   isPdf = false
 }: TrendCardProps) {
   const summaryMessage =
@@ -111,7 +122,17 @@ export function TrendCard({
         ? "A campanha perdeu desempenho em relação ao período anterior e precisa de ajuste."
         : "A campanha ficou estável em relação ao período anterior.";
   const trendBadge = getTrendBadge(direction);
-  const situationLabel = getTrendSituationLabel(direction);
+  const executiveSignal = resolveExecutiveSignal({
+    direction,
+    resultsDeltaPercent,
+    ctrDeltaPercent,
+    cpcDeltaPercent,
+    costPerResultDeltaPercent,
+    impressions: currentImpressions,
+    clicks: currentClicks,
+    currentResults,
+    previousResults
+  });
 
   const primaryDriverValue =
     objectiveCategory === "TRAFFIC"
@@ -144,11 +165,19 @@ export function TrendCard({
         </div>
       </header>
 
-      <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm font-medium text-slate-700`}>
-        Situação geral da campanha: <span className="text-ink">{situationLabel}</span>
+      <p className={`${compact ? "mt-1.5" : "mt-2"} flex items-center gap-2 text-sm font-medium text-slate-700`}>
+        <span>Semáforo de ação:</span>
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${getExecutiveActionTone(
+            executiveSignal.action
+          )}`}
+        >
+          {executiveSignal.label}
+        </span>
       </p>
 
       <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{summaryMessage}</p>
+      <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{executiveSignal.reason}</p>
 
       <div className={`${compact ? "mt-2.5 p-2.5" : "mt-3 p-3"} rounded-lg border border-slate-200 bg-slate-50/80 text-sm text-slate-700`}>
         <p className="font-medium text-slate-800">Fatores que mais influenciaram o resultado</p>

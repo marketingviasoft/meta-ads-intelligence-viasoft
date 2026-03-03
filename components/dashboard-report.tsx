@@ -344,10 +344,15 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
         costPerResult={comparison.current.costPerResult}
         objectiveCategory={campaign.objectiveCategory}
         resultsDeltaPercent={comparison.deltas.results.percent}
+        ctrDeltaPercent={comparison.deltas.ctr.percent}
         impressionsDeltaPercent={comparison.deltas.impressions.percent}
         clicksDeltaPercent={comparison.deltas.clicks.percent}
         cpcDeltaPercent={comparison.deltas.cpc.percent}
         costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
+        currentImpressions={comparison.current.impressions}
+        currentClicks={comparison.current.clicks}
+        currentResults={comparison.current.results}
+        previousResults={comparison.previous.results}
         isPdf={isPdf}
       />
 
