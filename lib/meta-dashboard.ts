@@ -215,7 +215,8 @@ export async function getDashboardPayload(params: {
 
     const { insights, recommendations } = generateInsights({
       category: campaign.objectiveCategory,
-      comparison
+      comparison,
+      verticalTag: campaign.verticalTag
     });
 
     const payload: DashboardPayload = {

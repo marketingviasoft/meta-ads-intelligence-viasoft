@@ -59,6 +59,14 @@ META_API_VERSION=v21.0
 META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON=
 APP_BASE_URL=http://localhost:3000
 APP_TIMEZONE=America/Sao_Paulo
+# Guardas minimos para evitar alertas com baixa amostra
+INSIGHTS_MIN_IMPRESSIONS=1000
+INSIGHTS_MIN_CLICKS=30
+INSIGHTS_MIN_RESULTS=5
+# Baseline da conta por objetivo (JSON)
+INSIGHTS_BASELINE_ACCOUNT_JSON=
+# Baseline por vertical e objetivo (JSON)
+INSIGHTS_BASELINE_BY_VERTICAL_JSON=
 ```
 
 ## Instalação e execução local

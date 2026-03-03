@@ -4,7 +4,12 @@ import type {
   ObjectiveCategory,
   Recommendation
 } from "@/lib/types";
-import { formatCurrencyBRL, formatPercentBR, formatSignedPercentBR } from "@/utils/formatters";
+import {
+  formatCurrencyBRL,
+  formatNumberBR,
+  formatPercentBR,
+  formatSignedPercentBR
+} from "@/utils/formatters";
 
 const CTR_BASELINE: Record<ObjectiveCategory, number> = {
   TRAFFIC: 1.2,
@@ -19,6 +24,201 @@ const CPC_LIMIT: Record<ObjectiveCategory, number> = {
   RECOGNITION: 1.9,
   CONVERSIONS: 6.2
 };
+
+const DEFAULT_MIN_IMPRESSIONS = 1000;
+const DEFAULT_MIN_CLICKS = 30;
+const DEFAULT_MIN_RESULTS = 5;
+
+type BaselineOverride = {
+  ctr?: number;
+  cpc?: number;
+};
+
+type ObjectiveBaselineOverrides = Partial<Record<ObjectiveCategory, BaselineOverride>>;
+type VerticalBaselineOverrides = Record<string, ObjectiveBaselineOverrides>;
+
+type BaselineResolution = {
+  ctrBaseline: number;
+  cpcLimit: number;
+  source: "default" | "account" | "vertical";
+  sourceLabel: string;
+};
+
+function normalizeKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function parsePositiveNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function toObjectiveCategory(value: string): ObjectiveCategory | null {
+  const normalized = value.trim().toUpperCase();
+  if (
+    normalized === "TRAFFIC" ||
+    normalized === "ENGAGEMENT" ||
+    normalized === "RECOGNITION" ||
+    normalized === "CONVERSIONS"
+  ) {
+    return normalized;
+  }
+
+  return null;
+}
+
+function parseObjectiveBaselineConfig(raw: string | undefined): ObjectiveBaselineOverrides {
+  if (!raw?.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    const overrides: ObjectiveBaselineOverrides = {};
+
+    for (const [objectiveKey, objectiveValue] of entries) {
+      const objectiveCategory = toObjectiveCategory(objectiveKey);
+      if (!objectiveCategory || !objectiveValue || typeof objectiveValue !== "object") {
+        continue;
+      }
+
+      const rawOverride = objectiveValue as Record<string, unknown>;
+      const ctr = parsePositiveNumber(rawOverride.ctr);
+      const cpc = parsePositiveNumber(rawOverride.cpc);
+
+      if (ctr === undefined && cpc === undefined) {
+        continue;
+      }
+
+      overrides[objectiveCategory] = {
+        ...(ctr !== undefined ? { ctr } : {}),
+        ...(cpc !== undefined ? { cpc } : {})
+      };
+    }
+
+    return overrides;
+  } catch {
+    return {};
+  }
+}
+
+function parseVerticalBaselineConfig(raw: string | undefined): VerticalBaselineOverrides {
+  if (!raw?.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const normalizedMap: VerticalBaselineOverrides = {};
+
+    for (const [verticalKey, verticalValue] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!verticalValue || typeof verticalValue !== "object" || Array.isArray(verticalValue)) {
+        continue;
+      }
+
+      const normalizedVertical = normalizeKey(verticalKey);
+      if (!normalizedVertical) {
+        continue;
+      }
+
+      const overrides = parseObjectiveBaselineConfig(JSON.stringify(verticalValue));
+      if (Object.keys(overrides).length === 0) {
+        continue;
+      }
+
+      normalizedMap[normalizedVertical] = overrides;
+    }
+
+    return normalizedMap;
+  } catch {
+    return {};
+  }
+}
+
+function readMinThreshold(envKey: string, fallback: number): number {
+  const raw = process.env[envKey];
+  const parsed = parsePositiveNumber(raw);
+  if (parsed === undefined) {
+    return fallback;
+  }
+
+  return Math.round(parsed);
+}
+
+function resolveBaseline(params: {
+  category: ObjectiveCategory;
+  verticalTag?: string;
+}): BaselineResolution {
+  const { category, verticalTag } = params;
+
+  let ctrBaseline = CTR_BASELINE[category];
+  let cpcLimit = CPC_LIMIT[category];
+  let source: BaselineResolution["source"] = "default";
+  let sourceLabel = "conta padrão";
+
+  const accountOverrides = parseObjectiveBaselineConfig(
+    process.env.INSIGHTS_BASELINE_ACCOUNT_JSON
+  );
+  const accountOverride = accountOverrides[category];
+  if (accountOverride) {
+    if (accountOverride.ctr !== undefined) {
+      ctrBaseline = accountOverride.ctr;
+    }
+    if (accountOverride.cpc !== undefined) {
+      cpcLimit = accountOverride.cpc;
+    }
+    source = "account";
+    sourceLabel = "conta";
+  }
+
+  const normalizedVertical = normalizeKey(verticalTag ?? "");
+  if (normalizedVertical) {
+    const verticalOverrides = parseVerticalBaselineConfig(
+      process.env.INSIGHTS_BASELINE_BY_VERTICAL_JSON
+    );
+    const verticalOverride = verticalOverrides[normalizedVertical]?.[category];
+    if (verticalOverride) {
+      if (verticalOverride.ctr !== undefined) {
+        ctrBaseline = verticalOverride.ctr;
+      }
+      if (verticalOverride.cpc !== undefined) {
+        cpcLimit = verticalOverride.cpc;
+      }
+      source = "vertical";
+      sourceLabel = `vertical ${verticalTag?.trim() || normalizedVertical}`;
+    }
+  }
+
+  return {
+    ctrBaseline,
+    cpcLimit,
+    source,
+    sourceLabel
+  };
+}
 
 function pushRecommendation(target: Recommendation[], title: string, message: string): void {
   if (target.some((item) => item.title === title)) {
@@ -169,26 +369,60 @@ function buildObjectiveRecommendations(
 export function generateInsights(params: {
   category: ObjectiveCategory;
   comparison: MetricComparison;
+  verticalTag?: string;
 }): {
   insights: InsightMessage[];
   recommendations: Recommendation[];
 } {
-  const { category, comparison } = params;
-  const { current, deltas, trend } = comparison;
+  const { category, comparison, verticalTag } = params;
+  const { current, previous, deltas, trend } = comparison;
+  const baseline = resolveBaseline({ category, verticalTag });
 
-  const lowCtr = current.ctr < CTR_BASELINE[category];
-  const highCpc = current.cpc > CPC_LIMIT[category];
+  const minImpressions = readMinThreshold("INSIGHTS_MIN_IMPRESSIONS", DEFAULT_MIN_IMPRESSIONS);
+  const minClicks = readMinThreshold("INSIGHTS_MIN_CLICKS", DEFAULT_MIN_CLICKS);
+  const minResults = readMinThreshold("INSIGHTS_MIN_RESULTS", DEFAULT_MIN_RESULTS);
+
+  const hasTrafficSample = current.impressions >= minImpressions && current.clicks >= minClicks;
+  const hasResultSample = Math.max(current.results, previous.results) >= minResults;
+
+  const lowCtr = hasTrafficSample && current.ctr < baseline.ctrBaseline;
+  const highCpc = hasTrafficSample && current.cpc > baseline.cpcLimit;
   const highCostPerResult =
-    current.costPerResult !== null && (deltas.costPerResult.percent ?? 0) >= 10;
-  const dropResults = (deltas.results.percent ?? 0) <= -10;
+    hasResultSample && current.costPerResult !== null && (deltas.costPerResult.percent ?? 0) >= 10;
+  const dropResults = hasResultSample && (deltas.results.percent ?? 0) <= -10;
 
   const insights: InsightMessage[] = [];
+
+  if (!hasTrafficSample || !hasResultSample) {
+    const guardMessages: string[] = [];
+
+    if (!hasTrafficSample) {
+      guardMessages.push(
+        `tráfego abaixo do mínimo analítico (${formatNumberBR(minImpressions, 0, 0)} impressões e ${formatNumberBR(minClicks, 0, 0)} cliques)`
+      );
+    }
+
+    if (!hasResultSample) {
+      guardMessages.push(
+        `volume de resultados abaixo do mínimo analítico (${formatNumberBR(minResults, 0, 0)} resultados)`
+      );
+    }
+
+    insights.push({
+      type: "info",
+      title: "Amostra insuficiente para alertas críticos",
+      message: `A leitura executiva foi parcialmente limitada por ${guardMessages.join(" e ")} neste período.`
+    });
+  }
+
+  const baselineSuffix =
+    baseline.source === "default" ? "" : ` (referência calibrada de ${baseline.sourceLabel})`;
 
   if (lowCtr) {
     insights.push({
       type: "alert",
       title: "CTR abaixo da referência esperada",
-      message: `CTR atual em ${formatPercentBR(current.ctr)}. Referência para ${category.toLowerCase()} em ${formatPercentBR(CTR_BASELINE[category])}.`
+      message: `CTR atual em ${formatPercentBR(current.ctr)}. Referência para ${category.toLowerCase()} em ${formatPercentBR(baseline.ctrBaseline)}${baselineSuffix}.`
     });
   }
 
@@ -196,7 +430,7 @@ export function generateInsights(params: {
     insights.push({
       type: "alert",
       title: "CPC acima da faixa de eficiência",
-      message: `CPC atual em ${formatCurrencyBRL(current.cpc)}. Faixa de referência para ${category.toLowerCase()} em ${formatCurrencyBRL(CPC_LIMIT[category])}.`
+      message: `CPC atual em ${formatCurrencyBRL(current.cpc)}. Faixa de referência para ${category.toLowerCase()} em ${formatCurrencyBRL(baseline.cpcLimit)}${baselineSuffix}.`
     });
   }
 
@@ -218,7 +452,7 @@ export function generateInsights(params: {
     });
   }
 
-  if (!lowCtr && !highCpc && (deltas.results.percent ?? 0) >= 8) {
+  if (!lowCtr && !highCpc && hasResultSample && (deltas.results.percent ?? 0) >= 8) {
     insights.push({
       type: "opportunity",
       title: "Ambiente favorável para ampliação gradual de investimento",
@@ -234,11 +468,11 @@ export function generateInsights(params: {
     });
   }
 
-  insights.push({
+  const trendInsight: InsightMessage = {
     type: trend.direction === "negative" ? "alert" : "info",
     title: "Leitura estratégica de tendência",
     message: trend.message
-  });
+  };
 
   const recommendations = buildObjectiveRecommendations(category, {
     lowCtr,
@@ -248,7 +482,7 @@ export function generateInsights(params: {
   });
 
   return {
-    insights: insights.slice(0, 4),
+    insights: [...insights.slice(0, 3), trendInsight].slice(0, 4),
     recommendations
   };
 }
