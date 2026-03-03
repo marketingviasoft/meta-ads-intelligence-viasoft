@@ -112,30 +112,6 @@ h4 {
   gap: 12px;
   background: #ffffff;
   position: relative;
-  isolation: isolate;
-}
-
-.pdf-landscape-page::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6mm;
-  background: linear-gradient(90deg, rgba(0, 58, 77, 0.34), rgba(0, 58, 77, 0.1));
-  pointer-events: none;
-}
-
-.pdf-landscape-page::after {
-  content: "Meta Ads Intelligence | VIASOFT";
-  position: absolute;
-  right: 12mm;
-  bottom: 10mm;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(0, 58, 77, 0.16);
-  pointer-events: none;
 }
 
 .pdf-page-break-after {

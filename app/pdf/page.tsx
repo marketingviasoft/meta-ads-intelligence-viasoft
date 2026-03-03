@@ -16,7 +16,7 @@ import { PerformanceChart } from "@/components/performance-chart";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
 import { TrendCard } from "@/components/trend-card";
 import { getActiveCampaigns, getAdSetAds, getCampaignAdSets, getDashboardPayload } from "@/lib/meta-dashboard";
-import { PDF_BRAND_SIGNATURE, PDF_LAYOUT_VERSION, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
+import { PDF_BRAND_SIGNATURE, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
 import type { DailyMetricPoint, DashboardPayload } from "@/lib/types";
 import { parseRangeDays } from "@/utils/date-range";
 import { formatCurrencyBRL, formatNumberBR, formatPercentBR } from "@/utils/formatters";
@@ -174,13 +174,17 @@ function PdfSelectorField({
 
 function PdfPageFooter({
   pageNumber,
-  generatedAtLabel
+  generatedAtLabel,
+  dockBottom = true
 }: {
   pageNumber: number;
   generatedAtLabel: string;
+  dockBottom?: boolean;
 }) {
   return (
-    <footer className="pdf-footer mt-auto flex items-center justify-between gap-4 border-t border-viasoft/15 pt-3 text-[11px] text-slate-600">
+    <footer
+      className={`pdf-footer flex items-center justify-between gap-4 border-t border-viasoft/15 pt-3 text-[11px] text-slate-600 ${dockBottom ? "mt-auto" : "mt-3"}`}
+    >
       <p className="inline-flex items-center gap-2">
         <span className="inline-flex size-5 items-center justify-center rounded-md bg-viasoft/10 text-viasoft">
           <BrandMark variant="icon" size={11} />
@@ -188,7 +192,7 @@ function PdfPageFooter({
         <span>{PDF_BRAND_SIGNATURE}</span>
       </p>
       <p>
-        Página {pageNumber}/{PDF_TOTAL_PAGES} · Atualizado em {generatedAtLabel} · Layout {PDF_LAYOUT_VERSION}
+        Página {pageNumber}/{PDF_TOTAL_PAGES} · Atualizado em {generatedAtLabel}
       </p>
     </footer>
   );
@@ -313,7 +317,16 @@ export default async function PdfPage({
     payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
       ? payload.campaign.verticalTag
       : "Todas as verticais";
-  const generatedAtLabel = new Date(payload.generatedAt).toLocaleString("pt-BR");
+  const generatedAtLabel = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(new Date(payload.generatedAt));
 
   return (
     <main className="min-h-screen bg-white py-3 print:py-0">
@@ -426,7 +439,7 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after">
+        <div className="pdf-landscape-page pdf-page-break-after gap-3">
           <TrendCard
             direction={comparison.trend.direction}
             costPerResult={comparison.current.costPerResult}
@@ -439,7 +452,7 @@ export default async function PdfPage({
             isPdf
           />
 
-          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-5">
+          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-4">
             <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
               <TrendingUp size={17} className="text-viasoft" />
               Performance diária
@@ -455,7 +468,7 @@ export default async function PdfPage({
               />
             </div>
           </section>
-          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} dockBottom={false} />
         </div>
 
         <div className="pdf-landscape-page">
