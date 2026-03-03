@@ -5,7 +5,7 @@ import { useEffect } from "react";
 export function PdfReadyFlag(): null {
   useEffect(() => {
     document.body.setAttribute("data-pdf-ready", "false");
-    const maxWaitAt = Date.now() + 12000;
+    const maxWaitAt = Date.now() + 7000;
     let rafId = 0;
 
     const checkReady = (): void => {

@@ -5,12 +5,6 @@ import type { RangeDays } from "@/lib/types";
 import { PDF_VIEWPORT } from "@/pdf/layout-preset";
 import { isValidRangeDays } from "@/utils/date-range";
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
 function resolveLocalChromePath(): string | null {
   const envExecutablePath =
     process.env.CHROME_EXECUTABLE_PATH ??
@@ -108,7 +102,7 @@ export async function generateDashboardPdf(params: {
     });
 
     await page.goto(printUrl, {
-      waitUntil: "networkidle0",
+      waitUntil: "domcontentloaded",
       timeout: 120000
     });
 
@@ -131,13 +125,11 @@ export async function generateDashboardPdf(params: {
       });
     });
 
-    try {
-      await page.waitForSelector("body[data-pdf-ready='true']", {
-        timeout: 12000
-      });
-    } catch {
-      await sleep(1600);
-    }
+    await page
+      .waitForSelector("body[data-pdf-ready='true']", {
+        timeout: 7000
+      })
+      .catch(() => undefined);
 
     await page.emulateMediaType("print");
 
