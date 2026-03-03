@@ -131,9 +131,12 @@ export function TrendCard({
       ? "Custo para gerar resultado"
       : "Custo por clique";
   const immediateAction = getImmediateAction(direction);
+  const compact = isPdf;
 
   return (
-    <article className={`hover-lift relative overflow-hidden rounded-xl bg-white p-5 shadow-sm ${isPdf ? "pdf-block" : ""}`}>
+    <article
+      className={`surface-panel hover-lift relative overflow-hidden rounded-xl border border-slate-200/80 bg-white ${compact ? "p-4" : "p-5"} ${isPdf ? "pdf-block" : ""}`}
+    >
       <header className="flex items-center gap-2">
         <div className="flex items-center gap-2">
           <TrendDirectionIcon direction={direction} color={trendBadge.iconColor} />
@@ -141,13 +144,13 @@ export function TrendCard({
         </div>
       </header>
 
-      <p className="mt-2 text-sm font-medium text-slate-700">
+      <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm font-medium text-slate-700`}>
         Situação geral da campanha: <span className="text-ink">{situationLabel}</span>
       </p>
 
-      <p className="mt-2 text-sm text-slate-700">{summaryMessage}</p>
+      <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{summaryMessage}</p>
 
-      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700">
+      <div className={`${compact ? "mt-2.5 p-2.5" : "mt-3 p-3"} rounded-lg border border-slate-200 bg-slate-50/80 text-sm text-slate-700`}>
         <p className="font-medium text-slate-800">Fatores que mais influenciaram o resultado</p>
         <p className="mt-1">
           {primaryDriverLabel}: <span className="font-semibold text-ink">{formatDeltaDriver(primaryDriverValue)}</span>
@@ -158,9 +161,9 @@ export function TrendCard({
         </p>
       </div>
 
-      <p className="mt-3 text-sm text-slate-700">{immediateAction}</p>
+      <p className={`${compact ? "mt-2.5" : "mt-3"} text-sm text-slate-700`}>{immediateAction}</p>
 
-      <p className="mt-3 pt-3 text-sm text-slate-600">
+      <p className={`${compact ? "mt-2.5 pt-2.5" : "mt-3 pt-3"} text-sm text-slate-600`}>
         Custo atual para gerar um resultado: <span className="font-semibold text-ink">{formatCurrencyBRL(costPerResult)}</span>
       </p>
     </article>

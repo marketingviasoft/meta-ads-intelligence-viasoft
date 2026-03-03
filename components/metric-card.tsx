@@ -194,9 +194,9 @@ export function MetricCard({
 
   return (
     <article
-      className={`enter-fade hover-lift relative overflow-hidden rounded-xl bg-white shadow-sm p-4 transition ${
+      className={`metric-card enter-fade hover-lift relative overflow-hidden rounded-xl bg-white shadow-sm p-4 transition ${
         highlighted ? "ring-2 ring-viasoft/35 bg-viasoft/5" : statusTint
-      }`}
+      } ${highlighted ? "metric-card-highlighted" : ""}`}
     >
       <div className="flex min-h-[20px] items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide leading-4 text-slate-600">

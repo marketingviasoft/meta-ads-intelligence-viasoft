@@ -29,8 +29,8 @@ export async function generateDashboardPdf(params: {
   try {
     const page = await browser.newPage();
     await page.setViewport({
-      width: 1240,
-      height: 1754,
+      width: 1754,
+      height: 1240,
       deviceScaleFactor: 1
     });
 
@@ -66,18 +66,18 @@ export async function generateDashboardPdf(params: {
       await sleep(1600);
     }
 
-    await page.emulateMediaType("screen");
+    await page.emulateMediaType("print");
 
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: true,
-      landscape: false,
+      landscape: true,
       margin: {
-        top: "10mm",
-        right: "8mm",
-        bottom: "10mm",
-        left: "8mm"
+        top: "0mm",
+        right: "0mm",
+        bottom: "0mm",
+        left: "0mm"
       }
     });
 

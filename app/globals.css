@@ -89,19 +89,41 @@ h4 {
 }
 
 @page {
-  size: A4 portrait;
-  margin: 10mm 8mm;
+  size: A4 landscape;
+  margin: 0;
 }
 
 .pdf-shell {
-  width: 794px;
-  min-height: 1123px;
+  width: 100%;
+  max-width: 1123px;
+  min-height: 794px;
   margin: 0 auto;
   background: #ffffff;
   color: #142227;
 }
 
+.pdf-landscape-page {
+  width: 100%;
+  min-height: 210mm;
+  box-sizing: border-box;
+  padding: 10mm 12mm;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+}
+
+.pdf-page-break-after {
+  break-after: page;
+  page-break-after: always;
+}
+
 .pdf-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.avoid-page-break {
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -117,8 +139,47 @@ h4 {
   }
 
   .pdf-shell {
+    width: auto !important;
+    max-width: none !important;
     min-height: 0 !important;
     background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .pdf-landscape-page {
+    min-height: 210mm !important;
+    padding: 10mm 12mm !important;
+  }
+
+  .pdf-page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .pdf-shell .surface-panel {
+    border: 1px solid #d8e1e7 !important;
+    box-shadow: none !important;
+  }
+
+  .pdf-shell .metric-card {
+    overflow: visible !important;
+    border: 1px solid #d8e1e7 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  .pdf-shell .metric-card.metric-card-highlighted {
+    border: 2px solid rgba(0, 58, 77, 0.35) !important;
+    box-shadow: none !important;
+    background: #f3f8fb !important;
+  }
+
+  .pdf-shell .enter-fade,
+  .pdf-shell .hover-lift {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 
   nextjs-portal,

@@ -3,7 +3,6 @@
 import { Coins, Percent, Target, Wallet } from "lucide-react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -80,67 +79,76 @@ export function PerformanceChart({
   const xAxisInterval = data.length >= 28 ? 3 : data.length >= 14 ? 1 : 0;
 
   return (
-    <div className="h-[320px] w-full rounded-xl border border-viasoft/15 bg-white p-4">
-      <ResponsiveContainer width="100%" height={isPdf ? 340 : 320}>
-        <LineChart
-          data={data}
-          margin={{
-            top: 12,
-            right: 20,
-            left: 12,
-            bottom: 22
-          }}
-        >
-          <CartesianGrid strokeDasharray="4 4" stroke="#cfdbe2" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatDateShortBR}
-            stroke="#495967"
-            fontSize={12}
-            minTickGap={18}
-            interval={xAxisInterval}
-          />
-          <YAxis
-            yAxisId="left"
-            stroke="#495967"
-            tickFormatter={(value) => formatNumberBR(Number(value), 0, 0)}
-            width={74}
-            fontSize={12}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            stroke="#495967"
-            tickFormatter={(value) => formatCurrencyBRL(Number(value))}
-            width={96}
-            fontSize={12}
-          />
-          <Tooltip content={<ChartTooltip primaryMetricLabel={primaryMetricLabel} />} />
-          <Legend
-            wrapperStyle={{ paddingTop: 12, paddingBottom: 12, color: "#334155", fontSize: 12 }}
-          />
-          <Line
-            yAxisId="left"
-            dataKey="results"
-            name={primaryMetricLabel}
-            stroke="#003A4D"
-            strokeWidth={2.8}
-            dot={{ r: 2.5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 1.5 }}
-            activeDot={{ r: 5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 2 }}
-            isAnimationActive={!isPdf}
-          />
-          <Line
-            yAxisId="right"
-            dataKey="spend"
-            name="Investimento"
-            stroke="#0f766e"
-            strokeWidth={2.6}
-            dot={{ r: 2.5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 1.5 }}
-            activeDot={{ r: 5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 2 }}
-            isAnimationActive={!isPdf}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className={`w-full rounded-xl border border-viasoft/15 bg-white ${isPdf ? "min-h-[282px] p-3.5" : "min-h-[320px] p-4"}`}>
+      <div className={isPdf ? "h-[214px]" : "h-[252px]"}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{
+              top: isPdf ? 8 : 10,
+              right: 20,
+              left: 12,
+              bottom: isPdf ? 8 : 10
+            }}
+          >
+            <CartesianGrid strokeDasharray="4 4" stroke="#cfdbe2" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={formatDateShortBR}
+              stroke="#495967"
+              fontSize={12}
+              minTickGap={18}
+              interval={xAxisInterval}
+            />
+            <YAxis
+              yAxisId="left"
+              stroke="#495967"
+              tickFormatter={(value) => formatNumberBR(Number(value), 0, 0)}
+              width={74}
+              fontSize={12}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke="#495967"
+              tickFormatter={(value) => formatCurrencyBRL(Number(value))}
+              width={96}
+              fontSize={12}
+            />
+            <Tooltip content={<ChartTooltip primaryMetricLabel={primaryMetricLabel} />} />
+            <Line
+              yAxisId="left"
+              dataKey="results"
+              name={primaryMetricLabel}
+              stroke="#003A4D"
+              strokeWidth={2.8}
+              dot={{ r: 2.5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 2 }}
+              isAnimationActive={!isPdf}
+            />
+            <Line
+              yAxisId="right"
+              dataKey="spend"
+              name="Investimento"
+              stroke="#0f766e"
+              strokeWidth={2.6}
+              dot={{ r: 2.5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 2 }}
+              isAnimationActive={!isPdf}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className={`${isPdf ? "mt-2.5" : "mt-3"} flex items-center justify-center gap-4 text-xs text-slate-700`}>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[2px] w-4 rounded bg-[#003A4D]" />
+          {primaryMetricLabel}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[2px] w-4 rounded bg-[#0f766e]" />
+          Investimento
+        </span>
+      </div>
     </div>
   );
 }

@@ -38,18 +38,22 @@ export function InsightsPanel({
   recommendations,
   isPdf = false
 }: InsightsPanelProps) {
+  const panelPadding = isPdf ? "p-4" : "p-5";
+  const insightsTopSpacing = isPdf ? "mt-2.5" : "mt-3";
+  const recommendationTopSpacing = isPdf ? "mt-2.5" : "mt-3";
+
   return (
-    <section className={`grid gap-4 ${isPdf ? "" : "lg:grid-cols-2"}`}>
-      <div className="surface-panel p-5">
+    <section className={`grid ${isPdf ? "gap-3 sm:grid-cols-2 pdf-block" : "gap-4 lg:grid-cols-2"}`}>
+      <div className={`surface-panel ${panelPadding}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <Lightbulb size={17} className="text-viasoft" />
           Insights automáticos
         </h3>
-        <div className="mt-3 space-y-2">
+        <div className={`${insightsTopSpacing} space-y-2`}>
           {insights.map((insight) => (
             <article
               key={`${insight.type}-${insight.title}`}
-              className={`hover-lift rounded-xl px-3 py-2 ${getInsightTone(insight.type)}`}
+              className={`hover-lift rounded-xl ${isPdf ? "px-2.5 py-1.5" : "px-3 py-2"} ${getInsightTone(insight.type)}`}
             >
               <div className="flex items-start gap-2">
                 {getInsightIcon(insight.type)}
@@ -62,14 +66,17 @@ export function InsightsPanel({
           ))}
         </div>
       </div>
-      <div className="surface-panel p-5">
+      <div className={`surface-panel ${panelPadding}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <ListChecks size={17} className="text-viasoft" />
           Recomendações por objetivo
         </h3>
-        <ol className="mt-3 space-y-3 text-sm text-slate-700">
+        <ol className={`${recommendationTopSpacing} ${isPdf ? "space-y-2.5" : "space-y-3"} text-sm text-slate-700`}>
           {recommendations.map((recommendation, index) => (
-            <li key={recommendation.title} className="hover-lift rounded-xl border border-slate-200 bg-white p-3">
+            <li
+              key={recommendation.title}
+              className={`hover-lift rounded-xl border border-slate-200 bg-white ${isPdf ? "avoid-page-break p-2.5" : "p-3"}`}
+            >
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-viasoft" />
                 <div>

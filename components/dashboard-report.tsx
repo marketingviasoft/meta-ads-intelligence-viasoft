@@ -311,7 +311,7 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
   ];
 
   return (
-    <section className="space-y-4">
+    <section className={isPdf ? "space-y-3" : "space-y-4"}>
       {!hideCampaignHeader ? <CampaignHeaderCard campaign={campaign} range={range} isPdf={isPdf} /> : null}
 
       {noPrevData ? (
@@ -320,7 +320,7 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
         </div>
       ) : null}
 
-      <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${isPdf ? "pdf-block" : ""}`}>
+      <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${isPdf ? "pdf-block gap-2.5" : ""}`}>
         {orderedMetricCards.map((card) => (
           <MetricCard
             key={card.metricKey}
