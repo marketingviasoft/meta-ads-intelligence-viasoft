@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const bodyFont = IBM_Plex_Sans({
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${bodyFont.variable} ${headingFont.variable} antialiased`}>
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
