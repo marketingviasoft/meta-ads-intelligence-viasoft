@@ -11,9 +11,10 @@
     "spellcheck": "cspell lint \"**/*.{ts,tsx,js,jsx,md}\" --no-progress"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
     "lucide-react": "^0.511.0",
     "next": "^16.1.6",
-    "puppeteer": "24.3.0",
+    "puppeteer-core": "^24.31.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "recharts": "2.15.1"
