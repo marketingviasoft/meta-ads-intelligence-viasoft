@@ -30,6 +30,7 @@ type AdsResponse = {
 };
 
 const ALL_VERTICALS_VALUE = "__ALL_VERTICALS__";
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
@@ -139,7 +140,7 @@ export function DashboardClient() {
       if (nextCampaigns.length === 0) {
         setReportData(null);
         setErrorMessage(
-          "Nenhuma campanha ativada foi encontrada na conta Meta informada."
+          "Nenhuma campanha ativa com veiculação ativa foi encontrada na conta Meta informada."
         );
       } else {
         setErrorMessage("");
@@ -355,6 +356,19 @@ export function DashboardClient() {
     return `/api/pdf?campaignId=${encodeURIComponent(selectedCampaignId)}&rangeDays=${rangeDays}`;
   }, [rangeDays, selectedCampaignId]);
 
+  const isContingencySnapshot = useMemo(() => {
+    if (!reportData?.generatedAt) {
+      return false;
+    }
+
+    const generatedAtMs = Date.parse(reportData.generatedAt);
+    if (Number.isNaN(generatedAtMs)) {
+      return false;
+    }
+
+    return Date.now() - generatedAtMs > CACHE_TTL_MS;
+  }, [reportData]);
+
   return (
     <main className="mx-auto max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
       <header className="surface-panel enter-fade p-6">
@@ -455,7 +469,7 @@ export function DashboardClient() {
 
       {noCampaignsForSelectedVertical ? (
         <section className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
-          Nenhuma campanha ativada foi encontrada para a vertical selecionada.
+          Nenhuma campanha ativa com veiculação ativa foi encontrada para a vertical selecionada.
         </section>
       ) : null}
 
@@ -475,6 +489,12 @@ export function DashboardClient() {
 
       {reportData ? (
         <section className="mt-5 space-y-5">
+          {isContingencySnapshot ? (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+              Dados em contingência: a Meta API não respondeu no último refresh e o dashboard está exibindo o snapshot mais recente disponível em cache.
+            </section>
+          ) : null}
+
           <CampaignHeaderCard campaign={reportData.campaign} range={reportData.range} />
 
           <CampaignStructurePanel

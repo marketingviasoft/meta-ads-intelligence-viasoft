@@ -19,6 +19,9 @@ type MetaApiError = {
 type MetaApiListResponse<T> = {
   data?: T[];
   error?: MetaApiError;
+  paging?: {
+    next?: string;
+  };
 };
 
 type MetaAdPreviewResponseItem = {
@@ -47,6 +50,7 @@ type MetaAdSetResponseItem = {
   id: string;
   name: string;
   campaign_id?: string;
+  end_time?: string;
   effective_status?: string;
   status?: string;
   configured_status?: string;
@@ -316,28 +320,40 @@ async function buildMetaHttpError(response: Response): Promise<Error> {
 async function fetchMetaList<T>(path: string, queryParams: Record<string, string>): Promise<T[]> {
   assertMetaRateLimitCooldown();
 
-  const url = buildUrl(path, queryParams);
+  const items: T[] = [];
+  let nextUrl: string | null = buildUrl(path, queryParams);
+  let safetyPageCounter = 0;
 
-  const response = await fetch(url, {
-    method: "GET",
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw await buildMetaHttpError(response);
-  }
-
-  const payload = (await response.json()) as MetaApiListResponse<T>;
-
-  if (payload.error) {
-    if (payload.error.code === 17) {
-      startMetaRateLimitCooldown();
+  while (nextUrl) {
+    if (safetyPageCounter >= 60) {
+      throw new Error("Meta API: paginação excedeu o limite de segurança (60 páginas).");
     }
 
-    throw new Error(`Meta API: ${payload.error.message}`);
+    const response = await fetch(nextUrl, {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw await buildMetaHttpError(response);
+    }
+
+    const payload = (await response.json()) as MetaApiListResponse<T>;
+
+    if (payload.error) {
+      if (payload.error.code === 17) {
+        startMetaRateLimitCooldown();
+      }
+
+      throw new Error(`Meta API: ${payload.error.message}`);
+    }
+
+    items.push(...(payload.data ?? []));
+    nextUrl = payload.paging?.next ?? null;
+    safetyPageCounter += 1;
   }
 
-  return payload.data ?? [];
+  return items;
 }
 
 async function fetchMetaObject<T>(path: string, queryParams: Record<string, string>): Promise<T> {
@@ -1165,6 +1181,22 @@ function normalizeAd(
   };
 }
 
+function isAdDeliveringActive(item: MetaAdResponseItem): boolean {
+  if (!isStatusActive(item.effective_status)) {
+    return false;
+  }
+
+  const configuredStatuses = [item.status, item.configured_status].filter(
+    (value): value is string => typeof value === "string"
+  );
+
+  if (configuredStatuses.length === 0) {
+    return true;
+  }
+
+  return configuredStatuses.some((status) => isStatusActive(status));
+}
+
 async function resolveCampaignDeliveryStatus(campaignId: string): Promise<DeliveryStatus> {
   const adsets = await fetchMetaList<MetaAdSetDeliveryResponseItem>(`${campaignId}/adsets`, {
     fields: "effective_status,status,configured_status,end_time",
@@ -1197,6 +1229,7 @@ export async function fetchActiveCampaigns(): Promise<MetaCampaign[]> {
         campaignDeliveryStatus.get(campaign.id) ?? "WITHOUT_DELIVERY"
       )
     )
+    .filter((campaign) => campaign.deliveryStatus === "ACTIVE")
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -1215,12 +1248,13 @@ export async function fetchCampaignById(campaignId: string): Promise<MetaCampaig
 
 export async function fetchCampaignAdSets(campaignId: string): Promise<MetaAdSet[]> {
   const adSets = await fetchMetaList<MetaAdSetResponseItem>(`${campaignId}/adsets`, {
-    fields: "id,name,effective_status,status,configured_status",
+    fields: "id,name,effective_status,status,configured_status,end_time",
     limit: "5000"
   });
 
   return adSets
     .filter((adSet) => Boolean(adSet.id && adSet.name))
+    .filter((adSet) => isAdSetDeliveringActive(adSet))
     .map((adSet) => normalizeAdSet(adSet, campaignId))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -1282,6 +1316,7 @@ export async function fetchAdSetAds(adSetId: string): Promise<MetaAd[]> {
 
   const normalizedAds = ads
     .filter((ad) => Boolean(ad.id && ad.name))
+    .filter((ad) => isAdDeliveringActive(ad))
     .map((ad) => normalizeAd(ad, adSetId, adSetContext))
     .sort((a, b) => a.name.localeCompare(b.name));
 

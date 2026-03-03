@@ -1,9 +1,8 @@
-import { DashboardReport } from "@/components/dashboard-report";
+import { CampaignHeaderCard, DashboardReport } from "@/components/dashboard-report";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
-import { getActiveCampaigns, getDashboardPayload } from "@/lib/meta-dashboard";
+import { getActiveCampaigns, getAdSetAds, getCampaignAdSets, getDashboardPayload } from "@/lib/meta-dashboard";
 import { PDF_PAGE_MIN_HEIGHT_PX, PDF_PAGE_WIDTH_PX } from "@/pdf/print-config";
 import { parseRangeDays } from "@/utils/date-range";
-import { formatDateLongBR } from "@/utils/formatters";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +36,10 @@ export default async function PdfPage({
     campaignId,
     rangeDays
   });
+  const adSets = await getCampaignAdSets(campaignId, false);
+  const selectedAdSetId = adSets[0]?.id ?? "";
+  const ads = selectedAdSetId ? await getAdSetAds(selectedAdSetId, false) : [];
+  const selectedAdSetName = adSets[0]?.name ?? "";
 
   return (
     <main className="min-h-screen bg-white py-3 print:py-0">
@@ -48,15 +51,52 @@ export default async function PdfPage({
           minHeight: `${PDF_PAGE_MIN_HEIGHT_PX}px`
         }}
       >
-        <header className="pdf-block mb-5 border-b border-slate-200 pb-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald">Meta Ads PDF Report</p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink">Dashboard de Performance</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Atual: {formatDateLongBR(payload.range.since)} ate {formatDateLongBR(payload.range.until)} | Anterior: {" "}
-            {formatDateLongBR(payload.range.previousSince)} ate {formatDateLongBR(payload.range.previousUntil)}
-          </p>
-        </header>
-        <DashboardReport data={payload} isPdf />
+        <div className="space-y-4">
+          <CampaignHeaderCard campaign={payload.campaign} range={payload.range} isPdf />
+
+          <section className="surface-panel pdf-block p-4">
+            <h2 className="text-base font-semibold text-viasoft">Estrutura da campanha</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Grupos de anúncios e anúncios ativos no momento da geração do relatório.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+                  Grupos de anúncios
+                </p>
+                {adSets.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Nenhum grupo ativo encontrado.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                    {adSets.slice(0, 8).map((adSet) => (
+                      <li key={adSet.id} className="rounded-md border border-slate-200 px-2 py-1">
+                        {adSet.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+                  Anúncios ({selectedAdSetName || "grupo não selecionado"})
+                </p>
+                {ads.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Nenhum anúncio ativo encontrado.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                    {ads.slice(0, 8).map((ad) => (
+                      <li key={ad.id} className="rounded-md border border-slate-200 px-2 py-1">
+                        {ad.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <DashboardReport data={payload} isPdf hideCampaignHeader />
+        </div>
       </section>
     </main>
   );

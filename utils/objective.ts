@@ -71,17 +71,17 @@ export function getPrimaryMetricDefinition(category: ObjectiveCategory): {
     case "RECOGNITION":
       return {
         key: "impressions",
-        label: "Impressoes"
+        label: "Impressões"
       };
     case "CONVERSIONS":
       return {
         key: "conversions",
-        label: "Conversoes"
+        label: "Conversões"
       };
     default:
       return {
         key: "conversions",
-        label: "Conversoes"
+        label: "Conversões"
       };
   }
 }

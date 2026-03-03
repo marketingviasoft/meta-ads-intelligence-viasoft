@@ -353,7 +353,7 @@ export function CampaignStructurePanel({
           onClick={closePreviewModal}
         >
           <div
-            className="flex h-[88vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="flex h-[90vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
@@ -397,7 +397,7 @@ export function CampaignStructurePanel({
                     title={`Preview do anúncio ${selectedPreviewAd.name}`}
                     loading="lazy"
                     className="block w-full border-0 bg-white"
-                    style={{ height: "clamp(520px, 72vh, 860px)" }}
+                    style={{ height: "clamp(440px, 64vh, 760px)" }}
                   />
                 </div>
               ) : activePreviewLoading ? (
@@ -413,7 +413,7 @@ export function CampaignStructurePanel({
                   <img
                     src={selectedPreviewAd.creativePreviewUrl}
                     alt={`Preview do criativo ${selectedPreviewAd.name}`}
-                    className="max-h-[calc(88vh-210px)] w-full object-contain"
+                    className="max-h-[64vh] w-full object-contain"
                     loading="lazy"
                   />
                 </div>

@@ -207,7 +207,7 @@ export function CampaignSelector({
   return (
     <label className="flex w-full flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-        Campanhas ativadas
+        Campanhas ativas
       </span>
       <div ref={rootRef} className="relative">
         <button
@@ -227,7 +227,7 @@ export function CampaignSelector({
           aria-expanded={isOpen}
           aria-controls={listboxId}
         >
-          <span className="truncate">{selectedOption?.label ?? "Sem campanhas ativadas"}</span>
+          <span className="truncate">{selectedOption?.label ?? "Sem campanhas ativas"}</span>
           <ChevronDown
             size={16}
             className={`shrink-0 transition ${isOpen ? "rotate-180" : ""} ${disabled ? "text-slate-400" : "text-slate-500"}`}

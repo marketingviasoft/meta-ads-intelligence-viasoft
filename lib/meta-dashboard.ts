@@ -31,23 +31,24 @@ import {
   buildMetricSnapshot
 } from "@/utils/metrics";
 
-const CACHE_TTL_MS = 15 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const STALE_MAX_AGE_MS = 15 * 60 * 1000;
 
 function getStaleCacheValue<T>(key: string): T | null {
   const withOptionalStale = cache as typeof cache & {
-    getStale?: <U>(cacheKey: string) => U | null;
+    getStale?: <U>(cacheKey: string, maxAgeMs?: number) => U | null;
   };
 
   if (typeof withOptionalStale.getStale === "function") {
-    return withOptionalStale.getStale<T>(key);
+    return withOptionalStale.getStale<T>(key, STALE_MAX_AGE_MS);
   }
 
   return cache.get<T>(key);
 }
 
 export async function getActiveCampaigns(forceRefresh = false): Promise<MetaCampaign[]> {
-  const cached = cache.get<MetaCampaign[]>(CAMPAIGNS_CACHE_KEY);
   const stale = getStaleCacheValue<MetaCampaign[]>(CAMPAIGNS_CACHE_KEY);
+  const cached = cache.get<MetaCampaign[]>(CAMPAIGNS_CACHE_KEY);
   if (cached && !forceRefresh) {
     return cached;
   }
@@ -71,8 +72,8 @@ export async function getCampaignAdSets(
 ): Promise<MetaAdSet[]> {
   const cacheKey = adSetsCacheKey(campaignId);
 
-  const cached = cache.get<MetaAdSet[]>(cacheKey);
   const stale = getStaleCacheValue<MetaAdSet[]>(cacheKey);
+  const cached = cache.get<MetaAdSet[]>(cacheKey);
   if (cached && !forceRefresh) {
     return cached;
   }
@@ -93,8 +94,8 @@ export async function getCampaignAdSets(
 export async function getAdSetAds(adSetId: string, forceRefresh = false): Promise<MetaAd[]> {
   const cacheKey = adsCacheKey(adSetId);
 
-  const cached = cache.get<MetaAd[]>(cacheKey);
   const stale = getStaleCacheValue<MetaAd[]>(cacheKey);
+  const cached = cache.get<MetaAd[]>(cacheKey);
   if (cached && !forceRefresh) {
     return cached;
   }
@@ -115,8 +116,8 @@ export async function getAdSetAds(adSetId: string, forceRefresh = false): Promis
 export async function getAdPreview(adId: string, forceRefresh = false): Promise<MetaAdPreview> {
   const cacheKey = adPreviewCacheKey(adId);
 
-  const cached = cache.get<MetaAdPreview>(cacheKey);
   const stale = getStaleCacheValue<MetaAdPreview>(cacheKey);
+  const cached = cache.get<MetaAdPreview>(cacheKey);
   if (cached && !forceRefresh) {
     return cached;
   }
@@ -158,6 +159,10 @@ async function resolveCampaign(campaignId: string, forceRefresh = false): Promis
     throw new Error("Apenas campanhas ativadas são suportadas no MVP");
   }
 
+  if (fromApi.deliveryStatus !== "ACTIVE") {
+    throw new Error("A campanha selecionada não possui veiculação ativa.");
+  }
+
   return fromApi;
 }
 
@@ -175,8 +180,8 @@ export async function getDashboardPayload(params: {
   const range = buildDateRange(rangeDays);
   const cacheKey = performanceCacheKey(campaignId, rangeDays, range.until);
 
-  const cachedPayload = cache.get<DashboardPayload>(cacheKey);
   const stalePayload = getStaleCacheValue<DashboardPayload>(cacheKey);
+  const cachedPayload = cache.get<DashboardPayload>(cacheKey);
   if (cachedPayload && !forceRefresh) {
     return cachedPayload;
   }
