@@ -153,6 +153,7 @@ export function TrendCard({
       : "Custo por clique";
   const immediateAction = getImmediateAction(direction);
   const compact = isPdf;
+  const showExtendedNarrative = !isPdf;
 
   return (
     <article
@@ -177,7 +178,9 @@ export function TrendCard({
       </p>
 
       <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{summaryMessage}</p>
-      <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{executiveSignal.reason}</p>
+      {showExtendedNarrative ? (
+        <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{executiveSignal.reason}</p>
+      ) : null}
 
       <div className={`${compact ? "mt-2.5 p-2.5" : "mt-3 p-3"} rounded-lg border border-slate-200 bg-slate-50/80 text-sm text-slate-700`}>
         <p className="font-medium text-slate-800">Fatores que mais influenciaram o resultado</p>
@@ -190,7 +193,9 @@ export function TrendCard({
         </p>
       </div>
 
-      <p className={`${compact ? "mt-2.5" : "mt-3"} text-sm text-slate-700`}>{immediateAction}</p>
+      {showExtendedNarrative ? (
+        <p className={`${compact ? "mt-2.5" : "mt-3"} text-sm text-slate-700`}>{immediateAction}</p>
+      ) : null}
 
       <p className={`${compact ? "mt-2.5 pt-2.5" : "mt-3 pt-3"} text-sm text-slate-600`}>
         Custo atual para gerar um resultado: <span className="font-semibold text-ink">{formatCurrencyBRL(costPerResult)}</span>

@@ -208,10 +208,10 @@ export function CampaignStructurePanel({
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+            <p className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
               Grupos de anúncios
             </p>
-            <span className="text-xs text-slate-500">
+            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
               {loadingAdSets ? "Carregando..." : listCountLabel(adSets.length, "grupo", "grupos")}
             </span>
           </div>
@@ -253,11 +253,11 @@ export function CampaignStructurePanel({
 
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+            <p className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
               <Megaphone size={14} />
               Anúncios
             </p>
-            <span className="text-xs text-slate-500">
+            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
               {loadingAds ? "Carregando..." : listCountLabel(ads.length, "anúncio", "anúncios")}
             </span>
           </div>

@@ -172,6 +172,39 @@ function PdfSelectorField({
   );
 }
 
+function formatDestinationLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const pathDigits = parsed.pathname.replace(/\D/g, "");
+    const queryPhoneDigits = parsed.searchParams.get("phone")?.replace(/\D/g, "") ?? "";
+
+    if (host === "wa.me" || host.endsWith(".wa.me")) {
+      const digits = pathDigits;
+      return digits ? `WhatsApp +${digits}` : "WhatsApp";
+    }
+
+    if (host.includes("whatsapp.com")) {
+      const digits = queryPhoneDigits || pathDigits;
+      return digits ? `WhatsApp +${digits}` : "WhatsApp";
+    }
+
+    const path = parsed.pathname === "/" ? "" : parsed.pathname;
+    return `${parsed.hostname}${path}`;
+  } catch {
+    return url;
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function PdfPageFooter({
   pageNumber,
   generatedAtLabel,
@@ -327,6 +360,12 @@ export default async function PdfPage({
     second: "2-digit",
     hour12: false
   }).format(new Date(payload.generatedAt));
+  const adSetLimit = 10;
+  const adLimit = 6;
+  const visibleAdSets = adSets.slice(0, adSetLimit);
+  const visibleAds = ads.slice(0, adLimit);
+  const hiddenAdSetsCount = Math.max(0, adSets.length - visibleAdSets.length);
+  const hiddenAdsCount = Math.max(0, ads.length - visibleAds.length);
 
   return (
     <main className="min-h-screen bg-white py-3 print:py-0">
@@ -369,53 +408,109 @@ export default async function PdfPage({
             </div>
           </section>
 
+          <PdfPageFooter pageNumber={1} generatedAtLabel={generatedAtLabel} />
+        </div>
+
+        <div className="pdf-landscape-page pdf-page-break-after">
           <CampaignHeaderCard
             campaign={payload.campaign}
             range={payload.range}
             isPdf
           />
 
-          <section className="surface-panel p-4">
+          <section className="surface-panel p-5">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>
             <p className="mt-1 text-sm text-slate-600">
               Grupos de anúncios e anúncios ativos no momento da geração do relatório.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-                  Grupos de anúncios
-                </p>
-                {adSets.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">Nenhum grupo ativo encontrado.</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">Grupos de anúncios</p>
+                  <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">{adSets.length} grupos</span>
+                </div>
+                {visibleAdSets.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
+                    Nenhum grupo ativo encontrado.
+                  </p>
                 ) : (
-                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
-                    {adSets.slice(0, 8).map((adSet) => (
-                      <li key={adSet.id} className="rounded-md border border-slate-200 px-2 py-1">
-                        {adSet.name}
+                  <ul className="space-y-1.5 text-sm text-slate-700">
+                    {visibleAdSets.map((adSet, index) => (
+                      <li
+                        key={adSet.id}
+                        className={`rounded-md border px-2 py-1.5 ${
+                          index === 0 ? "border-viasoft/25 bg-viasoft/10 text-viasoft" : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <p className="truncate font-medium">{adSet.name}</p>
                       </li>
                     ))}
                   </ul>
                 )}
+                {hiddenAdSetsCount > 0 ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    + {hiddenAdSetsCount} grupos não exibidos nesta página.
+                  </p>
+                ) : null}
               </div>
+
               <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-                  Anúncios ({selectedAdSetName || "grupo não selecionado"})
-                </p>
-                {ads.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">Nenhum anúncio ativo encontrado.</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+                    Anúncios ({selectedAdSetName || "grupo não selecionado"})
+                  </p>
+                  <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">{ads.length} anúncios</span>
+                </div>
+                {visibleAds.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
+                    Nenhum anúncio ativo encontrado.
+                  </p>
                 ) : (
-                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
-                    {ads.slice(0, 8).map((ad) => (
-                      <li key={ad.id} className="rounded-md border border-slate-200 px-2 py-1">
-                        {ad.name}
+                  <ul className="space-y-2">
+                    {visibleAds.map((ad) => (
+                      <li key={ad.id} className="rounded-md border border-slate-200 bg-slate-50/40 p-2">
+                        <div className="flex items-start gap-2">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                            {ad.creativePreviewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={ad.creativePreviewUrl}
+                                alt={`Criativo do anúncio ${ad.name}`}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
+                                Sem arte
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 text-xs text-slate-600">
+                            <p className="truncate text-sm font-semibold text-ink">{ad.name}</p>
+                            <p className="mt-0.5 truncate">Criativo: {ad.creativeName}</p>
+                            <p className="mt-0.5 truncate">
+                              Destino:{" "}
+                              {ad.destinationUrl ? (
+                                isHttpUrl(ad.destinationUrl) ? formatDestinationLabel(ad.destinationUrl) : ad.destinationUrl
+                              ) : (
+                                "não informado"
+                              )}
+                            </p>
+                          </div>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
+                {hiddenAdsCount > 0 ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    + {hiddenAdsCount} anúncios não exibidos nesta página.
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
-          <PdfPageFooter pageNumber={1} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
         </div>
 
         <div className="pdf-landscape-page pdf-page-break-after">
@@ -443,10 +538,10 @@ export default async function PdfPage({
               ))}
             </div>
           </section>
-          <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after gap-3">
+        <div className="pdf-landscape-page pdf-page-break-after gap-2.5">
           <TrendCard
             direction={comparison.trend.direction}
             costPerResult={comparison.current.costPerResult}
@@ -464,7 +559,7 @@ export default async function PdfPage({
             isPdf
           />
 
-          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-4">
+          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-3.5">
             <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
               <TrendingUp size={17} className="text-viasoft" />
               Performance diária
@@ -472,7 +567,7 @@ export default async function PdfPage({
             <p className="mt-1 text-sm text-slate-600">
               Comparativo visual de {comparison.current.primaryMetricLabel.toLowerCase()} e investimento no período atual.
             </p>
-            <div className="mt-3">
+            <div className="mt-2.5">
               <PerformanceChart
                 data={completeChartData}
                 primaryMetricLabel={comparison.current.primaryMetricLabel}
@@ -480,7 +575,7 @@ export default async function PdfPage({
               />
             </div>
           </section>
-          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} dockBottom={false} />
+          <PdfPageFooter pageNumber={4} generatedAtLabel={generatedAtLabel} />
         </div>
 
         <div className="pdf-landscape-page">
@@ -492,7 +587,7 @@ export default async function PdfPage({
               fillHeight
             />
           </div>
-          <PdfPageFooter pageNumber={4} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={5} generatedAtLabel={generatedAtLabel} />
         </div>
       </section>
     </main>

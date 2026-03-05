@@ -103,10 +103,12 @@ export function PerformanceChart({
   const effectiveXAxisInterval = isNarrowViewport ? 0 : xAxisInterval;
   const leftAxisWidth = isNarrowViewport ? 34 : 64;
   const rightAxisWidth = isNarrowViewport ? 48 : 72;
-  const chartBottomMargin = isPdf ? 24 : isNarrowViewport ? 18 : 8;
+  const chartBottomMargin = isPdf ? 22 : isNarrowViewport ? 18 : 8;
   const chartLeftMargin = isNarrowViewport ? 0 : 6;
   const chartRightMargin = isNarrowViewport ? 0 : 8;
-  const showDots = !isNarrowViewport || data.length <= 14;
+  const showDots = !isPdf && (!isNarrowViewport || data.length <= 14);
+  const showSummaryCards = !isPdf;
+  const showLegend = true;
   const totalResults = useMemo(() => data.reduce((sum, point) => sum + point.results, 0), [data]);
   const totalSpend = useMemo(() => data.reduce((sum, point) => sum + point.spend, 0), [data]);
   const peakResults = useMemo(() => Math.max(...data.map((point) => point.results), 0), [data]);
@@ -142,33 +144,35 @@ export function PerformanceChart({
 
   return (
     <div
-      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[266px] p-3" : "min-h-[330px] p-3 sm:p-4"}`}
+      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[248px] p-2.5" : "min-h-[330px] p-3 sm:p-4"}`}
     >
-      <div className={`${isPdf ? "mb-2" : "mb-3"} flex flex-wrap gap-2`}>
-        <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
-            {primaryMetricLabel} acumulado
-          </p>
-          <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
+      {showSummaryCards ? (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
+              {primaryMetricLabel} acumulado
+            </p>
+            <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
+          </div>
+          <div className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-800">
+              Investimento acumulado
+            </p>
+            <p className="text-sm font-semibold text-teal-800">{formatCurrencyBRL(totalSpend)}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Pico diário
+            </p>
+            <p className="text-sm font-semibold text-slate-700">
+              {formatNumberBR(peakResults, 0, 2)} / {formatCurrencyBRL(peakSpend)}
+            </p>
+          </div>
         </div>
-        <div className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-800">
-            Investimento acumulado
-          </p>
-          <p className="text-sm font-semibold text-teal-800">{formatCurrencyBRL(totalSpend)}</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-            Pico diário
-          </p>
-          <p className="text-sm font-semibold text-slate-700">
-            {formatNumberBR(peakResults, 0, 2)} / {formatCurrencyBRL(peakSpend)}
-          </p>
-        </div>
-      </div>
+      ) : null}
 
       <div className={`rounded-lg border border-slate-200/90 bg-white/85 ${isPdf ? "p-2" : "p-2.5 sm:p-3"}`}>
-        <div className={isPdf ? "h-[190px]" : isNarrowViewport ? "h-[280px]" : "h-[272px]"}>
+        <div className={isPdf ? "h-[192px]" : isNarrowViewport ? "h-[280px]" : "h-[272px]"}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
@@ -265,18 +269,22 @@ export function PerformanceChart({
         </ResponsiveContainer>
       </div>
       </div>
-      <div
-        className={`${isPdf ? "mt-3.5 pb-0.5" : "mt-3"} flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-700`}
-      >
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
-          <span className="inline-block h-[2px] w-4 rounded bg-[#003A4D]" />
-          {primaryMetricLabel}
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
-          <span className="inline-block h-[2px] w-4 rounded bg-[#0f766e]" />
-          Investimento
-        </span>
-      </div>
+      {showLegend ? (
+        <div
+          className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs text-slate-700 ${
+            isPdf ? "mt-2 pb-0.5" : "mt-3"
+          }`}
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
+            <span className="inline-block h-[2px] w-4 rounded bg-[#003A4D]" />
+            {primaryMetricLabel}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
+            <span className="inline-block h-[2px] w-4 rounded bg-[#0f766e]" />
+            Investimento
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
