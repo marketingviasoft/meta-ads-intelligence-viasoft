@@ -61,6 +61,10 @@ type MetaAdSetPromotedObject = {
   whatsapp_number?: string;
   whatsapp_phone_number?: string;
   page_id?: string;
+  link?: string;
+  website_url?: string;
+  object_store_url?: string;
+  custom_url?: string;
 };
 
 type MetaPageMessagingResponseItem = {
@@ -83,6 +87,7 @@ type MetaAdSetDestinationContext = {
   whatsappNumber: string;
   pageId: string;
   objectiveSignal: string;
+  websiteUrl: string;
 };
 
 type MetaAdResponseItem = {
@@ -136,6 +141,7 @@ type MetaAdCreativeResponseItem = {
       child_attachments?: Array<{
         link?: string;
         picture?: string;
+        call_to_action?: MetaAdCreativeCallToAction;
       }>;
     };
     video_data?: {
@@ -687,13 +693,21 @@ function normalizeSignal(value: string | undefined): string {
 function createAdSetDestinationContext(
   adSet: MetaAdSetDestinationResponseItem | null
 ): MetaAdSetDestinationContext {
+  const websiteUrl = collectDestinationCandidates([
+    adSet?.promoted_object?.link,
+    adSet?.promoted_object?.website_url,
+    adSet?.promoted_object?.custom_url,
+    adSet?.promoted_object?.object_store_url
+  ]).find(Boolean) ?? "";
+
   return {
     destinationType: normalizeSignal(adSet?.destination_type),
     whatsappNumber:
       normalizeWhatsAppNumber(adSet?.promoted_object?.whatsapp_number) ||
       normalizeWhatsAppNumber(adSet?.promoted_object?.whatsapp_phone_number),
     pageId: typeof adSet?.promoted_object?.page_id === "string" ? adSet.promoted_object.page_id : "",
-    objectiveSignal: normalizeSignal(adSet?.campaign?.objective)
+    objectiveSignal: normalizeSignal(adSet?.campaign?.objective),
+    websiteUrl
   };
 }
 
@@ -710,6 +724,12 @@ function mergeDestinationContext(
     normalizeWhatsAppNumber(promotedObject?.whatsapp_phone_number);
   const promotedPageId =
     typeof promotedObject?.page_id === "string" ? promotedObject.page_id : "";
+  const promotedWebsiteUrl = collectDestinationCandidates([
+    promotedObject?.link,
+    promotedObject?.website_url,
+    promotedObject?.custom_url,
+    promotedObject?.object_store_url
+  ]).find(Boolean) ?? "";
 
   return {
     destinationType: [normalizedDestinationType, normalizedCallToActionType, adSetContext?.destinationType]
@@ -717,7 +737,8 @@ function mergeDestinationContext(
       .join(" "),
     whatsappNumber: promotedWhatsAppNumber || adSetContext?.whatsappNumber || "",
     pageId: promotedPageId || adSetContext?.pageId || "",
-    objectiveSignal: adSetContext?.objectiveSignal || ""
+    objectiveSignal: adSetContext?.objectiveSignal || "",
+    websiteUrl: promotedWebsiteUrl || adSetContext?.websiteUrl || ""
   };
 }
 
@@ -894,6 +915,51 @@ function isWebsiteDestinationUrl(value: string): boolean {
   );
 }
 
+function looksLikeWebsiteUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (
+    normalized.startsWith("mailto:") ||
+    normalized.startsWith("tel:") ||
+    normalized.startsWith("sms:") ||
+    normalized.startsWith("whatsapp:")
+  ) {
+    return false;
+  }
+
+  if (isWhatsAppUrl(trimmed) || isMessengerUrl(trimmed) || isInstagramDirectUrl(trimmed)) {
+    return false;
+  }
+
+  if (isHttpUrl(trimmed)) {
+    return !isMetaSocialUrl(trimmed);
+  }
+
+  const withoutProtocol = normalized.replace(/^https?:\/\//, "");
+  return /^((www\.)?([a-z0-9-]+\.)+[a-z]{2,})(\/|$)/i.test(withoutProtocol);
+}
+
+function toDisplayableWebsiteUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (isHttpUrl(trimmed)) {
+    return trimmed;
+  }
+
+  if (looksLikeWebsiteUrl(trimmed)) {
+    return `https://${trimmed.replace(/^\/+/, "")}`;
+  }
+
+  return trimmed;
+}
+
 function normalizeWhatsAppNumber(value: string | undefined): string {
   if (typeof value !== "string") {
     return "";
@@ -1046,7 +1112,7 @@ function resolveCreativeDestinationUrl(
   const objectStorySpec = creative?.object_story_spec;
   const linkData = objectStorySpec?.link_data;
   const childAttachmentLinks = (linkData?.child_attachments ?? [])
-    .map((attachment) => attachment.link)
+    .flatMap((attachment) => [attachment.link, attachment.call_to_action?.value?.link])
     .filter((link): link is string => typeof link === "string" && Boolean(link.trim()));
   const assetFeedLinks = (creative?.asset_feed_spec?.link_urls ?? [])
     .flatMap((item) => [item.website_url, item.url, item.deeplink_url])
@@ -1066,7 +1132,8 @@ function resolveCreativeDestinationUrl(
     objectStorySpec?.photo_data?.link,
     ...assetFeedLinks,
     creative?.object_url,
-    creative?.link_url
+    creative?.link_url,
+    adSetContext?.websiteUrl
   ]);
 
   if (isTrafficDestinationContext(adSetContext)) {
@@ -1075,7 +1142,20 @@ function resolveCreativeDestinationUrl(
       return siteDestination;
     }
 
-    return "Site (URL não identificado)";
+    const relaxedSiteDestination = candidates.find((candidate) => looksLikeWebsiteUrl(candidate));
+    if (relaxedSiteDestination) {
+      return toDisplayableWebsiteUrl(relaxedSiteDestination);
+    }
+
+    const socialFallbackForTraffic = collectDestinationCandidates([
+      creative?.instagram_permalink_url,
+      storyUrl
+    ]).find((candidate) => typeof candidate === "string" && candidate.trim());
+    if (socialFallbackForTraffic) {
+      return socialFallbackForTraffic.trim();
+    }
+
+    return "Site configurado na Meta Ads (URL não exposta pela API)";
   }
 
   for (const candidate of candidates) {
