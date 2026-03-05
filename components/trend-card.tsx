@@ -156,7 +156,7 @@ export function TrendCard({
 
   return (
     <article
-      className={`surface-panel hover-lift relative overflow-hidden rounded-xl border border-slate-200/80 bg-white ${compact ? "p-4" : "p-5"} ${isPdf ? "pdf-block" : ""}`}
+      className={`surface-panel relative overflow-hidden rounded-xl border border-slate-200/80 bg-white ${compact ? "p-4" : "p-5"} ${isPdf ? "pdf-block" : ""}`}
     >
       <header className="flex items-center gap-2">
         <div className="flex items-center gap-2">

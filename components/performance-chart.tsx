@@ -1,6 +1,7 @@
 "use client";
 
 import { Coins, Percent, Target, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -76,44 +77,98 @@ export function PerformanceChart({
   primaryMetricLabel,
   isPdf = false
 }: PerformanceChartProps) {
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 430px)");
+    const sync = () => setIsNarrowViewport(media.matches);
+
+    sync();
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", sync);
+      return () => media.removeEventListener("change", sync);
+    }
+
+    media.addListener(sync);
+    return () => media.removeListener(sync);
+  }, []);
+
   const xAxisInterval = data.length >= 28 ? 3 : data.length >= 14 ? 1 : 0;
+  const effectiveXAxisInterval = isNarrowViewport ? 0 : xAxisInterval;
+  const leftAxisWidth = isNarrowViewport ? 36 : 74;
+  const rightAxisWidth = isNarrowViewport ? 54 : 96;
+  const chartBottomMargin = isPdf ? 24 : isNarrowViewport ? 22 : 10;
+  const chartLeftMargin = isNarrowViewport ? 0 : 12;
+  const chartRightMargin = isNarrowViewport ? 2 : 20;
+
+  const xAxisTicks = useMemo(() => {
+    if (!isNarrowViewport) {
+      return undefined;
+    }
+
+    if (data.length <= 8) {
+      return data.map((point) => point.date);
+    }
+
+    const maxLabels = data.length >= 28 ? 5 : 6;
+    const step = Math.max(1, Math.ceil((data.length - 1) / (maxLabels - 1)));
+    const ticks = data
+      .filter((_, index) => index % step === 0 || index === data.length - 1)
+      .map((point) => point.date);
+
+    return Array.from(new Set(ticks));
+  }, [data, isNarrowViewport]);
+
+  function formatCurrencyAxis(value: number): string {
+    if (!isNarrowViewport) {
+      return formatCurrencyBRL(value);
+    }
+
+    return `R$${formatNumberBR(value, 0, 0)}`;
+  }
 
   return (
-    <div className={`w-full rounded-xl border border-viasoft/15 bg-white ${isPdf ? "min-h-[266px] p-3" : "min-h-[320px] p-4"}`}>
-      <div className={isPdf ? "h-[190px]" : "h-[252px]"}>
+    <div
+      className={`w-full rounded-xl border border-viasoft/15 bg-white ${isPdf ? "min-h-[266px] p-3" : "min-h-[320px] p-2 sm:p-4"}`}
+    >
+      <div className={isPdf ? "h-[190px]" : isNarrowViewport ? "h-[260px]" : "h-[252px]"}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
             margin={{
               top: isPdf ? 8 : 10,
-              right: 20,
-              left: 12,
-              bottom: isPdf ? 24 : 10
+              right: chartRightMargin,
+              left: chartLeftMargin,
+              bottom: chartBottomMargin
             }}
           >
             <CartesianGrid strokeDasharray="4 4" stroke="#cfdbe2" vertical={false} />
             <XAxis
               dataKey="date"
+              ticks={xAxisTicks}
               tickFormatter={formatDateShortBR}
               stroke="#495967"
-              fontSize={12}
-              minTickGap={18}
-              interval={xAxisInterval}
+              fontSize={isNarrowViewport ? 10 : 12}
+              minTickGap={isNarrowViewport ? 28 : 18}
+              interval={effectiveXAxisInterval}
             />
             <YAxis
               yAxisId="left"
               stroke="#495967"
               tickFormatter={(value) => formatNumberBR(Number(value), 0, 0)}
-              width={74}
-              fontSize={12}
+              width={leftAxisWidth}
+              fontSize={isNarrowViewport ? 10 : 12}
+              tickCount={isNarrowViewport ? 4 : 6}
             />
             <YAxis
               yAxisId="right"
               orientation="right"
               stroke="#495967"
-              tickFormatter={(value) => formatCurrencyBRL(Number(value))}
-              width={96}
-              fontSize={12}
+              tickFormatter={(value) => formatCurrencyAxis(Number(value))}
+              width={rightAxisWidth}
+              fontSize={isNarrowViewport ? 10 : 12}
+              tickCount={isNarrowViewport ? 4 : 6}
             />
             <Tooltip content={<ChartTooltip primaryMetricLabel={primaryMetricLabel} />} />
             <Line
@@ -139,7 +194,9 @@ export function PerformanceChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className={`${isPdf ? "mt-3.5 pb-0.5" : "mt-3"} flex items-center justify-center gap-4 text-xs text-slate-700`}>
+      <div
+        className={`${isPdf ? "mt-3.5 pb-0.5" : "mt-3"} flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-700`}
+      >
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-[2px] w-4 rounded bg-[#003A4D]" />
           {primaryMetricLabel}

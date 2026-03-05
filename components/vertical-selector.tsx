@@ -238,11 +238,11 @@ export function VerticalSelector({
   return (
     <label className="flex w-full flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">Vertical</span>
-      <div ref={rootRef} className="relative">
+      <div ref={rootRef} className="relative w-full min-w-0">
         <button
           ref={triggerRef}
           type="button"
-          className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-ink outline-none transition focus-visible:border-viasoft focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+          className="flex h-11 w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-ink outline-none transition focus-visible:border-viasoft focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           disabled={disabled}
           onClick={() => {
             if (isOpen) {
@@ -256,7 +256,7 @@ export function VerticalSelector({
           aria-expanded={isOpen}
           aria-controls={listboxId}
         >
-          <span className="inline-flex min-w-0 items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
             <span
               className={`inline-flex size-6 shrink-0 items-center justify-center rounded-md ${
                 selectedIsAll ? "bg-viasoft/10 text-viasoft" : selectedUi?.chipClassName
@@ -270,7 +270,7 @@ export function VerticalSelector({
                 <SelectedFallbackIcon size={14} className={selectedUi?.iconClassName ?? "text-viasoft"} />
               ) : null}
             </span>
-            <span className="truncate">{selectedOption.label}</span>
+            <span className="block min-w-0 truncate text-left">{selectedOption.label}</span>
           </span>
           <ChevronDown
             size={16}
@@ -303,7 +303,7 @@ export function VerticalSelector({
                       aria-selected={selected}
                       tabIndex={-1}
                     >
-                      <span className="inline-flex min-w-0 items-center gap-2">
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
                         <span
                           className={`inline-flex size-6 shrink-0 items-center justify-center rounded-md ${
                             isAllOption ? "bg-viasoft/10 text-viasoft" : optionUi?.chipClassName
@@ -317,7 +317,7 @@ export function VerticalSelector({
                             <OptionFallbackIcon size={14} className={optionUi?.iconClassName ?? "text-viasoft"} />
                           ) : null}
                         </span>
-                        <span className="truncate">{option.label}</span>
+                        <span className="block min-w-0 truncate">{option.label}</span>
                       </span>
                       {selected ? <Check size={14} className="shrink-0" /> : null}
                     </button>

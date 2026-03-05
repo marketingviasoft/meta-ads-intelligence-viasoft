@@ -58,7 +58,7 @@ export function InsightsPanel({
           {insights.map((insight) => (
             <article
               key={`${insight.type}-${insight.title}`}
-              className={`hover-lift rounded-xl ${isPdf ? "px-2.5 py-1.5" : "px-3 py-2"} ${getInsightTone(insight.type)}`}
+              className={`rounded-xl ${isPdf ? "px-2.5 py-1.5" : "px-3 py-2"} ${getInsightTone(insight.type)}`}
             >
               <div className="flex items-start gap-2">
                 {getInsightIcon(insight.type)}
@@ -80,7 +80,7 @@ export function InsightsPanel({
           {recommendations.map((recommendation, index) => (
             <li
               key={recommendation.title}
-              className={`hover-lift rounded-xl border border-slate-200 bg-white ${isPdf ? "avoid-page-break p-2.5" : "p-3"}`}
+              className={`rounded-xl border border-slate-200 bg-white ${isPdf ? "avoid-page-break p-2.5" : "p-3"}`}
             >
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-viasoft" />

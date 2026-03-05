@@ -186,7 +186,7 @@ export function CampaignStructurePanel({
   const activePreviewError = selectedPreviewAd ? adPreviewErrorByAdId[selectedPreviewAd.id] : "";
 
   return (
-    <section className="surface-panel p-5">
+    <section className="surface-panel p-4 sm:p-5">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-viasoft">
@@ -206,7 +206,7 @@ export function CampaignStructurePanel({
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
               Grupos de anúncios
@@ -227,7 +227,7 @@ export function CampaignStructurePanel({
               Nenhum grupo de anúncios encontrado para esta campanha.
             </p>
           ) : (
-            <ul className="max-h-72 space-y-2 overflow-auto pr-1">
+            <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
               {adSets.map((adSet) => {
                 const selected = adSet.id === selectedAdSetId;
 
@@ -242,7 +242,7 @@ export function CampaignStructurePanel({
                           : "border-slate-200 bg-white text-slate-700 hover:border-viasoft/20 hover:bg-viasoft/5"
                       }`}
                     >
-                      <p className="truncate font-medium">{adSet.name}</p>
+                      <p className="break-words font-medium leading-5">{adSet.name}</p>
                     </button>
                   </li>
                 );
@@ -251,7 +251,7 @@ export function CampaignStructurePanel({
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
               <Megaphone size={14} />
@@ -278,8 +278,8 @@ export function CampaignStructurePanel({
             </p>
           ) : (
             <div>
-              <p className="mb-2 truncate text-xs text-slate-500">Grupo selecionado: {selectedAdSetName}</p>
-              <ul className="max-h-72 space-y-2 overflow-auto pr-1">
+              <p className="mb-2 break-words text-xs text-slate-500">Grupo selecionado: {selectedAdSetName}</p>
+              <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
                 {ads.map((ad) => (
                   <li
                     key={ad.id}
@@ -315,10 +315,10 @@ export function CampaignStructurePanel({
                         </span>
                       </button>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{ad.name}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">Criativo: {ad.creativeName}</p>
+                        <p className="break-words font-medium leading-5">{ad.name}</p>
+                        <p className="mt-1 break-words text-xs text-slate-500">Criativo: {ad.creativeName}</p>
                         {ad.destinationUrl ? (
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 break-words text-xs text-slate-500">
                             Destino:{" "}
                             {isHttpUrl(ad.destinationUrl) ? (
                               <a
@@ -331,7 +331,7 @@ export function CampaignStructurePanel({
                                 {formatDestinationLabel(ad.destinationUrl)}
                               </a>
                             ) : (
-                              <span>{ad.destinationUrl}</span>
+                              <span className="break-all">{ad.destinationUrl}</span>
                             )}
                           </p>
                         ) : (

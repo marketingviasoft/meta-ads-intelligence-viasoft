@@ -372,7 +372,7 @@ export function DashboardClient() {
   }, [reportData]);
 
   return (
-    <main className="mx-auto max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8">
       <header className="surface-panel enter-fade p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -426,9 +426,9 @@ export function DashboardClient() {
         </div>
       </header>
 
-      <section className="surface-panel mt-5 p-5">
+      <section className="surface-panel mt-5 p-5 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
-          <div className="lg:col-span-1">
+          <div className="min-w-0 lg:col-span-1">
             <VerticalSelector
               verticals={verticalOptions}
               value={selectedVertical}
@@ -437,7 +437,7 @@ export function DashboardClient() {
               allOptionValue={ALL_VERTICALS_VALUE}
             />
           </div>
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <CampaignSelector
               campaigns={filteredCampaigns}
               value={selectedCampaignId}
@@ -445,7 +445,7 @@ export function DashboardClient() {
               disabled={loadingCampaigns || !hasFilteredCampaigns}
             />
           </div>
-          <div className="lg:col-span-1">
+          <div className="min-w-0 lg:col-span-1">
             <PeriodSelector
               value={rangeDays}
               onChange={setRangeDays}
