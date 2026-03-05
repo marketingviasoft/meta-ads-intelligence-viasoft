@@ -1,11 +1,12 @@
 "use client";
 
 import { Coins, Percent, Target, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -44,30 +45,32 @@ function ChartTooltip({ active, payload, primaryMetricLabel }: TooltipProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-xl shadow-slate-900/10 backdrop-blur-sm">
       <p className="mb-2 font-semibold text-ink">{formatDateLongBR(point.date)}</p>
-      <p className="inline-flex items-center gap-1.5 text-slate-600">
-        <Target size={12} className="text-viasoft" />
-        <span>
-          {primaryMetricLabel}: <span className="font-semibold text-ink">{formatNumberBR(point.results, 0, 2)}</span>
-        </span>
-      </p>
-      <p className="inline-flex items-center gap-1.5 text-slate-600">
-        <Wallet size={12} className="text-teal-700" />
-        <span>
-          Investimento: <span className="font-semibold text-ink">{formatCurrencyBRL(point.spend)}</span>
-        </span>
-      </p>
-      <p className="inline-flex items-center gap-1.5 text-slate-600">
-        <Percent size={12} className="text-indigo-700" />
-        <span>
-          CTR: <span className="font-semibold text-ink">{formatPercentBR(point.ctr)}</span>
-        </span>
-      </p>
-      <p className="inline-flex items-center gap-1.5 text-slate-600">
-        <Coins size={12} className="text-amber-700" />
-        <span>
-          CPC: <span className="font-semibold text-ink">{formatCurrencyBRL(point.cpc)}</span>
-        </span>
-      </p>
+      <ul className="space-y-1.5">
+        <li className="flex items-center gap-1.5 text-slate-600">
+          <Target size={12} className="text-viasoft" />
+          <span>
+            {primaryMetricLabel}: <span className="font-semibold text-ink">{formatNumberBR(point.results, 0, 2)}</span>
+          </span>
+        </li>
+        <li className="flex items-center gap-1.5 text-slate-600">
+          <Wallet size={12} className="text-teal-700" />
+          <span>
+            Investimento: <span className="font-semibold text-ink">{formatCurrencyBRL(point.spend)}</span>
+          </span>
+        </li>
+        <li className="flex items-center gap-1.5 text-slate-600">
+          <Percent size={12} className="text-indigo-700" />
+          <span>
+            CTR: <span className="font-semibold text-ink">{formatPercentBR(point.ctr)}</span>
+          </span>
+        </li>
+        <li className="flex items-center gap-1.5 text-slate-600">
+          <Coins size={12} className="text-amber-700" />
+          <span>
+            CPC: <span className="font-semibold text-ink">{formatCurrencyBRL(point.cpc)}</span>
+          </span>
+        </li>
+      </ul>
     </div>
   );
 }
@@ -78,6 +81,8 @@ export function PerformanceChart({
   isPdf = false
 }: PerformanceChartProps) {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  const spendGradientId = useId().replace(/:/g, "");
+  const resultsGradientId = useId().replace(/:/g, "");
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 430px)");
@@ -96,26 +101,33 @@ export function PerformanceChart({
 
   const xAxisInterval = data.length >= 28 ? 3 : data.length >= 14 ? 1 : 0;
   const effectiveXAxisInterval = isNarrowViewport ? 0 : xAxisInterval;
-  const leftAxisWidth = isNarrowViewport ? 36 : 74;
-  const rightAxisWidth = isNarrowViewport ? 54 : 96;
-  const chartBottomMargin = isPdf ? 24 : isNarrowViewport ? 22 : 10;
-  const chartLeftMargin = isNarrowViewport ? 0 : 12;
-  const chartRightMargin = isNarrowViewport ? 2 : 20;
+  const leftAxisWidth = isNarrowViewport ? 34 : 64;
+  const rightAxisWidth = isNarrowViewport ? 48 : 72;
+  const chartBottomMargin = isPdf ? 24 : isNarrowViewport ? 18 : 8;
+  const chartLeftMargin = isNarrowViewport ? 0 : 6;
+  const chartRightMargin = isNarrowViewport ? 0 : 8;
+  const showDots = !isNarrowViewport || data.length <= 14;
+  const totalResults = useMemo(() => data.reduce((sum, point) => sum + point.results, 0), [data]);
+  const totalSpend = useMemo(() => data.reduce((sum, point) => sum + point.spend, 0), [data]);
+  const peakResults = useMemo(() => Math.max(...data.map((point) => point.results), 0), [data]);
+  const peakSpend = useMemo(() => Math.max(...data.map((point) => point.spend), 0), [data]);
 
   const xAxisTicks = useMemo(() => {
     if (!isNarrowViewport) {
       return undefined;
     }
 
-    if (data.length <= 8) {
+    if (data.length <= 7) {
       return data.map((point) => point.date);
     }
 
-    const maxLabels = data.length >= 28 ? 5 : 6;
-    const step = Math.max(1, Math.ceil((data.length - 1) / (maxLabels - 1)));
-    const ticks = data
-      .filter((_, index) => index % step === 0 || index === data.length - 1)
-      .map((point) => point.date);
+    const desiredCount = data.length >= 24 ? 4 : data.length >= 14 ? 5 : 6;
+    const lastIndex = data.length - 1;
+    const step = lastIndex / Math.max(desiredCount - 1, 1);
+    const ticks = Array.from({ length: desiredCount }, (_, tickIndex) => {
+      const dataIndex = Math.min(lastIndex, Math.round(tickIndex * step));
+      return data[dataIndex]?.date;
+    }).filter((value): value is string => Boolean(value));
 
     return Array.from(new Set(ticks));
   }, [data, isNarrowViewport]);
@@ -130,11 +142,35 @@ export function PerformanceChart({
 
   return (
     <div
-      className={`w-full rounded-xl border border-viasoft/15 bg-white ${isPdf ? "min-h-[266px] p-3" : "min-h-[320px] p-2 sm:p-4"}`}
+      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[266px] p-3" : "min-h-[330px] p-3 sm:p-4"}`}
     >
-      <div className={isPdf ? "h-[190px]" : isNarrowViewport ? "h-[260px]" : "h-[252px]"}>
+      <div className={`${isPdf ? "mb-2" : "mb-3"} flex flex-wrap gap-2`}>
+        <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
+            {primaryMetricLabel} acumulado
+          </p>
+          <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
+        </div>
+        <div className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-800">
+            Investimento acumulado
+          </p>
+          <p className="text-sm font-semibold text-teal-800">{formatCurrencyBRL(totalSpend)}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+            Pico diário
+          </p>
+          <p className="text-sm font-semibold text-slate-700">
+            {formatNumberBR(peakResults, 0, 2)} / {formatCurrencyBRL(peakSpend)}
+          </p>
+        </div>
+      </div>
+
+      <div className={`rounded-lg border border-slate-200/90 bg-white/85 ${isPdf ? "p-2" : "p-2.5 sm:p-3"}`}>
+        <div className={isPdf ? "h-[190px]" : isNarrowViewport ? "h-[280px]" : "h-[272px]"}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <ComposedChart
             data={data}
             margin={{
               top: isPdf ? 8 : 10,
@@ -143,7 +179,17 @@ export function PerformanceChart({
               bottom: chartBottomMargin
             }}
           >
-            <CartesianGrid strokeDasharray="4 4" stroke="#cfdbe2" vertical={false} />
+            <defs>
+              <linearGradient id={spendGradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0f766e" stopOpacity={0.26} />
+                <stop offset="100%" stopColor="#0f766e" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id={resultsGradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#003A4D" stopOpacity={0.14} />
+                <stop offset="100%" stopColor="#003A4D" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 4" stroke="#d5e1e9" vertical={false} />
             <XAxis
               dataKey="date"
               ticks={xAxisTicks}
@@ -152,6 +198,8 @@ export function PerformanceChart({
               fontSize={isNarrowViewport ? 10 : 12}
               minTickGap={isNarrowViewport ? 28 : 18}
               interval={effectiveXAxisInterval}
+              tickLine={false}
+              axisLine={{ stroke: "#8da2b3", strokeWidth: 1 }}
             />
             <YAxis
               yAxisId="left"
@@ -160,6 +208,8 @@ export function PerformanceChart({
               width={leftAxisWidth}
               fontSize={isNarrowViewport ? 10 : 12}
               tickCount={isNarrowViewport ? 4 : 6}
+              tickLine={false}
+              axisLine={{ stroke: "#8da2b3", strokeWidth: 1 }}
             />
             <YAxis
               yAxisId="right"
@@ -169,15 +219,34 @@ export function PerformanceChart({
               width={rightAxisWidth}
               fontSize={isNarrowViewport ? 10 : 12}
               tickCount={isNarrowViewport ? 4 : 6}
+              tickLine={false}
+              axisLine={{ stroke: "#8da2b3", strokeWidth: 1 }}
             />
             <Tooltip content={<ChartTooltip primaryMetricLabel={primaryMetricLabel} />} />
+            <Area
+              yAxisId="right"
+              type="monotone"
+              dataKey="spend"
+              fill={`url(#${spendGradientId})`}
+              stroke="none"
+              isAnimationActive={!isPdf}
+            />
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="results"
+              fill={`url(#${resultsGradientId})`}
+              stroke="none"
+              isAnimationActive={!isPdf}
+            />
             <Line
               yAxisId="left"
               dataKey="results"
               name={primaryMetricLabel}
+              type="monotone"
               stroke="#003A4D"
-              strokeWidth={2.8}
-              dot={{ r: 2.5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 1.5 }}
+              strokeWidth={3}
+              dot={showDots ? { r: 2.5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 1.5 } : false}
               activeDot={{ r: 5, fill: "#003A4D", stroke: "#ffffff", strokeWidth: 2 }}
               isAnimationActive={!isPdf}
             />
@@ -185,23 +254,25 @@ export function PerformanceChart({
               yAxisId="right"
               dataKey="spend"
               name="Investimento"
+              type="monotone"
               stroke="#0f766e"
-              strokeWidth={2.6}
-              dot={{ r: 2.5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 1.5 }}
+              strokeWidth={2.8}
+              dot={showDots ? { r: 2.5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 1.5 } : false}
               activeDot={{ r: 5, fill: "#0f766e", stroke: "#ffffff", strokeWidth: 2 }}
               isAnimationActive={!isPdf}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
+      </div>
       </div>
       <div
         className={`${isPdf ? "mt-3.5 pb-0.5" : "mt-3"} flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-700`}
       >
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
           <span className="inline-block h-[2px] w-4 rounded bg-[#003A4D]" />
           {primaryMetricLabel}
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
           <span className="inline-block h-[2px] w-4 rounded bg-[#0f766e]" />
           Investimento
         </span>
