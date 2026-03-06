@@ -137,10 +137,6 @@ h4 {
   page-break-inside: avoid;
 }
 
-.recharts-responsive-container {
-  min-height: 260px;
-}
-
 @media print {
   body {
     background: #ffffff !important;

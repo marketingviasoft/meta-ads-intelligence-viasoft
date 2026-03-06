@@ -541,7 +541,7 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after gap-2.5">
+        <div className="pdf-landscape-page pdf-page-break-after gap-2">
           <TrendCard
             direction={comparison.trend.direction}
             costPerResult={comparison.current.costPerResult}
@@ -559,7 +559,7 @@ export default async function PdfPage({
             isPdf
           />
 
-          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-3.5">
+          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-3">
             <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
               <TrendingUp size={17} className="text-viasoft" />
               Performance diária
@@ -567,7 +567,7 @@ export default async function PdfPage({
             <p className="mt-1 text-sm text-slate-600">
               Comparativo visual de {comparison.current.primaryMetricLabel.toLowerCase()} e investimento no período atual.
             </p>
-            <div className="mt-2.5">
+            <div className="mt-2">
               <PerformanceChart
                 data={completeChartData}
                 primaryMetricLabel={comparison.current.primaryMetricLabel}
