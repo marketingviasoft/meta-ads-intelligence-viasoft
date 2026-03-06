@@ -7,6 +7,7 @@ type TimeZoneDateParts = {
 export type CurrentMonthToYesterdayRange = {
   since: string;
   until: string;
+  dataUntil: string;
   hasElapsedDays: boolean;
   timeZone: string;
 };
@@ -43,23 +44,32 @@ export function buildCurrentMonthToYesterdayRange(
     parts.day >= 24
       ? new Date(Date.UTC(parts.year, parts.month - 1, 24))
       : new Date(Date.UTC(parts.year, parts.month - 2, 24));
+  const cycleEnd =
+    parts.day >= 24
+      ? new Date(Date.UTC(parts.year, parts.month, 23))
+      : new Date(Date.UTC(parts.year, parts.month - 1, 23));
   const todayInTimeZone = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
   const yesterday = new Date(todayInTimeZone);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  if (yesterday < cycleStart) {
-    const date = formatIsoDateUtc(cycleStart);
+  const hasElapsedDays = yesterday >= cycleStart;
+  if (!hasElapsedDays) {
+    const startDate = formatIsoDateUtc(cycleStart);
     return {
-      since: date,
-      until: date,
+      since: startDate,
+      until: formatIsoDateUtc(cycleEnd),
+      dataUntil: startDate,
       hasElapsedDays: false,
       timeZone
     };
   }
 
+  const dataUntil = yesterday <= cycleEnd ? yesterday : cycleEnd;
+
   return {
     since: formatIsoDateUtc(cycleStart),
-    until: formatIsoDateUtc(yesterday),
+    until: formatIsoDateUtc(cycleEnd),
+    dataUntil: formatIsoDateUtc(dataUntil),
     hasElapsedDays: true,
     timeZone
   };

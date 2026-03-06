@@ -206,7 +206,7 @@ async function getVerticalBudgetSummary(params: {
       ? await fetchVerticalSpendInMonthRange({
           verticalTag,
           since: monthRange.since,
-          until: monthRange.until
+          until: monthRange.dataUntil
         })
       : 0;
 

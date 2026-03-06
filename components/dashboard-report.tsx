@@ -292,6 +292,16 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
             }}
           />
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#0f766e]" />
+            Valor investido
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#5cb3a6]/70" />
+            Investido + 12,15% de imposto
+          </span>
+        </div>
         <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
           <span>{formatCurrencyBRL(0)}</span>
           <span>{formatCurrencyBRL(totalCapWithTax)}</span>
