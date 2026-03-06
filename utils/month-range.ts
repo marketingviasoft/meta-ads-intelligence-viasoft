@@ -39,10 +39,16 @@ export function buildCurrentMonthToYesterdayRange(
   timeZone = process.env.APP_TIMEZONE ?? "America/Sao_Paulo"
 ): CurrentMonthToYesterdayRange {
   const parts = readTimeZoneDateParts(now, timeZone);
-  const monthStart = new Date(Date.UTC(parts.year, parts.month - 1, 1));
+  const cycleStart =
+    parts.day >= 24
+      ? new Date(Date.UTC(parts.year, parts.month - 1, 24))
+      : new Date(Date.UTC(parts.year, parts.month - 2, 24));
+  const todayInTimeZone = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const yesterday = new Date(todayInTimeZone);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  if (parts.day <= 1) {
-    const date = formatIsoDateUtc(monthStart);
+  if (yesterday < cycleStart) {
+    const date = formatIsoDateUtc(cycleStart);
     return {
       since: date,
       until: date,
@@ -51,12 +57,8 @@ export function buildCurrentMonthToYesterdayRange(
     };
   }
 
-  const todayInTimeZone = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
-  const yesterday = new Date(todayInTimeZone);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-
   return {
-    since: formatIsoDateUtc(monthStart),
+    since: formatIsoDateUtc(cycleStart),
     until: formatIsoDateUtc(yesterday),
     hasElapsedDays: true,
     timeZone

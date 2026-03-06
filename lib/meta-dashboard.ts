@@ -37,7 +37,7 @@ import {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_MAX_AGE_MS = 15 * 60 * 1000;
-const DEFAULT_VERTICAL_MONTHLY_CAP = 600;
+const DEFAULT_VERTICAL_MONTHLY_CAP = 535;
 
 function getStaleCacheValue<T>(key: string): T | null {
   const withOptionalStale = cache as typeof cache & {

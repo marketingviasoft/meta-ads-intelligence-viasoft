@@ -212,33 +212,30 @@ function getBudgetProgressTone(utilizationPercent: number): string {
   return "text-emerald";
 }
 
-function getBudgetProgressFillTone(utilizationPercent: number): string {
-  if (utilizationPercent >= 100) {
-    return "bg-[#b42318]";
-  }
-
-  if (utilizationPercent >= 85) {
-    return "bg-[#b45309]";
-  }
-
-  return "bg-[#0f766e]";
-}
+const META_INVESTMENT_TAX_RATE = 0.1215;
 
 type VerticalBudgetSummaryPanelProps = {
   verticalBudget: DashboardPayload["verticalBudget"];
 };
 
 export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSummaryPanelProps) {
-  const isOverBudget = verticalBudget.overBudgetAmount > 0;
+  const taxAmount = verticalBudget.spentInMonth * META_INVESTMENT_TAX_RATE;
+  const totalWithTax = verticalBudget.spentInMonth + taxAmount;
+  const totalCapWithTax = verticalBudget.monthlyCap * (1 + META_INVESTMENT_TAX_RATE);
+  const remainingTotal = Math.max(totalCapWithTax - totalWithTax, 0);
+  const overTotal = Math.max(totalWithTax - totalCapWithTax, 0);
+  const isOverBudget = overTotal > 0;
   const remainingLabel = isOverBudget ? "Excedente no mês" : "Saldo disponível no mês";
-  const remainingValue = isOverBudget
-    ? verticalBudget.overBudgetAmount
-    : verticalBudget.remainingInMonth;
-  const clampedUtilization = Math.max(0, Math.min(verticalBudget.utilizationPercent, 100));
-  const progressTextTone = getBudgetProgressTone(verticalBudget.utilizationPercent);
-  const progressFillTone = getBudgetProgressFillTone(verticalBudget.utilizationPercent);
-  const progressWidthPercent = Number.isFinite(clampedUtilization) ? clampedUtilization : 0;
-  const progressMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
+  const remainingValue = isOverBudget ? overTotal : remainingTotal;
+  const totalUtilizationPercent =
+    totalCapWithTax > 0 ? (totalWithTax / totalCapWithTax) * 100 : 0;
+  const investmentUtilizationPercent =
+    totalCapWithTax > 0 ? (verticalBudget.spentInMonth / totalCapWithTax) * 100 : 0;
+  const clampedTotalUtilization = Math.max(0, Math.min(totalUtilizationPercent, 100));
+  const clampedInvestmentUtilization = Math.max(0, Math.min(investmentUtilizationPercent, 100));
+  const progressTextTone = getBudgetProgressTone(totalUtilizationPercent);
+  const investmentMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
+  const totalMinWidthPx = totalWithTax > 0 ? 10 : 0;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -251,7 +248,7 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
             {formatCurrencyBRL(verticalBudget.spentInMonth)}
           </p>
           <p className="mt-1 text-xs text-slate-600">
-            Período: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.monthUntil)} (sem considerar o dia atual)
+            Ciclo de faturamento Meta: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.monthUntil)}
           </p>
         </div>
         <div className="sm:text-right">
@@ -262,7 +259,8 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
             {formatCurrencyBRL(remainingValue)}
           </p>
           <p className="mt-1 text-xs text-slate-600">
-            Teto mensal por vertical: {formatCurrencyBRL(verticalBudget.monthlyCap)}
+            Total do período: {formatCurrencyBRL(verticalBudget.spentInMonth)} + {formatCurrencyBRL(taxAmount)} de imposto ={" "}
+            {formatCurrencyBRL(totalWithTax)}
           </p>
         </div>
       </div>
@@ -270,26 +268,33 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
       <div className="mt-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <p className={`font-semibold ${progressTextTone}`}>
-            Consumo do teto: {formatPercentBR(verticalBudget.utilizationPercent, 1)}
+            Consumo do teto total: {formatPercentBR(totalUtilizationPercent, 1)}
           </p>
           <p className={`font-medium ${isOverBudget ? "text-rose" : "text-slate-600"}`}>
             {isOverBudget
-              ? `Acima do teto em ${formatCurrencyBRL(verticalBudget.overBudgetAmount)}`
-              : `Restante para o teto: ${formatCurrencyBRL(verticalBudget.remainingInMonth)}`}
+              ? `Acima do teto em ${formatCurrencyBRL(overTotal)}`
+              : `Restante para o teto: ${formatCurrencyBRL(remainingTotal)}`}
           </p>
         </div>
         <div className="relative mt-2 h-3.5 w-full overflow-hidden rounded-full border border-[#c9d7e1] bg-[#e3edf4]">
           <div
-            className={`h-full rounded-full ${progressFillTone}`}
+            className="absolute inset-y-0 left-0 rounded-full bg-[#5cb3a6]/70"
             style={{
-              width: `${progressWidthPercent}%`,
-              minWidth: `${progressMinWidthPx}px`
+              width: `${clampedTotalUtilization}%`,
+              minWidth: `${totalMinWidthPx}px`
+            }}
+          />
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-[#0f766e]"
+            style={{
+              width: `${clampedInvestmentUtilization}%`,
+              minWidth: `${investmentMinWidthPx}px`
             }}
           />
         </div>
         <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
           <span>{formatCurrencyBRL(0)}</span>
-          <span>{formatCurrencyBRL(verticalBudget.monthlyCap)}</span>
+          <span>{formatCurrencyBRL(totalCapWithTax)}</span>
         </div>
       </div>
     </div>
