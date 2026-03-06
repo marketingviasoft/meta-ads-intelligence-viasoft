@@ -2,6 +2,15 @@
 
 Publicação executiva para campanhas Meta Ads com comparativo de período e exportação em PDF via Puppeteer.
 
+## Leitura obrigatória para continuidade
+
+Antes de continuar desenvolvimento em outro ambiente, leia:
+
+- `docs/HANDOFF.md`
+- `docs/BUSINESS_RULES.md`
+- `docs/SESSION_MEMORY.md`
+- `docs/RUNBOOK.md`
+
 ## Stack
 
 - Next.js (App Router)
@@ -26,7 +35,7 @@ Publicação executiva para campanhas Meta Ads com comparativo de período e exp
 - Recomendações por objetivo (traffic, engagement, recognition, conversions)
 - Cache em memória por campanha + período (TTL 5 min)
 - Botão `Atualizar Dados` com invalidação manual de cache
-- PDF gerado em backend via Puppeteer pela rota `/pdf` (retrato, sem html2canvas/jsPDF)
+- PDF gerado em backend via Puppeteer pela rota `/pdf` (paisagem, sem html2canvas/jsPDF)
 
 ## Estrutura de pastas
 
@@ -68,7 +77,7 @@ INSIGHTS_BASELINE_ACCOUNT_JSON=
 # Baseline por vertical e objetivo (JSON)
 INSIGHTS_BASELINE_BY_VERTICAL_JSON=
 # Teto mensal por vertical (BRL)
-VERTICAL_MONTHLY_CAP_BRL=600
+VERTICAL_MONTHLY_CAP_BRL=535
 ```
 
 ## Instalação e execução local
@@ -116,7 +125,7 @@ Fluxo:
 1. Clique em `Gerar PDF`
 2. Backend abre `GET /api/pdf`
 3. Puppeteer renderiza a rota interna `/pdf?campaignId=...&rangeDays=...`
-4. Gera A4 retrato com `printBackground`
+4. Gera A4 paisagem com `printBackground`
 5. Retorna download automático
 
 ## API routes
