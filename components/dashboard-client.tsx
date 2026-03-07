@@ -484,7 +484,7 @@ export function DashboardClient() {
             <PeriodSelector
               value={rangeDays}
               onChange={setRangeDays}
-              disabled={loadingCampaigns || !hasFilteredCampaigns}
+              disabled={loadingCampaigns || !hasFilteredCampaigns || !selectedCampaignId}
             />
           </div>
         </div>

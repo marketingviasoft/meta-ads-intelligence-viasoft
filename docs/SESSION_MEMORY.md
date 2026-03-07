@@ -180,3 +180,63 @@ Este arquivo registra decisões e mudanças relevantes para manter continuidade 
 - Layout restaurado para:
 - 2 cards principais na primeira linha;
 - linha secundária com `Valor aplicado` + ícone `+` + `Imposto`.
+
+## 25) Correção de usabilidade nos seletores (fechamento no clique)
+
+- Ajuste estrutural nos três seletores customizados: `vertical`, `campanha` e `período`.
+- Contêiner externo mudou de `<label>` para `<div>` para evitar re-disparo de clique no gatilho.
+- Resultado esperado: ao selecionar um item, o dropdown fecha imediatamente (desktop e mobile).
+
+## 26) Ajuste visual de estado desativado nos seletores
+
+- Nos seletores de `campanhas` e `período`, o estado desativado deixou de usar cursor de bloqueio.
+- Estilo desativado prioriza aparência acinzentada (`bg`, `texto` e `borda`) com cursor padrão.
+
+## 27) Reforço visual do estado desativado em campanhas/período
+
+- Estado desativado ficou mais evidente com:
+- rótulo acinzentado;
+- campo com fundo cinza, borda cinza clara e sombra interna suave;
+- texto e ícone em tom reduzido para sinalizar indisponibilidade.
+
+## 28) Ajuste final de feedback visual de indisponibilidade
+
+- Seletores de `campanhas` e `período` passaram a exibir badge `Indisponível` quando desativados.
+- Campo desativado ganhou cinza mais forte e ícone de seta com opacidade reduzida.
+- Rotação da seta foi bloqueada no estado desativado para reforçar ausência de interação.
+
+## 29) Remoção do badge e reforço via contraste do campo
+
+- Badge `Indisponível` removido por poluição visual.
+- Estado desativado passou a depender apenas do próprio campo com maior contraste:
+- fundo cinza sólido, texto/ícone mais apagados e leve redução de opacidade.
+
+## 30) Reforço máximo do estado desativado + regra extra no período
+
+- Contraste do estado desativado foi elevado para tons de cinza mais fortes em `campanhas` e `período`.
+- Rótulos dos dois seletores também passam para cinza mais escuro quando desativados.
+- `Período` agora desativa também quando não há `selectedCampaignId`, evitando aparência de ativo em estado vazio.
+
+## 31) Padronização visual por referência de cinza
+
+- Estado desativado dos seletores de `campanhas` e `período` ajustado para:
+- fundo e borda `#e4e4e4`;
+- texto e ícone `#aaaaaa`.
+
+## 32) Ajuste de rótulos dos seletores desativados
+
+- Os títulos `Campanhas ativas` e `Período` voltaram para a cor padrão (`viasoft`).
+- Apenas o campo do seletor permanece em estilo desativado.
+
+## 33) Reversão de rótulos para cinza no estado desativado
+
+- Por decisão de usabilidade visual, os títulos `Campanhas ativas` e `Período` voltaram a acompanhar o estado desativado em cinza (`#aaaaaa`).
+
+## 34) Alinhamento dos títulos dos seletores
+
+- Títulos de `Vertical`, `Campanhas ativas` e `Período` foram centralizados em relação ao respectivo campo.
+
+## 35) Reversão do alinhamento dos títulos dos seletores
+
+- Centralização dos títulos foi revertida.
+- Rótulos voltaram ao alinhamento original à esquerda.

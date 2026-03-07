@@ -244,7 +244,7 @@ export function VerticalSelector({
   }, [focusedIndex, isOpen]);
 
   return (
-    <label className="flex w-full flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">Vertical</span>
       <div ref={rootRef} className="relative w-full min-w-0">
         <button
@@ -336,6 +336,6 @@ export function VerticalSelector({
           </div>
         ) : null}
       </div>
-    </label>
+    </div>
   );
 }

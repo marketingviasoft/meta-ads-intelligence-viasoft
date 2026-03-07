@@ -205,15 +205,23 @@ export function CampaignSelector({
   }, [focusedIndex, isOpen]);
 
   return (
-    <label className="flex w-full flex-col gap-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+    <div className="flex w-full flex-col gap-2">
+      <span
+        className={`text-xs font-semibold uppercase tracking-[0.08em] ${
+          disabled ? "text-[#aaaaaa]" : "text-viasoft"
+        }`}
+      >
         Campanhas ativas
       </span>
       <div ref={rootRef} className="relative w-full min-w-0">
         <button
           ref={triggerRef}
           type="button"
-          className="flex h-11 w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-ink outline-none transition focus-visible:border-viasoft focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+          className={`flex h-11 w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium outline-none transition ${
+            disabled
+              ? "cursor-default border-[#e4e4e4] bg-[#e4e4e4] text-[#aaaaaa]"
+              : "border-slate-300 bg-white text-ink focus-visible:border-viasoft focus-visible:ring-2 focus-visible:ring-viasoft/25"
+          }`}
           disabled={disabled}
           onClick={() => {
             if (isOpen) {
@@ -226,13 +234,16 @@ export function CampaignSelector({
           aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-controls={listboxId}
+          aria-disabled={disabled}
         >
           <span className="block min-w-0 flex-1 truncate text-left">
             {selectedOption?.label ?? "Sem campanhas ativas"}
           </span>
           <ChevronDown
             size={16}
-            className={`shrink-0 transition ${isOpen ? "rotate-180" : ""} ${disabled ? "text-slate-400" : "text-slate-500"}`}
+            className={`shrink-0 transition ${isOpen && !disabled ? "rotate-180" : ""} ${
+              disabled ? "text-[#aaaaaa]" : "text-slate-500"
+            }`}
           />
         </button>
 
@@ -268,6 +279,6 @@ export function CampaignSelector({
           </div>
         ) : null}
       </div>
-    </label>
+    </div>
   );
 }
