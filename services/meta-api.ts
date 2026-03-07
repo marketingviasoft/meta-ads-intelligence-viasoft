@@ -207,6 +207,7 @@ const INSIGHT_FIELDS = [
   "date_start",
   "date_stop"
 ].join(",");
+const DESTINATION_DIAGNOSTIC_ENABLED = process.env.META_DESTINATION_DIAGNOSTIC_LOG === "1";
 
 function normalizeTagKey(value: string): string {
   return value
@@ -1222,6 +1223,128 @@ function isAdPreviewFormatValidationError(error: unknown): boolean {
   );
 }
 
+function hasNonEmptyString(value: string | undefined): boolean {
+  return typeof value === "string" && Boolean(value.trim());
+}
+
+function countChildAttachmentLinks(
+  attachments:
+    | Array<{
+        link?: string;
+        call_to_action?: MetaAdCreativeCallToAction;
+      }>
+    | undefined
+): number {
+  if (!attachments?.length) {
+    return 0;
+  }
+
+  return attachments.reduce((count, attachment) => {
+    if (hasNonEmptyString(attachment.link) || hasNonEmptyString(attachment.call_to_action?.value?.link)) {
+      return count + 1;
+    }
+
+    return count;
+  }, 0);
+}
+
+function countAssetFeedLinks(
+  links: MetaAdCreativeAssetFeedLinkUrl[] | undefined
+): number {
+  if (!links?.length) {
+    return 0;
+  }
+
+  return links.reduce((count, entry) => {
+    if (
+      hasNonEmptyString(entry.website_url) ||
+      hasNonEmptyString(entry.url) ||
+      hasNonEmptyString(entry.deeplink_url)
+    ) {
+      return count + 1;
+    }
+
+    return count;
+  }, 0);
+}
+
+function resolveDestinationDiagnosticReason(destinationUrl: string): string | null {
+  if (!destinationUrl) {
+    return "EMPTY_DESTINATION";
+  }
+
+  if (destinationUrl === "Site configurado na Meta Ads (URL não exposta pela API)") {
+    return "TRAFFIC_URL_NOT_EXPOSED";
+  }
+
+  if (destinationUrl === "WhatsApp (número não identificado)") {
+    return "WHATSAPP_NUMBER_NOT_IDENTIFIED";
+  }
+
+  if (destinationUrl === "Messenger (destino não identificado)") {
+    return "MESSENGER_TARGET_NOT_IDENTIFIED";
+  }
+
+  return null;
+}
+
+function logDestinationDiagnostic(params: {
+  ad: MetaAdResponseItem;
+  destinationContext: MetaAdSetDestinationContext;
+  resolvedDestinationUrl: string;
+}): void {
+  if (!DESTINATION_DIAGNOSTIC_ENABLED) {
+    return;
+  }
+
+  const reason = resolveDestinationDiagnosticReason(params.resolvedDestinationUrl);
+  if (!reason) {
+    return;
+  }
+
+  const { ad, destinationContext, resolvedDestinationUrl } = params;
+  const creative = ad.creative;
+  const objectStorySpec = creative?.object_story_spec;
+
+  const payload = {
+    adId: ad.id,
+    adName: ad.name,
+    campaignId: ad.campaign_id ?? "",
+    adSetId: resolveAdSetId(ad),
+    reason,
+    resolvedDestinationUrl,
+    destinationSignals: {
+      destinationType: destinationContext.destinationType || "NONE",
+      objectiveSignal: destinationContext.objectiveSignal || "NONE",
+      callToActionType: normalizeSignal(ad.call_to_action_type)
+    },
+    sourcePresence: {
+      creativeId: resolveCreativeId(creative),
+      creativeName: resolveCreativeName(creative),
+      creativeLinkUrl: hasNonEmptyString(creative?.link_url),
+      creativeObjectUrl: hasNonEmptyString(creative?.object_url),
+      creativeInstagramPermalink: hasNonEmptyString(creative?.instagram_permalink_url),
+      storyLinkDataLink: hasNonEmptyString(objectStorySpec?.link_data?.link),
+      storyPhotoLink: hasNonEmptyString(objectStorySpec?.photo_data?.link),
+      storyTemplateLink: hasNonEmptyString(objectStorySpec?.template_data?.link),
+      storyVideoCtaLink: hasNonEmptyString(objectStorySpec?.video_data?.call_to_action?.value?.link),
+      childAttachmentLinks: countChildAttachmentLinks(
+        objectStorySpec?.link_data?.child_attachments
+      ),
+      creativeCtaLinks: collectCreativeCallToActionLinks(creative).length,
+      assetFeedLinks: countAssetFeedLinks(creative?.asset_feed_spec?.link_urls),
+      adPromotedObjectLink: hasNonEmptyString(ad.promoted_object?.link),
+      adPromotedObjectWebsiteUrl: hasNonEmptyString(ad.promoted_object?.website_url),
+      adPromotedObjectCustomUrl: hasNonEmptyString(ad.promoted_object?.custom_url),
+      adSetWebsiteUrl: hasNonEmptyString(destinationContext.websiteUrl),
+      adSetWhatsAppNumber: hasNonEmptyString(destinationContext.whatsappNumber),
+      adSetPageId: hasNonEmptyString(destinationContext.pageId)
+    }
+  };
+
+  console.info("[meta-api][destination-diagnostic]", JSON.stringify(payload));
+}
+
 function normalizeAdSet(item: MetaAdSetResponseItem, campaignIdFromContext: string): MetaAdSet {
   return {
     id: item.id,
@@ -1238,24 +1361,35 @@ function normalizeAd(
   adSetContext?: MetaAdSetDestinationContext
 ): MetaAd {
   const creative = item.creative;
+  const adSetId = resolveAdSetId(item) || adSetIdFromContext;
   const destinationContext = mergeDestinationContext(
     adSetContext,
     item.destination_type,
     item.promoted_object,
     item.call_to_action_type
   );
+  const destinationUrl = resolveCreativeDestinationUrl(creative, destinationContext);
+
+  logDestinationDiagnostic({
+    ad: {
+      ...item,
+      adset_id: adSetId
+    },
+    destinationContext,
+    resolvedDestinationUrl: destinationUrl
+  });
 
   return {
     id: item.id,
     name: item.name,
     campaignId: item.campaign_id ?? "",
-    adSetId: resolveAdSetId(item) || adSetIdFromContext,
+    adSetId,
     effectiveStatus: item.effective_status ?? "UNKNOWN",
     configuredStatus: resolveConfiguredStatus(item.status, item.configured_status),
     creativeId: resolveCreativeId(creative),
     creativeName: resolveCreativeName(creative),
     creativePreviewUrl: resolveCreativePreviewUrl(creative),
-    destinationUrl: resolveCreativeDestinationUrl(creative, destinationContext)
+    destinationUrl
   };
 }
 

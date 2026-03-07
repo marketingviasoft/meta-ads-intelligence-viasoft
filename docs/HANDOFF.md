@@ -83,6 +83,7 @@ Este arquivo é a memória operacional principal do projeto para continuidade en
 
 - Verdade de dados: Meta API
 - Dia atual excluído do período de performance
+- Range de performance baseado em `APP_TIMEZONE` (default `America/Sao_Paulo`)
 - Cache inteligente em memória por escopo:
   - campanhas
   - campanha+período
@@ -169,9 +170,9 @@ Este arquivo é a memória operacional principal do projeto para continuidade en
 
 ## 8) Pendências conhecidas / pontos de observação
 
-1. Destino de anúncio pode aparecer como `Site (URL não identificada)` em alguns criativos.
+1. Destino de anúncio pode aparecer como `Site configurado na Meta Ads (URL não exposta pela API)` em alguns criativos.
    - A lógica de resolução é robusta (`services/meta-api.ts`), mas há casos de payload Meta sem URL utilizável.
-   - Melhorar diagnóstico com logging controlado de campos de origem (sem token).
+   - Diagnóstico controlado disponível via `META_DESTINATION_DIAGNOSTIC_LOG=1` (sem token, apenas sinais e presença de campos).
 
 2. Layout PDF é sensível a altura do gráfico e blocos.
    - Ajustes recentes melhoraram, mas qualquer alteração de copy/padding pode impactar quebra de página.

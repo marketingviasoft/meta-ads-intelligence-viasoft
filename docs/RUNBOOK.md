@@ -28,6 +28,7 @@ INSIGHTS_MIN_CLICKS=30
 INSIGHTS_MIN_RESULTS=5
 INSIGHTS_BASELINE_ACCOUNT_JSON=
 INSIGHTS_BASELINE_BY_VERTICAL_JSON=
+META_DESTINATION_DIAGNOSTIC_LOG=0
 CHROME_EXECUTABLE_PATH=
 ```
 
@@ -126,9 +127,10 @@ Comportamento:
 - local: definir `CHROME_EXECUTABLE_PATH`.
 - Vercel: confirmar `puppeteer-core` + `@sparticuz/chromium` em produção.
 
-### 8.4 Destino de anúncio `URL não identificada`
+### 8.4 Destino de anúncio sem URL identificada
 - Alguns criativos não retornam link utilizável no payload.
 - Verificar `services/meta-api.ts` (resolução de `destinationUrl`).
+- Para diagnóstico estruturado sem token, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1` e checar logs com prefixo `[meta-api][destination-diagnostic]`.
 
 ### 8.5 Gráfico achatado / quebra de página no PDF
 - Ajustar somente:

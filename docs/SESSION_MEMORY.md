@@ -112,7 +112,8 @@ Este arquivo registra as decisões e mudanças relevantes já feitas no projeto.
 
 ## 11) Itens que merecem nova rodada de melhoria
 
-1. Destino de anúncios ainda pode falhar em alguns criativos (`URL não identificada`) por limitação/variação de payload Meta.
+1. Destino de anúncios ainda pode falhar em alguns criativos (`Site configurado na Meta Ads (URL não exposta pela API)`) por limitação/variação de payload Meta.
+   - Foi adicionado diagnóstico opcional de origem via `META_DESTINATION_DIAGNOSTIC_LOG=1` para mapear ausência de campos sem expor token.
 2. PDF é sensível a mudanças de copy/padding:
    - qualquer alteração em cards da página 4 pode impactar quebra/rodapé.
 3. Recomenda-se manter rotina de validação manual antes de release:
@@ -127,3 +128,8 @@ Este arquivo registra as decisões e mudanças relevantes já feitas no projeto.
 2. Ler `docs/HANDOFF.md` + `docs/BUSINESS_RULES.md`.
 3. Rodar `npm install`, `npm run typecheck`, `npm run dev`.
 4. Continuar pelo topo da seção “itens que merecem nova rodada”.
+
+## 13) Ajustes recentes de continuidade
+
+- `utils/date-range.ts` passou a calcular o range de performance com base em `APP_TIMEZONE` (default `America/Sao_Paulo`), mantendo a regra de nunca incluir o dia atual mesmo em runtime UTC.
+- `services/meta-api.ts` ganhou logging controlado para diagnóstico de destino de anúncio sem URL útil (`META_DESTINATION_DIAGNOSTIC_LOG=1`), registrando somente sinais e presença de campos.
