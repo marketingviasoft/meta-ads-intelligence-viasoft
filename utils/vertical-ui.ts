@@ -24,13 +24,6 @@ const DEFAULT_VERTICAL_UI: VerticalUi = {
 
 const VERTICAL_MATCHERS: VerticalMatcher[] = [
   {
-    keywords: ["analytics"],
-    ui: {
-      iconSrc: `${ICON_BASE_PATH}/analytics.svg`,
-      chipClassName: STANDARD_CHIP_TONE
-    }
-  },
-  {
     keywords: ["agro", "agrotitan"],
     ui: {
       iconSrc: `${ICON_BASE_PATH}/agrotitan.svg`,
@@ -62,13 +55,6 @@ const VERTICAL_MATCHERS: VerticalMatcher[] = [
     keywords: ["voors"],
     ui: {
       iconSrc: `${ICON_BASE_PATH}/voors.svg`,
-      chipClassName: STANDARD_CHIP_TONE
-    }
-  },
-  {
-    keywords: ["crm"],
-    ui: {
-      iconSrc: `${ICON_BASE_PATH}/crm.svg`,
       chipClassName: STANDARD_CHIP_TONE
     }
   },

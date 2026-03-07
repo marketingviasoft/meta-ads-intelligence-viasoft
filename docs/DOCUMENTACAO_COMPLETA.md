@@ -7,12 +7,14 @@ Atualizado em: 2026-03-06
 O projeto `Meta Ads Intelligence | VIASOFT` é um dashboard executivo para leitura de performance de campanhas Meta Ads, com:
 
 - filtro por vertical;
+- lista fixa de verticais suportadas (`VIASOFT`, `Agrotitan`, `Construshow`, `Filt`, `Petroshow`, `Voors`);
 - filtro por campanha ativa;
 - filtro de período (7, 14, 28, 30 dias);
 - comparativo automático contra período anterior equivalente;
 - estrutura da campanha (ad sets e ads);
 - insights e recomendações por objetivo;
 - exportação de PDF em backend via Puppeteer.
+- monitoramento de investimento mensal da vertical mesmo sem campanhas ativas no momento.
 
 Problema que o projeto resolve:
 
@@ -34,7 +36,8 @@ A aplicação entrega leitura executiva para público não técnico, mantendo ra
 Princípios implementados no código:
 
 - Meta API é fonte de verdade.
-- Dia atual nunca entra no período.
+- Períodos de performance não incluem o dia atual.
+- Orçamento mensal da vertical inclui o dia atual (parcial no momento da consulta).
 - Comparativo sempre usa janela anterior equivalente.
 - Apenas campanhas com veiculação ativa entram na seleção principal.
 
@@ -87,12 +90,14 @@ Aplicação local:
 flowchart LR
   U[Usuário / Gestor] --> UI[DashboardClient<br/>Next.js App Router]
   UI --> API1[/GET /api/meta/campaigns/]
+  UI --> API0[/GET /api/meta/vertical-budget/]
   UI --> API2[/GET /api/meta/performance/]
   UI --> API3[/GET /api/meta/adsets/]
   UI --> API4[/GET /api/meta/ads/]
   UI --> API5[/GET /api/meta/ad-preview/]
   UI --> A6[/GET /api/pdf/]
 
+  API0 --> ORQ[lib/meta-dashboard.ts]
   API1 --> ORQ[lib/meta-dashboard.ts]
   API2 --> ORQ
   API3 --> ORQ
@@ -114,18 +119,21 @@ flowchart LR
 
 1. `app/page.tsx` renderiza `DashboardClient`.
 2. `DashboardClient` chama `GET /api/meta/campaigns`.
-3. Usuário seleciona campanha/período.
-4. Front chama `GET /api/meta/performance`.
-5. Front chama estrutura:
+3. `DashboardClient` chama `GET /api/meta/vertical-budget` para a vertical selecionada.
+4. Usuário seleciona campanha/período.
+5. Front chama `GET /api/meta/performance`.
+6. Front chama estrutura:
 - `GET /api/meta/adsets`
 - `GET /api/meta/ads`
-6. UI monta cards, tendência, gráfico, insights, recomendações e card de orçamento vertical.
+7. Se não houver campanhas ativas na vertical, UI mantém card de orçamento e exibe aviso.
+8. UI monta cards, tendência, gráfico, insights, recomendações e card de orçamento vertical.
 
 ## 5.2 Atualização manual
 
 Botão `Atualizar Dados` executa refresh forçado:
 
 - campanhas (`refresh=1`)
+- orçamento da vertical (`refresh=1`)
 - performance (`refresh=1`)
 - adsets (`refresh=1`)
 - ads (`refresh=1`)
@@ -290,6 +298,8 @@ Sucesso:
       "monthlyCap": 535,
       "monthSince": "2026-02-24",
       "monthUntil": "2026-03-23",
+      "dataUntil": "2026-03-06",
+      "includesCurrentDay": true,
       "spentInMonth": 389.45,
       "remainingInMonth": 145.55,
       "overBudgetAmount": 0,
@@ -483,6 +493,43 @@ Exemplo de erro:
 }
 ```
 
+## 6.9 `GET /api/meta/vertical-budget`
+
+Query:
+
+- `verticalTag` (obrigatório)
+- `refresh=1` (opcional)
+
+Sucesso:
+
+```json
+{
+  "data": {
+    "verticalTag": "VIASOFT",
+    "monthlyCap": 535,
+    "monthSince": "2026-02-24",
+    "monthUntil": "2026-03-23",
+    "dataUntil": "2026-03-06",
+    "includesCurrentDay": true,
+    "spentInMonth": 389.45,
+    "remainingInMonth": 145.55,
+    "overBudgetAmount": 0,
+    "utilizationPercent": 72.79,
+    "hasElapsedDays": true,
+    "timezone": "America/Sao_Paulo"
+  },
+  "meta": {
+    "verticalTag": "VIASOFT",
+    "refreshed": false
+  }
+}
+```
+
+Erros:
+
+- `400`: `verticalTag` ausente ou fora da lista suportada
+- `502`: erro de integração com Meta API
+
 ## 7. Variáveis de ambiente
 
 Referência: `.env.example` + uso no código.
@@ -557,7 +604,7 @@ Campanhas com ad sets pausados/encerrados ficam fora da lista principal.
 
 `utils/date-range.ts`:
 
-- Dia atual nunca entra.
+- Dia atual nunca entra na janela de performance.
 - `until = ontem` no fuso configurado.
 - `since = until - (days - 1)`.
 - Período anterior é a janela imediatamente anterior com mesmo tamanho.
@@ -568,7 +615,15 @@ Campanhas com ad sets pausados/encerrados ficam fora da lista principal.
 
 - Ciclo fixo Meta: dia 24 até dia 23.
 - Se o dia atual for antes do dia 24, considera ciclo iniciado no mês anterior.
-- Coleta para card de orçamento vai até ontem, sem extrapolar fim do ciclo.
+- Coleta para card de orçamento vai até a data atual no fuso configurado, sem extrapolar fim do ciclo.
+- Campo `dataUntil` informa até qual data os dados foram acumulados no card.
+- Campo `includesCurrentDay` sinaliza se o dia atual entrou no acumulado.
+
+`services/meta-api.ts` (cálculo de gasto por vertical):
+
+- Somatório considera somente linhas com veiculação no período (`impressions > 0`) e gasto positivo (`spend > 0`).
+- A regra aproxima o comportamento do filtro "Tiveram veiculação" do Ads Manager.
+- Campanhas pausadas/concluídas ainda contam, desde que tenham entregue no período consultado.
 
 ## 9.4 Regra de teto + imposto no card
 
@@ -576,6 +631,7 @@ Campanhas com ad sets pausados/encerrados ficam fora da lista principal.
 
 - imposto fixo: `12.15%` sobre `spentInMonth`;
 - total operacional = investimento + imposto;
+- destaque principal de investimento exibe o total operacional (com imposto);
 - progresso da barra usa teto total (cap + imposto);
 - exibe saldo disponível ou excedente.
 
@@ -630,6 +686,20 @@ Saídas:
 - queda relevante de resultados
 - alta de custo por resultado
 - Retorna até 4 insights (inclui leitura de tendência) e até 3 recomendações.
+
+## 9.9 Verticais suportadas e comportamento sem campanhas ativas
+
+- Lista fixa de verticais no seletor:
+- `VIASOFT`
+- `Agrotitan`
+- `Construshow`
+- `Filt`
+- `Petroshow`
+- `Voors`
+- Mesmo sem campanhas ativas na vertical selecionada:
+- o card de investimento mensal continua visível;
+- o sistema exibe aviso de ausência de campanhas ativas;
+- a estrutura e os cards de performance permanecem sem dados até haver campanha ativa.
 
 ## 10. Cache e resiliência
 
@@ -739,6 +809,8 @@ Se `META_DESTINATION_DIAGNOSTIC_LOG=1`, logs estruturados são emitidos com:
 
 - `components/dashboard-client.tsx`:
 - controla estado global de seleção e loading;
+- mantém lista fixa de verticais suportadas;
+- carrega orçamento mensal por vertical via endpoint dedicado;
 - executa chamadas API;
 - renderiza erros e contingência de snapshot stale;
 - aciona geração PDF e refresh manual.
@@ -925,6 +997,7 @@ Limitações atuais:
 - `app/pdf/page.tsx`: página de render para PDF.
 - `app/api/pdf/route.ts`: endpoint de exportação PDF.
 - `app/api/meta/campaigns/route.ts`: endpoint campanhas.
+- `app/api/meta/vertical-budget/route.ts`: endpoint de orçamento mensal por vertical.
 - `app/api/meta/performance/route.ts`: endpoint performance.
 - `app/api/meta/adsets/route.ts`: endpoint ad sets.
 - `app/api/meta/ads/route.ts`: endpoint ads.
@@ -954,6 +1027,7 @@ Limitações atuais:
 - `lib/meta-dashboard.ts`: orquestração de domínio e cache.
 - `lib/pdf-generator.ts`: engine de geração PDF com Puppeteer.
 - `lib/branding.ts`: constantes institucionais.
+- `lib/verticals.ts`: lista canônica de verticais suportadas.
 
 ## 18.5 `services/`
 

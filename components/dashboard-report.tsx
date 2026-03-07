@@ -7,6 +7,7 @@ import {
   Megaphone,
   MousePointerClick,
   Percent,
+  Plus,
   TrendingUp,
   Wallet
 } from "lucide-react";
@@ -236,44 +237,68 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
   const progressTextTone = getBudgetProgressTone(totalUtilizationPercent);
   const investmentMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
   const totalMinWidthPx = totalWithTax > 0 ? 10 : 0;
+  const periodSuffix = verticalBudget.includesCurrentDay ? " (hoje, parcial)" : "";
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-4">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex h-full flex-col rounded-xl border border-viasoft/15 bg-white p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-            Investimento da vertical no mês atual
+            Investimento da vertical no mês atual (com imposto)
           </p>
-          <p className="mt-1 text-3xl font-semibold text-ink">
-            {formatCurrencyBRL(verticalBudget.spentInMonth)}
+          <p className="mt-1 text-4xl font-semibold leading-none text-ink">
+            {formatCurrencyBRL(totalWithTax)}
           </p>
-          <p className="mt-1 text-xs text-slate-600">
-            Ciclo de faturamento Meta: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.monthUntil)}
+          <p className="mt-auto pt-2 text-xs text-slate-600">
+            Período: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.dataUntil)}
+            {periodSuffix}.
           </p>
         </div>
-        <div className="sm:text-right">
+
+        <div
+          className={`flex h-full flex-col rounded-xl border p-3 ${
+            isOverBudget ? "border-rose-200 bg-rose-50/70" : "border-emerald-200 bg-emerald-50/60"
+          }`}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
             {remainingLabel}
           </p>
-          <p className={`mt-1 text-2xl font-semibold ${isOverBudget ? "text-rose" : "text-emerald"}`}>
+          <p className={`mt-1 text-4xl font-semibold leading-none ${isOverBudget ? "text-rose" : "text-emerald"}`}>
             {formatCurrencyBRL(remainingValue)}
           </p>
-          <p className="mt-1 text-xs text-slate-600">
-            Total do período: {formatCurrencyBRL(verticalBudget.spentInMonth)} + {formatCurrencyBRL(taxAmount)} de imposto ={" "}
-            {formatCurrencyBRL(totalWithTax)}
+          <p className="mt-auto pt-2 text-xs text-slate-600">
+            Teto total do ciclo: {formatCurrencyBRL(totalCapWithTax)}
           </p>
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-stretch">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+            Valor aplicado em campanhas
+          </p>
+          <p className="mt-1 text-sm font-semibold text-ink">{formatCurrencyBRL(verticalBudget.spentInMonth)}</p>
+        </div>
+
+        <div className="flex items-center justify-center">
+          <span className="inline-flex size-7 items-center justify-center rounded-full border border-viasoft/20 bg-viasoft/10 text-viasoft">
+            <Plus size={14} />
+          </span>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">Imposto (12,15%)</p>
+          <p className="mt-1 text-sm font-semibold text-ink">{formatCurrencyBRL(taxAmount)}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <p className={`font-semibold ${progressTextTone}`}>
             Consumo do teto total: {formatPercentBR(totalUtilizationPercent, 1)}
           </p>
-          <p className={`font-medium ${isOverBudget ? "text-rose" : "text-slate-600"}`}>
-            {isOverBudget
-              ? `Acima do teto em ${formatCurrencyBRL(overTotal)}`
-              : `Restante para o teto: ${formatCurrencyBRL(remainingTotal)}`}
+          <p className="font-medium text-slate-500">
+            Referência de teto: {formatCurrencyBRL(totalCapWithTax)}
           </p>
         </div>
         <div className="relative mt-2 h-3.5 w-full overflow-hidden rounded-full border border-[#c9d7e1] bg-[#e3edf4]">
@@ -292,6 +317,10 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
             }}
           />
         </div>
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+          <span>{formatCurrencyBRL(0)}</span>
+          <span>{formatCurrencyBRL(totalCapWithTax)}</span>
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#0f766e]" />
@@ -301,10 +330,6 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#5cb3a6]/70" />
             Investido + 12,15% de imposto
           </span>
-        </div>
-        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-          <span>{formatCurrencyBRL(0)}</span>
-          <span>{formatCurrencyBRL(totalCapWithTax)}</span>
         </div>
       </div>
     </div>

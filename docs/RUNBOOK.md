@@ -58,6 +58,7 @@ npm run build
 ## 4) Endpoints internos
 
 - `GET /api/meta/campaigns`
+- `GET /api/meta/vertical-budget?verticalTag=...`
 - `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
 - `GET /api/meta/adsets?campaignId=...`
 - `GET /api/meta/ads?adSetId=...`
@@ -76,7 +77,10 @@ npm run build
 - estrutura (ad sets / ads);
 - preview avançado em pelo menos 2 anúncios;
 - card de orçamento da vertical (investimento + imposto).
-6. Gerar PDF e validar:
+6. Selecionar uma vertical sem campanhas ativas e validar:
+- card de orçamento continua visível e atualizado;
+- aviso de ausência de campanhas ativas aparece abaixo dos filtros.
+7. Gerar PDF e validar:
 - paginação;
 - gráfico e legenda;
 - rodapé em todas as páginas;
@@ -86,7 +90,7 @@ npm run build
 
 Comportamento atual do botão `Atualizar Dados`:
 
-- força nova leitura das rotas de campanhas, performance, ad sets e ads usando `refresh=1`;
+- força nova leitura das rotas de campanhas, orçamento da vertical, performance, ad sets e ads usando `refresh=1`;
 - não chama automaticamente `POST /api/meta/cache/invalidate`.
 
 Endpoint de invalidação (uso manual):
@@ -149,6 +153,12 @@ Pré-condições práticas:
 - alguns criativos não expõem URL final no payload da Meta;
 - revisar `services/meta-api.ts` (resolução de `destinationUrl`);
 - para diagnóstico, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1`.
+
+### 8.6 Divergência de investimento entre dashboard e Ads Manager
+
+- o card de orçamento da vertical acumula até a data atual (dia atual parcial);
+- valide no Ads Manager com a mesma janela (`since` do ciclo até hoje);
+- o card exibe "Dados acumulados até DD/MM/AAAA" para facilitar a conferência.
 
 ## 9) Retomada rápida de ambiente
 

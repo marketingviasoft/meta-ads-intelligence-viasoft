@@ -49,7 +49,7 @@ Este arquivo registra decisões e mudanças relevantes para manter continuidade 
 ## 5) Orçamento de vertical
 
 - Ciclo fixo 24 -> 23 implementado em `utils/month-range.ts`.
-- Cálculo até ontem, sem dia atual.
+- Cálculo até a data atual (dia atual parcial).
 - Teto base default `R$ 535`.
 - Demonstrativo com imposto de 12,15%.
 
@@ -86,3 +86,97 @@ Este arquivo registra decisões e mudanças relevantes para manter continuidade 
 - alinhar regras ao comportamento real da aplicação;
 - remover ambiguidades sobre refresh/cache;
 - sincronizar `RUNBOOK`, `BUSINESS_RULES`, `HANDOFF`, `RESUME_PROMPT` e `DOCUMENTACAO_COMPLETA`.
+
+## 11) Ajuste funcional recente: vertical sem campanha ativa
+
+- Seletor de vertical passou a operar com lista fixa:
+- `VIASOFT`, `Agrotitan`, `Construshow`, `Filt`, `Petroshow`, `Voors`.
+- Novo endpoint interno: `GET /api/meta/vertical-budget?verticalTag=...`.
+- Card de orçamento mensal da vertical agora independe de campanha ativa.
+- Quando a vertical selecionada não possui campanha ativa:
+- orçamento mensal continua sendo exibido;
+- UI exibe aviso de ausência de campanhas ativas para a vertical.
+
+## 12) Ajuste de confiabilidade no somatório mensal da vertical
+
+- No `fetchVerticalSpendInMonthRange`, o somatório passou a considerar apenas campanhas com:
+- `impressions > 0` no período (houve veiculação);
+- `spend > 0` no período (houve gasto real).
+- Objetivo: aproximar o cálculo interno do filtro "Tiveram veiculação" do Ads Manager.
+
+## 13) Diagnóstico de divergência Petroshow (172,88 vs 179,27)
+
+- Divergência confirmada como diferença de janela temporal:
+- `2026-02-24` até `2026-03-05` (até ontem) = `R$ 172,88`;
+- `2026-02-24` até `2026-03-06` (inclui dia atual) = `R$ 179,27`.
+- Ajuste aplicado na UI do card: exibir explicitamente a data-limite de acúmulo (`dataUntil`) com nota de inclusão/exclusão do dia atual.
+
+## 14) Decisão de produto: modelo híbrido de período
+
+- Performance comparativa continua sem dia atual (`until = ontem`).
+- Orçamento mensal da vertical passa a incluir dia atual (parcial no momento da consulta).
+- `VerticalBudgetSummary` passou a expor `includesCurrentDay`.
+
+## 15) Padronização visual do aviso sem campanha ativa
+
+- O aviso "Não há nenhuma campanha ativa para a vertical selecionada." passou a usar `surface-panel`.
+- Objetivo: manter consistência visual com os demais cards do dashboard.
+
+## 16) Reestruturação visual do card de orçamento vertical
+
+- Card reorganizado em três blocos: resumo principal, métricas compactas e barra de consumo.
+- Redução de textos redundantes e melhoria de hierarquia visual.
+- Títulos e valores alinhados verticalmente entre os dois blocos de topo.
+- Legenda da barra movida para depois das referências de faixa (`R$ 0,00` até teto).
+
+## 17) Ajuste de redundância no card de orçamento
+
+- Linhas "Ciclo Meta" e "Acumulado até" foram unificadas em uma única linha de período.
+- Linha "Total com imposto" foi removida do card de saldo para reduzir repetição.
+- Bloco de métricas compactas removeu "Valor investido" (já exibido no destaque principal).
+
+## 18) Destaque principal agora exibe total com imposto
+
+- No card de orçamento, o valor principal de investimento passou a mostrar `investido + imposto`.
+- Objetivo: alinhar a leitura com o teto total de controle (`R$ 600,00` no cenário padrão com imposto).
+- O valor investido sem imposto ficou no bloco secundário ("Valor investido").
+
+## 19) Ajuste visual de soma (investimento + imposto)
+
+- Cards secundários passaram a seguir leitura de soma: `valor aplicado em campanhas + imposto`.
+- Inserido ícone `+` entre os dois cards para reforçar visualmente a composição do total.
+- Título do card de investimento foi refinado para `Valor aplicado em campanhas`.
+
+## 20) Aproveitamento de espaço nos cards principais de orçamento
+
+- Card de investimento passou a exibir chips de contexto de ciclo (`dias corridos` e `data de fechamento`).
+- Card de saldo passou a exibir chips de contexto operacional (`consumo do teto` e `dias restantes`).
+- Objetivo: reduzir área ociosa e melhorar densidade informativa sem poluir a leitura.
+
+## 21) Ajuste de layout sem informações extras no card de orçamento
+
+- Removidos os chips adicionados na etapa anterior para evitar poluição visual.
+- Reorganização manteve somente dados já existentes:
+- período no rodapé do card de investimento;
+- teto e consumo no rodapé do card de saldo;
+- barra com cabeçalho mais limpo (somente referência de teto).
+
+## 22) Correção de posicionamento conforme referência visual aprovada
+
+- `Consumo do teto total` voltou para o cabeçalho do bloco da barra.
+- Card de saldo mantém apenas `Teto total do ciclo` no rodapé.
+- Objetivo: alinhar ao layout de referência aprovado pelo usuário.
+
+## 23) Quatro blocos em linha no resumo de orçamento
+
+- Resumo superior do card de orçamento foi unificado em um único grid responsivo:
+- `1 coluna` no mobile, `2 colunas` em telas médias, `4 colunas` em telas grandes.
+- Blocos incluídos: total com imposto, saldo disponível, valor aplicado e imposto.
+- Removido ícone de `+` central para simplificar leitura em layout horizontal.
+
+## 24) Reversão do layout em quatro blocos
+
+- A proposta de 4 blocos em linha foi revertida por preferência visual.
+- Layout restaurado para:
+- 2 cards principais na primeira linha;
+- linha secundária com `Valor aplicado` + ícone `+` + `Imposto`.

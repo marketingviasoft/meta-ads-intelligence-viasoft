@@ -21,6 +21,7 @@ Depois de ler:
 Regras de continuidade:
 - Não remover utils/insights-engine.ts.
 - Não incluir o dia atual nos cálculos de performance.
+- Incluir o dia atual (parcial) no card de orçamento mensal da vertical.
 - Manter ciclo de faturamento da vertical em 24 -> 23.
 - Manter imposto de 12,15% no demonstrativo de orçamento.
 - Preservar paridade de leitura entre dashboard e PDF.

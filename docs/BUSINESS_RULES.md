@@ -17,10 +17,21 @@ Este documento consolida as regras que devem ser preservadas no produto conforme
 - `deliveryStatus = ACTIVE` (calculado a partir dos ad sets).
 - Campanhas sem veiculação ativa não entram no fluxo principal do dashboard.
 
+## 2.1) Verticais suportadas e seleção
+
+- O seletor de vertical é fixo e deve conter exatamente:
+- `VIASOFT`
+- `Agrotitan`
+- `Construshow`
+- `Filt`
+- `Petroshow`
+- `Voors`
+- A seleção da vertical não pode depender da existência de campanha ativa.
+
 ## 3) Períodos de análise
 
 - Períodos permitidos: `7`, `14`, `28`, `30`.
-- O dia atual nunca é incluído.
+- Nos períodos de performance, o dia atual nunca é incluído.
 - Sempre existe comparação com período anterior equivalente.
 - Faixa temporal usa `APP_TIMEZONE` (default: `America/Sao_Paulo`).
 
@@ -38,8 +49,12 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 - Ciclo fixo Meta: dia `24` até dia `23`.
 - O card de orçamento deve exibir esse ciclo explicitamente.
 - Para gasto do ciclo corrente:
-- considerar dados até ontem;
+- considerar dados até hoje no fuso configurado (inclui parcial do dia atual);
 - limitar a coleta ao fim do ciclo.
+- No somatório de investimento mensal por vertical:
+- considerar somente campanhas com veiculação no período (`impressions > 0`) e gasto positivo (`spend > 0`);
+- essa regra independe de a campanha estar ativa hoje no Meta Ads.
+- Em validações no Ads Manager, o período deve terminar em hoje para bater com o card da aplicação.
 
 ## 6) Teto + imposto no card de orçamento
 
@@ -50,7 +65,9 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 - valor do imposto;
 - total (investimento + imposto);
 - saldo ou excedente.
+- O destaque principal de investimento deve exibir o total (investimento + imposto).
 - A barra de progresso deve usar teto total (base + imposto).
+- O card de orçamento da vertical deve continuar disponível mesmo sem campanhas ativas para a vertical selecionada.
 
 ## 7) Insights e recomendações
 

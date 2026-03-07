@@ -9,7 +9,15 @@ import { CampaignHeaderCard, DashboardReport, VerticalBudgetSummaryPanel } from 
 import { PeriodSelector } from "@/components/period-selector";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
-import type { DashboardPayload, MetaAd, MetaAdSet, MetaCampaign, RangeDays } from "@/lib/types";
+import type {
+  DashboardPayload,
+  MetaAd,
+  MetaAdSet,
+  MetaCampaign,
+  RangeDays,
+  VerticalBudgetSummary
+} from "@/lib/types";
+import { resolveSupportedVertical, SUPPORTED_VERTICALS } from "@/lib/verticals";
 
 type CampaignsResponse = {
   data?: MetaCampaign[];
@@ -31,7 +39,11 @@ type AdsResponse = {
   error?: string;
 };
 
-const ALL_VERTICALS_VALUE = "__ALL_VERTICALS__";
+type VerticalBudgetResponse = {
+  data?: VerticalBudgetSummary;
+  error?: string;
+};
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
@@ -71,43 +83,34 @@ export function DashboardClient() {
   const previousCampaignIdRef = useRef<string>("");
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
-  const [selectedVertical, setSelectedVertical] = useState<string>(ALL_VERTICALS_VALUE);
+  const [selectedVertical, setSelectedVertical] = useState<string>(SUPPORTED_VERTICALS[0]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [adSets, setAdSets] = useState<MetaAdSet[]>([]);
   const [selectedAdSetId, setSelectedAdSetId] = useState<string>("");
   const [ads, setAds] = useState<MetaAd[]>([]);
+  const [verticalBudget, setVerticalBudget] = useState<VerticalBudgetSummary | null>(null);
   const [rangeDays, setRangeDays] = useState<RangeDays>(7);
   const [reportData, setReportData] = useState<DashboardPayload | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState<boolean>(true);
   const [loadingAdSets, setLoadingAdSets] = useState<boolean>(false);
   const [loadingAds, setLoadingAds] = useState<boolean>(false);
+  const [loadingVerticalBudget, setLoadingVerticalBudget] = useState<boolean>(false);
   const [loadingPerformance, setLoadingPerformance] = useState<boolean>(false);
   const [manualRefreshing, setManualRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [structureErrorMessage, setStructureErrorMessage] = useState<string>("");
+  const [verticalBudgetErrorMessage, setVerticalBudgetErrorMessage] = useState<string>("");
 
-  const verticalOptions = useMemo(() => {
-    return [
-      ...new Set(
-        campaigns
-          .map((campaign) => campaign.verticalTag || "Sem vertical")
-          .filter((verticalTag) => verticalTag !== "Sem vertical")
-      )
-    ].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-  }, [campaigns]);
+  const verticalOptions = useMemo(() => [...SUPPORTED_VERTICALS], []);
 
   const filteredCampaigns = useMemo(() => {
-    if (selectedVertical === ALL_VERTICALS_VALUE) {
-      return campaigns;
-    }
-
-    return campaigns.filter((campaign) => campaign.verticalTag === selectedVertical);
+    return campaigns.filter(
+      (campaign) => resolveSupportedVertical(campaign.verticalTag) === selectedVertical
+    );
   }, [campaigns, selectedVertical]);
 
-  const hasAnyCampaigns = campaigns.length > 0;
   const hasFilteredCampaigns = filteredCampaigns.length > 0;
-  const noCampaignsForSelectedVertical =
-    !loadingCampaigns && hasAnyCampaigns && !hasFilteredCampaigns && selectedVertical !== ALL_VERTICALS_VALUE;
+  const noCampaignsForSelectedVertical = !loadingCampaigns && !hasFilteredCampaigns;
 
   const loadCampaigns = useCallback(async (refresh = false): Promise<void> => {
     setLoadingCampaigns(true);
@@ -117,20 +120,8 @@ export function DashboardClient() {
         `/api/meta/campaigns${refresh ? "?refresh=1" : ""}`
       );
       const nextCampaigns = response.data ?? [];
-      const nextVerticals = new Set(
-        nextCampaigns
-          .map((campaign) => campaign.verticalTag || "Sem vertical")
-          .filter((verticalTag) => verticalTag !== "Sem vertical")
-      );
 
       setCampaigns(nextCampaigns);
-      setSelectedVertical((previous) => {
-        if (previous === ALL_VERTICALS_VALUE) {
-          return previous;
-        }
-
-        return nextVerticals.has(previous) ? previous : ALL_VERTICALS_VALUE;
-      });
       setSelectedCampaignId((previous) => {
         if (previous && nextCampaigns.some((campaign) => campaign.id === previous)) {
           return previous;
@@ -141,12 +132,9 @@ export function DashboardClient() {
 
       if (nextCampaigns.length === 0) {
         setReportData(null);
-        setErrorMessage(
-          "Nenhuma campanha ativa com veiculação ativa foi encontrada na conta Meta informada."
-        );
-      } else {
-        setErrorMessage("");
       }
+
+      setErrorMessage("");
     } catch (error) {
       setReportData(null);
       setErrorMessage(
@@ -157,10 +145,42 @@ export function DashboardClient() {
     }
   }, []);
 
+  const loadVerticalBudget = useCallback(
+    async (verticalTag: string, refresh = false): Promise<void> => {
+      if (!verticalTag) {
+        setVerticalBudget(null);
+        setVerticalBudgetErrorMessage("");
+        return;
+      }
+
+      setLoadingVerticalBudget(true);
+
+      try {
+        const response = await requestJson<VerticalBudgetResponse>(
+          `/api/meta/vertical-budget?verticalTag=${encodeURIComponent(verticalTag)}${refresh ? "&refresh=1" : ""}`
+        );
+
+        if (!response.data) {
+          throw new Error("Resposta de orçamento da vertical vazia");
+        }
+
+        setVerticalBudget(response.data);
+        setVerticalBudgetErrorMessage("");
+      } catch (error) {
+        setVerticalBudget(null);
+        setVerticalBudgetErrorMessage(
+          `Orçamento: ${error instanceof Error ? error.message : "Erro ao carregar investimento da vertical"}`
+        );
+      } finally {
+        setLoadingVerticalBudget(false);
+      }
+    },
+    []
+  );
+
   const loadPerformance = useCallback(
     async (forceRefresh = false): Promise<void> => {
       if (!selectedCampaignId) {
-        setErrorMessage("Selecione uma campanha antes de atualizar.");
         return;
       }
 
@@ -262,6 +282,10 @@ export function DashboardClient() {
   }, [loadCampaigns]);
 
   useEffect(() => {
+    void loadVerticalBudget(selectedVertical, false);
+  }, [loadVerticalBudget, selectedVertical]);
+
+  useEffect(() => {
     setSelectedCampaignId((previous) => {
       if (previous && filteredCampaigns.some((campaign) => campaign.id === previous)) {
         return previous;
@@ -272,6 +296,9 @@ export function DashboardClient() {
 
     if (filteredCampaigns.length === 0) {
       setReportData(null);
+      setAdSets([]);
+      setSelectedAdSetId("");
+      setAds([]);
     }
   }, [filteredCampaigns]);
 
@@ -311,11 +338,6 @@ export function DashboardClient() {
   }, []);
 
   const handleManualRefresh = useCallback(async (): Promise<void> => {
-    if (!selectedCampaignId) {
-      setErrorMessage("Selecione uma campanha antes de atualizar.");
-      return;
-    }
-
     if (manualRefreshing) {
       return;
     }
@@ -323,15 +345,23 @@ export function DashboardClient() {
     setManualRefreshing(true);
 
     try {
-      await loadCampaigns(true);
+      const campaignIdForRefresh = selectedCampaignId;
+      const adSetIdForRefresh = selectedAdSetId;
 
       await Promise.all([
-        loadPerformance(true),
-        loadCampaignAdSets(selectedCampaignId, true)
+        loadCampaigns(true),
+        loadVerticalBudget(selectedVertical, true)
       ]);
 
-      if (selectedAdSetId) {
-        await loadAdSetAds(selectedAdSetId, true);
+      if (campaignIdForRefresh) {
+        await Promise.all([
+          loadPerformance(true),
+          loadCampaignAdSets(campaignIdForRefresh, true)
+        ]);
+
+        if (adSetIdForRefresh) {
+          await loadAdSetAds(adSetIdForRefresh, true);
+        }
       }
     } catch (error) {
       setErrorMessage(
@@ -346,8 +376,10 @@ export function DashboardClient() {
     loadCampaignAdSets,
     loadCampaigns,
     loadPerformance,
+    loadVerticalBudget,
     selectedAdSetId,
-    selectedCampaignId
+    selectedCampaignId,
+    selectedVertical
   ]);
 
   const pdfUrl = useMemo(() => {
@@ -386,7 +418,7 @@ export function DashboardClient() {
             </div>
             <h1 className="mt-1 text-3xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Períodos sempre excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
+              Períodos de performance excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
             </p>
           </div>
           <div className="flex flex-col gap-2">
@@ -407,18 +439,22 @@ export function DashboardClient() {
               type="button"
               onClick={() => void handleManualRefresh()}
               disabled={
-                !selectedCampaignId ||
                 manualRefreshing ||
                 loadingCampaigns ||
                 loadingPerformance ||
                 loadingAdSets ||
-                loadingAds
+                loadingAds ||
+                loadingVerticalBudget
               }
               className="hover-lift inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-viasoft px-4 text-sm font-semibold text-white shadow-sm shadow-viasoft/25 transition hover:bg-viasoft-700 active:bg-viasoft-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               <RefreshCw
                 size={16}
-                className={manualRefreshing || loadingCampaigns || loadingPerformance ? "animate-spin" : ""}
+                className={
+                  manualRefreshing || loadingCampaigns || loadingPerformance || loadingVerticalBudget
+                    ? "animate-spin"
+                    : ""
+                }
               />
               Atualizar Dados
             </button>
@@ -433,8 +469,7 @@ export function DashboardClient() {
               verticals={verticalOptions}
               value={selectedVertical}
               onChange={setSelectedVertical}
-              disabled={loadingCampaigns || !hasAnyCampaigns}
-              allOptionValue={ALL_VERTICALS_VALUE}
+              disabled={loadingCampaigns}
             />
           </div>
           <div className="min-w-0 lg:col-span-2">
@@ -453,11 +488,22 @@ export function DashboardClient() {
             />
           </div>
         </div>
-        {reportData ? (
-          <div className="mt-4 border-t border-slate-200 pt-4">
-            <VerticalBudgetSummaryPanel verticalBudget={reportData.verticalBudget} />
-          </div>
-        ) : null}
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          {loadingVerticalBudget ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="inline-flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                Carregando investimento da vertical...
+              </div>
+            </div>
+          ) : verticalBudget ? (
+            <VerticalBudgetSummaryPanel verticalBudget={verticalBudget} />
+          ) : verticalBudgetErrorMessage ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+              {verticalBudgetErrorMessage}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {errorMessage ? (
@@ -480,8 +526,18 @@ export function DashboardClient() {
       ) : null}
 
       {noCampaignsForSelectedVertical ? (
-        <section className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
-          Nenhuma campanha ativa com veiculação ativa foi encontrada para a vertical selecionada.
+        <section className="mt-5 surface-panel p-4">
+          <div className="flex items-start gap-2.5 text-sm text-slate-700">
+            <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <CircleAlert size={15} />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+                Campanhas da vertical
+              </p>
+              <p className="mt-1">Não há nenhuma campanha ativa para a vertical selecionada.</p>
+            </div>
+          </div>
         </section>
       ) : null}
 

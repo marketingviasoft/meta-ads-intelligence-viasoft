@@ -134,11 +134,13 @@ export interface VerticalBudgetSummary {
   monthlyCap: number;
   monthSince: string;
   monthUntil: string;
+  dataUntil: string;
   spentInMonth: number;
   remainingInMonth: number;
   overBudgetAmount: number;
   utilizationPercent: number;
   hasElapsedDays: boolean;
+  includesCurrentDay: boolean;
   timezone: string;
 }
 

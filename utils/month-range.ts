@@ -4,11 +4,12 @@ type TimeZoneDateParts = {
   day: number;
 };
 
-export type CurrentMonthToYesterdayRange = {
+export type CurrentMonthToCurrentDateRange = {
   since: string;
   until: string;
   dataUntil: string;
   hasElapsedDays: boolean;
+  includesCurrentDay: boolean;
   timeZone: string;
 };
 
@@ -35,10 +36,10 @@ function readTimeZoneDateParts(now: Date, timeZone: string): TimeZoneDateParts {
   return { year, month, day };
 }
 
-export function buildCurrentMonthToYesterdayRange(
+export function buildCurrentMonthToCurrentDateRange(
   now: Date = new Date(),
   timeZone = process.env.APP_TIMEZONE ?? "America/Sao_Paulo"
-): CurrentMonthToYesterdayRange {
+): CurrentMonthToCurrentDateRange {
   const parts = readTimeZoneDateParts(now, timeZone);
   const cycleStart =
     parts.day >= 24
@@ -49,10 +50,8 @@ export function buildCurrentMonthToYesterdayRange(
       ? new Date(Date.UTC(parts.year, parts.month, 23))
       : new Date(Date.UTC(parts.year, parts.month - 1, 23));
   const todayInTimeZone = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
-  const yesterday = new Date(todayInTimeZone);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  const hasElapsedDays = yesterday >= cycleStart;
+  const hasElapsedDays = todayInTimeZone >= cycleStart;
   if (!hasElapsedDays) {
     const startDate = formatIsoDateUtc(cycleStart);
     return {
@@ -60,17 +59,20 @@ export function buildCurrentMonthToYesterdayRange(
       until: formatIsoDateUtc(cycleEnd),
       dataUntil: startDate,
       hasElapsedDays: false,
+      includesCurrentDay: false,
       timeZone
     };
   }
 
-  const dataUntil = yesterday <= cycleEnd ? yesterday : cycleEnd;
+  const dataUntil = todayInTimeZone <= cycleEnd ? todayInTimeZone : cycleEnd;
+  const includesCurrentDay = dataUntil.getTime() === todayInTimeZone.getTime();
 
   return {
     since: formatIsoDateUtc(cycleStart),
     until: formatIsoDateUtc(cycleEnd),
     dataUntil: formatIsoDateUtc(dataUntil),
     hasElapsedDays: true,
+    includesCurrentDay,
     timeZone
   };
 }

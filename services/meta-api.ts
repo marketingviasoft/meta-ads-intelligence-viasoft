@@ -1639,7 +1639,7 @@ export async function fetchVerticalSpendInMonthRange(params: {
   const { verticalTag, since, until } = params;
 
   const insights = await fetchMetaList<MetaInsightResponseItem>(`${adAccountId}/insights`, {
-    fields: "campaign_id,campaign_name,spend",
+    fields: "campaign_id,campaign_name,spend,impressions",
     level: "campaign",
     time_range: JSON.stringify({
       since,
@@ -1651,6 +1651,14 @@ export async function fetchVerticalSpendInMonthRange(params: {
   const targetVertical = normalizeTagKey(verticalTag || FALLBACK_VERTICAL_TAG);
 
   return insights.reduce((total, row) => {
+    const spend = toNumber(row.spend);
+    const impressions = toNumber(row.impressions);
+
+    // Aproxima o comportamento do filtro "Tiveram veiculação" no período.
+    if (impressions <= 0 || spend <= 0) {
+      return total;
+    }
+
     const campaignVertical = normalizeTagKey(
       extractVerticalTagFromCampaignName(row.campaign_name ?? FALLBACK_VERTICAL_TAG)
     );
@@ -1659,6 +1667,6 @@ export async function fetchVerticalSpendInMonthRange(params: {
       return total;
     }
 
-    return total + toNumber(row.spend);
+    return total + spend;
   }, 0);
 }

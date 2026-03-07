@@ -27,6 +27,7 @@ Objetivo atual:
 ## 2.1 Dashboard
 
 - Carrega campanhas por `GET /api/meta/campaigns`.
+- Carrega orçamento mensal por vertical em `GET /api/meta/vertical-budget`.
 - Exibe apenas campanhas com status e entrega ativos.
 - Filtros:
 - vertical
@@ -43,6 +44,7 @@ Objetivo atual:
 - gráfico diário
 - insights e recomendações
 - orçamento da vertical
+- aviso de ausência de campanhas quando a vertical selecionada não possui campanha ativa.
 
 ## 2.2 Estrutura de campanha
 
@@ -72,7 +74,8 @@ O painel mostra:
 ## 3) Regras críticas implementadas
 
 - Fonte de verdade: Meta API.
-- Dia atual excluído dos períodos analíticos.
+- Dia atual excluído dos períodos de performance.
+- Orçamento mensal da vertical inclui dia atual (parcial).
 - Período baseado em timezone (`APP_TIMEZONE`).
 - Ciclo de orçamento da vertical: 24 -> 23.
 - Imposto no card de orçamento: 12,15%.
@@ -118,6 +121,20 @@ Relevantes:
 - `META_DESTINATION_DIAGNOSTIC_LOG`
 - `CHROME_EXECUTABLE_PATH`
 
+## 6.1 Verticais suportadas
+
+- `VIASOFT`
+- `Agrotitan`
+- `Construshow`
+- `Filt`
+- `Petroshow`
+- `Voors`
+
+Observação:
+
+- a seleção de vertical é fixa e independente de existência de campanhas ativas;
+- o card de orçamento da vertical continua funcionando mesmo sem campanha ativa.
+
 ## 7) Pontos de atenção atuais
 
 1. Alguns anúncios podem ficar sem URL final explícita por limitação de payload da Meta.
@@ -148,7 +165,8 @@ npm run dev
 ## 9) Critérios para não quebrar continuidade
 
 - Não remover `utils/insights-engine.ts`.
-- Não incluir o dia atual em análise.
+- Não incluir o dia atual nos cálculos de performance.
+- Manter o card de orçamento da vertical com acúmulo até hoje (parcial no dia atual).
 - Não alterar ciclo 24 -> 23 sem decisão explícita.
 - Não remover imposto de 12,15% do card de orçamento.
 - Não expor tokens/segredos em frontend.

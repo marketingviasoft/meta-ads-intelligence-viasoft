@@ -9,7 +9,7 @@ type VerticalSelectorProps = {
   value: string;
   onChange: (vertical: string) => void;
   disabled?: boolean;
-  allOptionValue: string;
+  allOptionValue?: string;
 };
 
 const ALL_VERTICALS_LABEL = "Todas as verticais";
@@ -59,23 +59,31 @@ export function VerticalSelector({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const options = useMemo(
-    () => [
+  const options = useMemo(() => {
+    const verticalOptions = verticals.map((vertical) => ({
+      value: vertical,
+      label: vertical
+    }));
+
+    if (!allOptionValue) {
+      return verticalOptions;
+    }
+
+    return [
       {
         value: allOptionValue,
         label: ALL_VERTICALS_LABEL
       },
-      ...verticals.map((vertical) => ({
-        value: vertical,
-        label: vertical
-      }))
-    ],
-    [allOptionValue, verticals]
-  );
+      ...verticalOptions
+    ];
+  }, [allOptionValue, verticals]);
 
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+  const selectedOption = options.find((option) => option.value === value) ?? options[0] ?? {
+    value: "",
+    label: "Sem verticais"
+  };
   const selectedIndex = options.findIndex((option) => option.value === value);
-  const selectedIsAll = selectedOption.value === allOptionValue;
+  const selectedIsAll = Boolean(allOptionValue) && selectedOption.value === allOptionValue;
   const selectedUi = selectedIsAll ? null : getVerticalUi(selectedOption.label);
   const SelectedFallbackIcon = selectedUi?.icon;
 
@@ -283,7 +291,7 @@ export function VerticalSelector({
             <ul id={listboxId} className="max-h-72 overflow-auto" role="listbox" aria-label="Selecao de vertical">
               {options.map((option, index) => {
                 const selected = option.value === value;
-                const isAllOption = option.value === allOptionValue;
+                const isAllOption = Boolean(allOptionValue) && option.value === allOptionValue;
                 const optionUi = isAllOption ? null : getVerticalUi(option.label);
                 const OptionFallbackIcon = optionUi?.icon;
 

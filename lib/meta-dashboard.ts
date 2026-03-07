@@ -28,7 +28,7 @@ import {
 } from "@/services/meta-api";
 import { buildDateRange, isValidRangeDays } from "@/utils/date-range";
 import { generateInsights } from "@/utils/insights-engine";
-import { buildCurrentMonthToYesterdayRange } from "@/utils/month-range";
+import { buildCurrentMonthToCurrentDateRange } from "@/utils/month-range";
 import {
   buildDailyMetricPoints,
   buildMetricComparison,
@@ -185,12 +185,12 @@ function resolveVerticalMonthlyCap(): number {
   return parsed;
 }
 
-async function getVerticalBudgetSummary(params: {
+export async function getVerticalBudgetSummary(params: {
   verticalTag: string;
   forceRefresh?: boolean;
 }): Promise<VerticalBudgetSummary> {
   const { verticalTag, forceRefresh = false } = params;
-  const monthRange = buildCurrentMonthToYesterdayRange();
+  const monthRange = buildCurrentMonthToCurrentDateRange();
   const monthlyCap = resolveVerticalMonthlyCap();
   const cacheKey = verticalBudgetCacheKey(verticalTag, monthRange.until);
 
@@ -219,11 +219,13 @@ async function getVerticalBudgetSummary(params: {
       monthlyCap,
       monthSince: monthRange.since,
       monthUntil: monthRange.until,
+      dataUntil: monthRange.dataUntil,
       spentInMonth,
       remainingInMonth,
       overBudgetAmount,
       utilizationPercent,
       hasElapsedDays: monthRange.hasElapsedDays,
+      includesCurrentDay: monthRange.includesCurrentDay,
       timezone: monthRange.timeZone
     };
 

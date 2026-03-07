@@ -383,7 +383,7 @@ export default async function PdfPage({
             </div>
             <h1 className="mt-1 text-4xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
             <p className="mt-2 text-base text-slate-600">
-              Períodos sempre excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
+              Períodos de performance excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
             </p>
           </header>
 
