@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { CircleAlert, FileDown, Loader2, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { CampaignStructurePanel } from "@/components/campaign-structure-panel";
@@ -97,9 +98,12 @@ export function DashboardClient() {
   const [loadingVerticalBudget, setLoadingVerticalBudget] = useState<boolean>(false);
   const [loadingPerformance, setLoadingPerformance] = useState<boolean>(false);
   const [manualRefreshing, setManualRefreshing] = useState<boolean>(false);
+  const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [structureErrorMessage, setStructureErrorMessage] = useState<string>("");
   const [verticalBudgetErrorMessage, setVerticalBudgetErrorMessage] = useState<string>("");
+  const isMountedRef = useRef<boolean>(true);
+  const pdfGenerationCleanupRef = useRef<(() => void) | null>(null);
 
   const verticalOptions = useMemo(() => [...SUPPORTED_VERTICALS], []);
 
@@ -111,6 +115,8 @@ export function DashboardClient() {
 
   const hasFilteredCampaigns = filteredCampaigns.length > 0;
   const noCampaignsForSelectedVertical = !loadingCampaigns && !hasFilteredCampaigns;
+  const isRefreshingData =
+    manualRefreshing || loadingCampaigns || loadingPerformance || loadingVerticalBudget;
 
   const loadCampaigns = useCallback(async (refresh = false): Promise<void> => {
     setLoadingCampaigns(true);
@@ -390,6 +396,59 @@ export function DashboardClient() {
     return `/api/pdf?campaignId=${encodeURIComponent(selectedCampaignId)}&rangeDays=${rangeDays}`;
   }, [rangeDays, selectedCampaignId]);
 
+  const handleGeneratePdf = useCallback((): void => {
+    if (!pdfUrl || pdfGenerating) {
+      return;
+    }
+
+    if (pdfGenerationCleanupRef.current) {
+      pdfGenerationCleanupRef.current();
+      pdfGenerationCleanupRef.current = null;
+    }
+
+    flushSync(() => {
+      setPdfGenerating(true);
+    });
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (): void => {
+      if (isMountedRef.current) {
+        setPdfGenerating(false);
+      }
+
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      window.removeEventListener("blur", finish);
+      pdfGenerationCleanupRef.current = null;
+    };
+
+    pdfGenerationCleanupRef.current = finish;
+
+    window.addEventListener("blur", finish, { once: true });
+
+    timeoutId = setTimeout(finish, 15000);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.location.assign(pdfUrl);
+      });
+    });
+  }, [pdfGenerating, pdfUrl]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (pdfGenerationCleanupRef.current) {
+        pdfGenerationCleanupRef.current();
+        pdfGenerationCleanupRef.current = null;
+      }
+    };
+  }, []);
+
   const isContingencySnapshot = useMemo(() => {
     if (!reportData?.generatedAt) {
       return false;
@@ -424,16 +483,12 @@ export function DashboardClient() {
           <div className="flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (pdfUrl) {
-                  window.location.assign(pdfUrl);
-                }
-              }}
-              disabled={!selectedCampaignId || loadingPerformance}
-              className="hover-lift inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-viasoft/80 bg-viasoft/5 px-4 text-sm font-semibold text-viasoft transition hover:bg-viasoft hover:text-white active:bg-viasoft-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+              onClick={handleGeneratePdf}
+              disabled={!selectedCampaignId || loadingPerformance || pdfGenerating}
+              className="hover-lift inline-flex h-11 w-[190px] items-center justify-center gap-2 rounded-xl border border-viasoft/80 bg-viasoft/5 px-4 text-sm font-semibold text-viasoft transition hover:bg-viasoft hover:text-white active:bg-viasoft-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
             >
-              <FileDown size={16} />
-              Gerar PDF
+              {pdfGenerating ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+              {pdfGenerating ? "Gerando PDF..." : "Gerar PDF"}
             </button>
             <button
               type="button"
@@ -446,17 +501,10 @@ export function DashboardClient() {
                 loadingAds ||
                 loadingVerticalBudget
               }
-              className="hover-lift inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-viasoft px-4 text-sm font-semibold text-white shadow-sm shadow-viasoft/25 transition hover:bg-viasoft-700 active:bg-viasoft-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="hover-lift inline-flex h-11 w-[190px] items-center justify-center gap-2 rounded-xl bg-viasoft px-4 text-sm font-semibold text-white shadow-sm shadow-viasoft/25 transition hover:bg-viasoft-700 active:bg-viasoft-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              <RefreshCw
-                size={16}
-                className={
-                  manualRefreshing || loadingCampaigns || loadingPerformance || loadingVerticalBudget
-                    ? "animate-spin"
-                    : ""
-                }
-              />
-              Atualizar Dados
+              <RefreshCw size={16} className={isRefreshingData ? "animate-spin" : ""} />
+              {isRefreshingData ? "Atualizando dados..." : "Atualizar Dados"}
             </button>
           </div>
         </div>

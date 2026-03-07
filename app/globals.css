@@ -27,11 +27,20 @@ body {
   min-height: 100vh;
   color: var(--ink);
   font-family: var(--font-body), "Segoe UI", sans-serif;
+  background: transparent;
+}
+
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  min-height: 100%;
+  background-color: var(--bg-bottom);
   background:
     radial-gradient(circle at 7% 10%, rgba(0, 58, 77, 0.22), transparent 44%),
     radial-gradient(circle at 88% 7%, rgba(15, 118, 110, 0.14), transparent 42%),
     radial-gradient(circle at 50% 100%, rgba(0, 58, 77, 0.08), transparent 46%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bottom) 100%);
+  background-attachment: fixed, fixed, fixed, fixed;
 }
 
 html,
@@ -76,13 +85,10 @@ h4 {
 }
 
 .hover-lift {
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
+  transition: box-shadow 180ms ease;
 }
 
 .hover-lift:hover {
-  transform: translateY(-1px);
   box-shadow: 0 14px 28px -22px rgba(20, 34, 39, 0.4);
 }
 
@@ -138,6 +144,7 @@ h4 {
 }
 
 @media print {
+  html,
   body {
     background: #ffffff !important;
     min-height: auto;
