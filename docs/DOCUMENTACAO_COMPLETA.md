@@ -14,6 +14,12 @@ O projeto `Meta Ads Intelligence | VIASOFT` é um dashboard executivo para leitu
 - insights e recomendações por objetivo;
 - exportação de PDF em backend via Puppeteer.
 
+Problema que o projeto resolve:
+
+- o Gerenciador de Anúncios da Meta é completo, mas denso para leituras executivas rápidas;
+- gestores e liderança normalmente precisam de leitura resumida, comparativa e padronizada;
+- a aplicação reduz ruído operacional, organiza métricas-chave e gera PDF pronto para rituais de decisão.
+
 Arquitetura atual:
 
 - Frontend e API no mesmo app Next.js (App Router).
@@ -47,6 +53,17 @@ Fonte: `package.json`.
 - ESLint + Next config
 - CSpell (pt-BR + dicionário de projeto)
 
+### 3.1 Setup local (Getting Started)
+
+```bash
+npm install
+npm run dev
+```
+
+Aplicação local:
+
+- `http://localhost:3000`
+
 ## 4. Arquitetura de alto nível
 
 ### 4.1 Camadas
@@ -63,6 +80,33 @@ Fonte: `package.json`.
 - Todas as rotas de API críticas usam `runtime = "nodejs"` e `dynamic = "force-dynamic"`.
 - Home e PDF page também são `force-dynamic`.
 - PDF é gerado via navegação server-side para rota interna `/pdf`.
+
+### 4.3 Diagrama de arquitetura (Mermaid)
+
+```mermaid
+flowchart LR
+  U[Usuário / Gestor] --> UI[DashboardClient<br/>Next.js App Router]
+  UI --> API1[/GET /api/meta/campaigns/]
+  UI --> API2[/GET /api/meta/performance/]
+  UI --> API3[/GET /api/meta/adsets/]
+  UI --> API4[/GET /api/meta/ads/]
+  UI --> API5[/GET /api/meta/ad-preview/]
+  UI --> A6[/GET /api/pdf/]
+
+  API1 --> ORQ[lib/meta-dashboard.ts]
+  API2 --> ORQ
+  API3 --> ORQ
+  API4 --> ORQ
+  API5 --> ORQ
+
+  ORQ --> CACHE[(Cache em memória<br/>TTL 5 min / stale 15 min)]
+  ORQ --> META[services/meta-api.ts]
+  META --> GRAPH[(Meta Graph API)]
+
+  A6 --> A7[lib/pdf-generator.ts]
+  A7 --> A8[/GET /pdf/]
+  A8 --> ORQ
+```
 
 ## 5. Fluxos principais
 
@@ -109,6 +153,25 @@ Se a Meta API falhar, o backend pode retornar snapshot stale dentro de janela de
 6. Exporta A4 paisagem com `printBackground`.
 7. Download retorna com nome dinâmico baseado em campanha + data.
 
+## 5.5 Casos de uso principais
+
+1. Gestor semanal:
+- acessa o dashboard na segunda-feira;
+- filtra pela vertical e campanha;
+- valida semáforo executivo e tendência;
+- exporta PDF para reunião de diretoria.
+
+2. Analista de performance:
+- faz refresh dos dados;
+- compara período atual vs período anterior;
+- inspeciona estrutura de ad sets/ads e destino;
+- usa insights/recomendações para priorizar otimizações.
+
+3. Liderança executiva:
+- consome apenas os blocos de alto nível;
+- acompanha orçamento da vertical com imposto;
+- usa PDF como evidência padronizada para tomada de decisão.
+
 ## 6. Contrato da API interna
 
 Base: `app/api/*`.
@@ -132,9 +195,19 @@ Sucesso:
 
 ```json
 {
-  "data": [MetaCampaign],
+  "data": [
+    {
+      "id": "120219312345670001",
+      "name": "[VIASOFT] [Vertical A] [TRAFFIC] Campanha Safra",
+      "objective": "OUTCOME_TRAFFIC",
+      "objectiveCategory": "TRAFFIC",
+      "effectiveStatus": "ACTIVE",
+      "verticalTag": "Vertical A",
+      "deliveryStatus": "ACTIVE"
+    }
+  ],
   "meta": {
-    "count": 0,
+    "count": 1,
     "refreshed": false
   }
 }
@@ -157,7 +230,100 @@ Sucesso:
 
 ```json
 {
-  "data": DashboardPayload
+  "data": {
+    "campaign": {
+      "id": "120219312345670001",
+      "name": "[VIASOFT] [Vertical A] [TRAFFIC] Campanha Safra",
+      "objective": "OUTCOME_TRAFFIC",
+      "objectiveCategory": "TRAFFIC",
+      "effectiveStatus": "ACTIVE",
+      "verticalTag": "Vertical A",
+      "deliveryStatus": "ACTIVE"
+    },
+    "range": {
+      "days": 7,
+      "since": "2026-02-27",
+      "until": "2026-03-05",
+      "previousSince": "2026-02-20",
+      "previousUntil": "2026-02-26"
+    },
+    "comparison": {
+      "current": {
+        "spend": 1240.55,
+        "impressions": 56210,
+        "clicks": 1840,
+        "ctr": 3.27,
+        "cpc": 0.67,
+        "results": 1715,
+        "costPerResult": 0.72,
+        "primaryMetricKey": "link_clicks",
+        "primaryMetricLabel": "Cliques no link"
+      },
+      "previous": {
+        "spend": 1098.23,
+        "impressions": 48790,
+        "clicks": 1492,
+        "ctr": 3.05,
+        "cpc": 0.74,
+        "results": 1410,
+        "costPerResult": 0.78,
+        "primaryMetricKey": "link_clicks",
+        "primaryMetricLabel": "Cliques no link"
+      },
+      "deltas": {
+        "spend": { "absolute": 142.32, "percent": 12.96 },
+        "impressions": { "absolute": 7420, "percent": 15.21 },
+        "clicks": { "absolute": 348, "percent": 23.32 },
+        "ctr": { "absolute": 0.22, "percent": 7.21 },
+        "cpc": { "absolute": -0.07, "percent": -9.46 },
+        "results": { "absolute": 305, "percent": 21.63 },
+        "costPerResult": { "absolute": -0.06, "percent": -7.69 }
+      },
+      "trend": {
+        "direction": "positive",
+        "score": 4,
+        "message": "Crescimento consistente no período comparativo, com eficiência operacional preservada."
+      }
+    },
+    "verticalBudget": {
+      "verticalTag": "Vertical A",
+      "monthlyCap": 535,
+      "monthSince": "2026-02-24",
+      "monthUntil": "2026-03-23",
+      "spentInMonth": 389.45,
+      "remainingInMonth": 145.55,
+      "overBudgetAmount": 0,
+      "utilizationPercent": 72.79,
+      "hasElapsedDays": true,
+      "timezone": "America/Sao_Paulo"
+    },
+    "chart": [
+      {
+        "date": "2026-02-27",
+        "spend": 173.32,
+        "impressions": 8031,
+        "clicks": 260,
+        "ctr": 3.24,
+        "cpc": 0.67,
+        "results": 248,
+        "costPerResult": 0.7
+      }
+    ],
+    "insights": [
+      {
+        "type": "opportunity",
+        "title": "Ambiente favorável para ampliação gradual de investimento",
+        "message": "A performance atual permite expansão progressiva de verba com manutenção da eficiência unitária."
+      }
+    ],
+    "recommendations": [
+      {
+        "title": "Estratégia criativa para cliques",
+        "message": "Priorize três variações criativas com CTA explícito no início da peça para ampliar link_clicks."
+      }
+    ],
+    "generatedAt": "2026-03-06T20:18:42.000Z"
+  }
 }
 ```
 
@@ -177,10 +343,18 @@ Sucesso:
 
 ```json
 {
-  "data": [MetaAdSet],
+  "data": [
+    {
+      "id": "120219312345670991",
+      "name": "AS - Públicos Quentes",
+      "campaignId": "120219312345670001",
+      "effectiveStatus": "ACTIVE",
+      "configuredStatus": "ACTIVE"
+    }
+  ],
   "meta": {
     "campaignId": "123",
-    "count": 0,
+    "count": 1,
     "refreshed": false
   }
 }
@@ -202,10 +376,23 @@ Sucesso:
 
 ```json
 {
-  "data": [MetaAd],
+  "data": [
+    {
+      "id": "120219312345670888",
+      "name": "AD - Vídeo 15s CTA WhatsApp",
+      "campaignId": "120219312345670001",
+      "adSetId": "120219312345670991",
+      "effectiveStatus": "ACTIVE",
+      "configuredStatus": "ACTIVE",
+      "creativeId": "120219312345670777",
+      "creativeName": "Criativo Safra 15s",
+      "creativePreviewUrl": "https://example-cdn/meta/creative-120219312345670777.jpg",
+      "destinationUrl": "https://wa.me/5511999999999"
+    }
+  ],
   "meta": {
     "adSetId": "123",
-    "count": 0,
+    "count": 1,
     "refreshed": false
   }
 }
@@ -227,7 +414,11 @@ Sucesso:
 
 ```json
 {
-  "data": MetaAdPreview,
+  "data": {
+    "adId": "120219312345670888",
+    "adFormat": "DESKTOP_FEED_STANDARD",
+    "iframeUrl": "https://business.facebook.com/ads/api/preview_iframe.php?d=..."
+  },
   "meta": {
     "adId": "123",
     "refreshed": false
@@ -252,6 +443,17 @@ Sucesso:
 
 - `ok: true` + metadados de invalidação.
 
+Exemplo de resposta (`scope = performance`):
+
+```json
+{
+  "ok": true,
+  "scope": "performance",
+  "removedKeys": 1,
+  "message": "Cache da campanha/período invalidado"
+}
+```
+
 Erros:
 
 - `400`: payload inválido/env ausente.
@@ -272,6 +474,14 @@ Erros:
 
 - `400`: parâmetros inválidos
 - `500`: falha de geração de PDF
+
+Exemplo de erro:
+
+```json
+{
+  "error": "Período inválido. Use 7, 14, 28 ou 30"
+}
+```
 
 ## 7. Variáveis de ambiente
 
@@ -629,6 +839,29 @@ Responsividade:
 - UI prefixa erro com contexto (`Campaigns:`, `Performance:`, `Estrutura:`).
 - Snapshot stale gera alerta visual de contingência.
 - Logs diagnósticos opcionais para destino de anúncio.
+
+### 15.1 Erros comuns (troubleshooting rápido)
+
+1. `META_ACCESS_TOKEN não configurado` / `META_AD_ACCOUNT_ID não configurado`
+- causa provável: `.env.local` ausente ou sem variáveis obrigatórias;
+- ação rápida: preencher env e reiniciar `npm run dev`.
+
+2. Sem campanhas no seletor
+- causa provável: ausência de campanhas com status ativo e entrega ativa;
+- ação rápida: validar status na conta Meta e permissões do token.
+
+3. Aviso de contingência no dashboard
+- causa provável: falha da Meta API no último refresh;
+- ação rápida: repetir refresh, validar conectividade e permissões; o sistema usa snapshot stale temporário.
+
+4. Falha de PDF em ambiente local
+- causa provável: Chrome local não encontrado;
+- ação rápida: definir `CHROME_EXECUTABLE_PATH` no `.env.local`.
+
+5. Erro de imagem em base64 (integrações/sessões de suporte)
+- sintoma: payload de imagem não processa ou chega truncado;
+- causa provável: string base64 incompleta, truncamento de envio ou histórico da sessão corrompido;
+- ação rápida: reenviar a imagem completa em uma única mensagem e, se necessário, limpar o histórico/contexto da sessão antes de tentar novamente.
 
 ## 16. Build, qualidade e operação
 
