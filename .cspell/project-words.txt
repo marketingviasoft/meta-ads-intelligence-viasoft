@@ -24,3 +24,8 @@ generatedAt
 lucide
 fbtrace
 networkidle
+sparticuz
+adset
+adsets
+ADSET
+cooldown

@@ -1,10 +1,14 @@
 # Runbook Operacional
 
+Última atualização: 2026-03-06
+
+Este runbook descreve como subir, validar e operar o projeto localmente com base no comportamento atual do código.
+
 ## 1) Pré-requisitos
 
 - Node.js 20+ (LTS recomendado)
 - npm funcional no terminal
-- Variáveis em `.env.local`
+- Arquivo `.env.local` preenchido
 
 ## 2) Configuração de ambiente
 
@@ -19,7 +23,7 @@ APP_TIMEZONE=America/Sao_Paulo
 VERTICAL_MONTHLY_CAP_BRL=535
 ```
 
-Opcional:
+Variáveis opcionais:
 
 ```env
 META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON=
@@ -40,21 +44,18 @@ npm run dev
 ```
 
 Aplicação:
+
 - `http://localhost:3000`
 
-Checagem de tipo:
+Comandos úteis:
 
 ```bash
 npm run typecheck
-```
-
-Build:
-
-```bash
+npm run lint
 npm run build
 ```
 
-## 4) Endpoints-chave
+## 4) Endpoints internos
 
 - `GET /api/meta/campaigns`
 - `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
@@ -66,24 +67,29 @@ npm run build
 
 ## 5) Fluxo de validação rápida (aceite)
 
-1. Abrir home.
-2. Confirmar carregamento de campanhas.
-3. Selecionar campanha + período.
+1. Abrir a home.
+2. Confirmar carregamento de campanhas ativas com veiculação.
+3. Selecionar campanha e período.
 4. Clicar em `Atualizar Dados`.
 5. Validar:
-   - cards com valores e deltas
-   - estrutura (adsets/ads)
-   - preview avançado de 2 criativos diferentes
-   - card de orçamento vertical (investimento + imposto)
+- cards com valores e deltas;
+- estrutura (ad sets / ads);
+- preview avançado em pelo menos 2 anúncios;
+- card de orçamento da vertical (investimento + imposto).
 6. Gerar PDF e validar:
-   - paginação
-   - legenda do gráfico
-   - rodapé na mesma página
-   - sem páginas em branco extras
+- paginação;
+- gráfico e legenda;
+- rodapé em todas as páginas;
+- ausência de páginas em branco.
 
-## 6) Invalidação de cache
+## 6) Refresh, cache e invalidação
 
-Exemplos payload:
+Comportamento atual do botão `Atualizar Dados`:
+
+- força nova leitura das rotas de campanhas, performance, ad sets e ads usando `refresh=1`;
+- não chama automaticamente `POST /api/meta/cache/invalidate`.
+
+Endpoint de invalidação (uso manual):
 
 ```json
 { "scope": "all" }
@@ -101,44 +107,50 @@ Exemplos payload:
 }
 ```
 
-## 7) Deploy na Vercel (PDF)
+## 7) PDF local e serverless
 
-Pontos obrigatórios:
+Regras de execução:
 
-- Runtime Node no endpoint de PDF.
-- `puppeteer-core` + `@sparticuz/chromium`.
-- `APP_BASE_URL` configurado.
+- rota de PDF usa runtime Node (`app/api/pdf/route.ts`);
+- local: usa Chrome local (auto-detect) ou `CHROME_EXECUTABLE_PATH`;
+- serverless (Vercel/AWS): usa `@sparticuz/chromium` + `puppeteer-core`.
 
-Comportamento:
-- local: usa Chrome local (`CHROME_EXECUTABLE_PATH` ou auto-detect)
-- serverless: usa Chromium do `@sparticuz/chromium`.
+Pré-condições práticas:
+
+- `APP_BASE_URL` configurado corretamente para o ambiente;
+- dependências instaladas sem remoção de `puppeteer-core` e `@sparticuz/chromium`.
 
 ## 8) Troubleshooting
 
 ### 8.1 `META_ACCESS_TOKEN não configurado` / `META_AD_ACCOUNT_ID não configurado`
-- Verificar `.env.local`.
-- Reiniciar servidor após mudar env.
+
+- revisar `.env.local`;
+- reiniciar o servidor após alterar env.
 
 ### 8.2 Sem campanhas no seletor
-- Verificar se há campanhas `ACTIVE` com `delivery ACTIVE`.
-- Conferir permissões do token (ads_read).
 
-### 8.3 PDF falhando por Chrome
-- local: definir `CHROME_EXECUTABLE_PATH`.
-- Vercel: confirmar `puppeteer-core` + `@sparticuz/chromium` em produção.
+- confirmar campanhas com `effective_status = ACTIVE`;
+- confirmar veiculação ativa (delivery calculado por ad sets);
+- revisar permissões do token (`ads_read`).
 
-### 8.4 Destino de anúncio sem URL identificada
-- Alguns criativos não retornam link utilizável no payload.
-- Verificar `services/meta-api.ts` (resolução de `destinationUrl`).
-- Para diagnóstico estruturado sem token, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1` e checar logs com prefixo `[meta-api][destination-diagnostic]`.
+### 8.3 Alerta de contingência (snapshot stale)
 
-### 8.5 Gráfico achatado / quebra de página no PDF
-- Ajustar somente:
-  - `components/performance-chart.tsx` (altura/margens do chart)
-  - `app/pdf/page.tsx` (padding/gaps da página 4)
-- Evitar mexer em múltiplas páginas ao mesmo tempo.
+- significa falha na leitura mais recente da Meta API;
+- o dashboard exibiu cache stale dentro da janela de contingência;
+- tentar novo refresh e validar conectividade/permissões.
 
-## 9) Comandos úteis para retomar
+### 8.4 PDF falhando por browser local
+
+- definir `CHROME_EXECUTABLE_PATH`;
+- validar se o Chrome instalado está acessível pelo usuário atual.
+
+### 8.5 Destino de anúncio sem URL identificada
+
+- alguns criativos não expõem URL final no payload da Meta;
+- revisar `services/meta-api.ts` (resolução de `destinationUrl`);
+- para diagnóstico, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1`.
+
+## 9) Retomada rápida de ambiente
 
 ```bash
 git pull
@@ -147,10 +159,13 @@ npm run typecheck
 npm run dev
 ```
 
-## 10) Regra de handoff
+## 10) Continuidade de documentação
 
-Antes de encerrar uma sessão, atualizar:
+Antes de encerrar sessão de trabalho, atualizar:
+
 - `docs/HANDOFF.md`
 - `docs/SESSION_MEMORY.md`
 
-Assim o próximo ambiente começa sem perda de contexto.
+Para visão técnica completa, usar também:
+
+- `docs/DOCUMENTACAO_COMPLETA.md`
