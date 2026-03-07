@@ -285,3 +285,26 @@ Este arquivo registra decisÃµes e mudanÃ§as relevantes para manter continuidade 
 
 - Botões `Gerar PDF` e `Atualizar Dados` passaram a usar largura fixa (`w-[190px]`).
 - Objetivo: evitar variação de tamanho quando o texto muda para estados de carregamento (`Gerando PDF...` / `Atualizando dados...`).
+
+## 44) Exportação de PDF habilitada para vertical sem campanha ativa
+
+- `/api/pdf` agora aceita `verticalTag` como alternativa ao `campaignId`.
+- Quando não há campanha ativa na vertical selecionada, o botão `Gerar PDF` continua disponível e exporta o resumo de orçamento mensal da vertical.
+- A página `/pdf` ganhou modo de renderização "somente orçamento da vertical" com paginação 1/1.
+
+## 45) Correção de encoding no endpoint de PDF
+
+- Erro de build no Turbopack foi causado por `app/api/pdf/route.ts` salvo em encoding não UTF-8.
+- Arquivo foi convertido para UTF-8, eliminando a falha `invalid utf-8 sequence`.
+
+## 46) PDF de vertical sem campanha ajustado para caber em 1 página
+
+- No modo de PDF sem campanha ativa, o layout foi compactado para evitar quebra indevida em 2 páginas.
+- Removido bloco de aviso redundante nesse modo e reduzido espaçamento/padding da seção principal.
+- `min-h-screen` foi removido do `<main>` da página de PDF para evitar altura extra no contexto de impressão.
+
+## 47) Otimização de tempo na geração de PDF (reuso de browser)
+
+- A geração de PDF passou a reutilizar uma instância compartilhada de browser (`puppeteer`) por processo.
+- Antes: cada exportação abria e fechava o Chrome inteiro.
+- Agora: cada exportação abre/fecha apenas uma nova aba, reduzindo latência média por requisição.

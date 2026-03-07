@@ -179,3 +179,9 @@ Antes de encerrar sessÃ£o de trabalho, atualizar:
 Para visÃ£o tÃ©cnica completa, usar tambÃ©m:
 
 - `docs/DOCUMENTACAO_COMPLETA.md`
+
+## 11) Exportação de PDF sem campanha ativa
+
+- Fluxo suportado: quando não houver campanha ativa na vertical, usar `GET /api/pdf?verticalTag=...&rangeDays=...`.
+- O PDF gerado nesse modo contém o bloco de investimento mensal da vertical e sinalização de ausência de campanhas ativas.
+- Fluxo tradicional continua disponível: `GET /api/pdf?campaignId=...&rangeDays=...`.

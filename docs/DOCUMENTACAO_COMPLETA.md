@@ -1088,3 +1088,18 @@ Quando houver alteração de regra/fluxo:
 
 
 
+
+## 20. Atualização recente (2026-03-07)
+
+### 20.1 PDF sem campanha ativa
+
+- A exportação de PDF foi estendida para cenários sem campanha ativa na vertical selecionada.
+- Agora o endpoint aceita dois modos:
+- `GET /api/pdf?campaignId=...&rangeDays=...` (relatório completo de campanha)
+- `GET /api/pdf?verticalTag=...&rangeDays=...` (resumo de investimento da vertical)
+- No modo por `verticalTag`, o PDF renderiza a capa executiva com seletores e card de orçamento mensal da vertical, incluindo aviso de ausência de campanhas ativas.
+
+### 20.2 Ajuste no botão de exportação
+
+- O botão `Gerar PDF` deixou de depender exclusivamente de campanha selecionada.
+- Quando não há campanha ativa na vertical, ele exporta o PDF de orçamento da vertical normalmente.

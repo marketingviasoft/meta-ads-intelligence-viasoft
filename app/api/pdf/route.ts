@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateDashboardPdf } from "@/lib/pdf-generator";
 import { PUBLICATION_SLUG } from "@/lib/branding";
 import { getActiveCampaigns } from "@/lib/meta-dashboard";
+import { resolveSupportedVertical, SUPPORTED_VERTICALS } from "@/lib/verticals";
 import { isValidRangeDays } from "@/utils/date-range";
 
 export const runtime = "nodejs";
@@ -82,48 +83,77 @@ function parseCampaignSlugParts(params: {
 }
 
 async function buildPdfFileName(params: {
-  campaignId: string;
+  campaignId?: string;
+  verticalTag?: string;
   rangeDays: number;
 }): Promise<string> {
-  const { campaignId, rangeDays } = params;
+  const { campaignId, verticalTag, rangeDays } = params;
   const dateStamp = formatDateStampBrazil(new Date());
 
-  try {
-    const campaigns = await getActiveCampaigns(false);
-    const campaign = campaigns.find((item) => item.id === campaignId);
+  if (campaignId) {
+    try {
+      const campaigns = await getActiveCampaigns(false);
+      const campaign = campaigns.find((item) => item.id === campaignId);
 
-    if (!campaign) {
+      if (!campaign) {
+        return `${PUBLICATION_SLUG}-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
+      }
+
+      const { verticalSlug, objectiveSlug, campaignShortSlug } = parseCampaignSlugParts({
+        campaignName: campaign.name,
+        objectiveCategory: campaign.objectiveCategory
+      });
+
+      const slug = compactAndTrimSlug([
+        PUBLICATION_SLUG,
+        verticalSlug,
+        objectiveSlug,
+        campaignShortSlug,
+        `${rangeDays}d`,
+        dateStamp
+      ]);
+
+      return `${slug}.pdf`;
+    } catch {
       return `${PUBLICATION_SLUG}-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
     }
-
-    const { verticalSlug, objectiveSlug, campaignShortSlug } = parseCampaignSlugParts({
-      campaignName: campaign.name,
-      objectiveCategory: campaign.objectiveCategory
-    });
-
-    const slug = compactAndTrimSlug([
-      PUBLICATION_SLUG,
-      verticalSlug,
-      objectiveSlug,
-      campaignShortSlug,
-      `${rangeDays}d`,
-      dateStamp
-    ]);
-
-    return `${slug}.pdf`;
-  } catch {
-    return `${PUBLICATION_SLUG}-${campaignId}-${rangeDays}d-${dateStamp}.pdf`;
   }
+
+  const verticalSlug = slugifySegment(verticalTag ?? "vertical");
+  const slug = compactAndTrimSlug([
+    PUBLICATION_SLUG,
+    verticalSlug,
+    "orcamento-vertical",
+    `${rangeDays}d`,
+    dateStamp
+  ]);
+
+  return `${slug}.pdf`;
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const campaignId = request.nextUrl.searchParams.get("campaignId");
+  const rawCampaignId = request.nextUrl.searchParams.get("campaignId") ?? "";
+  const rawVerticalTag = request.nextUrl.searchParams.get("verticalTag") ?? "";
   const rawRangeDays = request.nextUrl.searchParams.get("rangeDays");
 
-  if (!campaignId) {
+  const campaignId = rawCampaignId.trim() || null;
+  const parsedVerticalTag = rawVerticalTag.trim() ? resolveSupportedVertical(rawVerticalTag) : null;
+
+  if (!campaignId && !rawVerticalTag.trim()) {
     return NextResponse.json(
       {
-        error: "Parametro campaignId e obrigatorio"
+        error: "Informe campaignId ou verticalTag"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  if (rawVerticalTag.trim() && !parsedVerticalTag) {
+    return NextResponse.json(
+      {
+        error: `Vertical inválida. Use: ${SUPPORTED_VERTICALS.join(", ")}`
       },
       {
         status: 400
@@ -136,7 +166,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isValidRangeDays(parsedRangeDays)) {
     return NextResponse.json(
       {
-        error: "Período inválido. Use 7, 14, 28 ou 30"
+        error: "PerÃ­odo invÃ¡lido. Use 7, 14, 28 ou 30"
       },
       {
         status: 400
@@ -150,11 +180,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const [pdfData, fileName] = await Promise.all([
       generateDashboardPdf({
         baseUrl,
-        campaignId,
+        campaignId: campaignId ?? undefined,
+        verticalTag: parsedVerticalTag ?? undefined,
         rangeDays: parsedRangeDays
       }),
       buildPdfFileName({
-        campaignId,
+        campaignId: campaignId ?? undefined,
+        verticalTag: parsedVerticalTag ?? undefined,
         rangeDays: parsedRangeDays
       })
     ]);

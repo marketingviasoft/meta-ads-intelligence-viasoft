@@ -5,6 +5,8 @@ import type { RangeDays } from "@/lib/types";
 import { PDF_VIEWPORT } from "@/pdf/layout-preset";
 import { isValidRangeDays } from "@/utils/date-range";
 
+let sharedBrowserPromise: Promise<Awaited<ReturnType<typeof puppeteer.launch>>> | null = null;
+
 function resolveLocalChromePath(): string | null {
   const envExecutablePath =
     process.env.CHROME_EXECUTABLE_PATH ??
@@ -77,24 +79,57 @@ async function buildBrowserLaunchOptions(): Promise<Parameters<typeof puppeteer.
   };
 }
 
+async function getSharedBrowser(): Promise<Awaited<ReturnType<typeof puppeteer.launch>>> {
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = (async () => {
+      const launchOptions = await buildBrowserLaunchOptions();
+      const browser = await puppeteer.launch(launchOptions);
+
+      browser.on("disconnected", () => {
+        sharedBrowserPromise = null;
+      });
+
+      return browser;
+    })();
+  }
+
+  return sharedBrowserPromise;
+}
+
 export async function generateDashboardPdf(params: {
   baseUrl: string;
-  campaignId: string;
+  campaignId?: string;
+  verticalTag?: string;
   rangeDays: RangeDays;
 }): Promise<Uint8Array> {
-  const { baseUrl, campaignId, rangeDays } = params;
+  const { baseUrl, campaignId, verticalTag, rangeDays } = params;
 
   if (!isValidRangeDays(rangeDays)) {
     throw new Error("Período inválido para PDF");
   }
 
-  const printUrl = `${baseUrl}/pdf?campaignId=${encodeURIComponent(campaignId)}&rangeDays=${rangeDays}`;
+  if (!campaignId && !verticalTag) {
+    throw new Error("Informe campaignId ou verticalTag para gerar o PDF");
+  }
 
-  const launchOptions = await buildBrowserLaunchOptions();
-  const browser = await puppeteer.launch(launchOptions);
+  const query = new URLSearchParams({
+    rangeDays: String(rangeDays)
+  });
+
+  if (campaignId) {
+    query.set("campaignId", campaignId);
+  }
+
+  if (verticalTag) {
+    query.set("verticalTag", verticalTag);
+  }
+
+  const printUrl = `${baseUrl}/pdf?${query.toString()}`;
+
+  const browser = await getSharedBrowser();
+  const page = await browser.newPage();
 
   try {
-    const page = await browser.newPage();
     await page.setViewport({
       width: PDF_VIEWPORT.width,
       height: PDF_VIEWPORT.height,
@@ -148,6 +183,8 @@ export async function generateDashboardPdf(params: {
 
     return pdfBuffer;
   } finally {
-    await browser.close();
+    if (!page.isClosed()) {
+      await page.close();
+    }
   }
 }

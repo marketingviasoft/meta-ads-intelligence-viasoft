@@ -389,12 +389,21 @@ export function DashboardClient() {
   ]);
 
   const pdfUrl = useMemo(() => {
-    if (!selectedCampaignId) {
+    if (!selectedVertical) {
       return "";
     }
 
-    return `/api/pdf?campaignId=${encodeURIComponent(selectedCampaignId)}&rangeDays=${rangeDays}`;
-  }, [rangeDays, selectedCampaignId]);
+    const query = new URLSearchParams({
+      rangeDays: String(rangeDays),
+      verticalTag: selectedVertical
+    });
+
+    if (selectedCampaignId) {
+      query.set("campaignId", selectedCampaignId);
+    }
+
+    return `/api/pdf?${query.toString()}`;
+  }, [rangeDays, selectedCampaignId, selectedVertical]);
 
   const handleGeneratePdf = useCallback((): void => {
     if (!pdfUrl || pdfGenerating) {
@@ -484,7 +493,7 @@ export function DashboardClient() {
             <button
               type="button"
               onClick={handleGeneratePdf}
-              disabled={!selectedCampaignId || loadingPerformance || pdfGenerating}
+              disabled={loadingCampaigns || loadingPerformance || loadingVerticalBudget || pdfGenerating}
               className="hover-lift inline-flex h-11 w-[190px] items-center justify-center gap-2 rounded-xl border border-viasoft/80 bg-viasoft/5 px-4 text-sm font-semibold text-viasoft transition hover:bg-viasoft hover:text-white active:bg-viasoft-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
             >
               {pdfGenerating ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}

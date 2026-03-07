@@ -15,9 +15,16 @@ import { MetricCard } from "@/components/metric-card";
 import { PerformanceChart } from "@/components/performance-chart";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
 import { TrendCard } from "@/components/trend-card";
-import { getActiveCampaigns, getAdSetAds, getCampaignAdSets, getDashboardPayload } from "@/lib/meta-dashboard";
+import {
+  getActiveCampaigns,
+  getAdSetAds,
+  getCampaignAdSets,
+  getDashboardPayload,
+  getVerticalBudgetSummary
+} from "@/lib/meta-dashboard";
 import { PDF_BRAND_SIGNATURE, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
 import type { DailyMetricPoint, DashboardPayload } from "@/lib/types";
+import { resolveSupportedVertical } from "@/lib/verticals";
 import { parseRangeDays } from "@/utils/date-range";
 import { formatCurrencyBRL, formatNumberBR, formatPercentBR } from "@/utils/formatters";
 
@@ -208,10 +215,12 @@ function isHttpUrl(value: string): boolean {
 function PdfPageFooter({
   pageNumber,
   generatedAtLabel,
+  totalPages = PDF_TOTAL_PAGES,
   dockBottom = true
 }: {
   pageNumber: number;
   generatedAtLabel: string;
+  totalPages?: number;
   dockBottom?: boolean;
 }) {
   return (
@@ -225,10 +234,23 @@ function PdfPageFooter({
         <span>{PDF_BRAND_SIGNATURE}</span>
       </p>
       <p>
-        Página {pageNumber}/{PDF_TOTAL_PAGES} · Atualizado em {generatedAtLabel}
+        Página {pageNumber}/{totalPages} · Atualizado em {generatedAtLabel}
       </p>
     </footer>
   );
+}
+
+function formatGeneratedAtLabel(dateIso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(new Date(dateIso));
 }
 
 export default async function PdfPage({
@@ -241,8 +263,66 @@ export default async function PdfPage({
   const campaignFromQuery = Array.isArray(params.campaignId)
     ? params.campaignId[0]
     : params.campaignId;
+  const verticalFromQuery = Array.isArray(params.verticalTag)
+    ? params.verticalTag[0]
+    : params.verticalTag;
   const rangeFromQuery = Array.isArray(params.rangeDays) ? params.rangeDays[0] : params.rangeDays;
   const rangeDays = parseRangeDays(rangeFromQuery);
+  const selectedVerticalFromQuery = resolveSupportedVertical(verticalFromQuery ?? "");
+
+  if (!campaignFromQuery && selectedVerticalFromQuery) {
+    const verticalBudget = await getVerticalBudgetSummary({
+      verticalTag: selectedVerticalFromQuery
+    });
+    const generatedAtLabel = formatGeneratedAtLabel(new Date().toISOString());
+
+    return (
+      <main className="bg-white py-3 print:py-0">
+        <PdfReadyFlag />
+        <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
+          <div className="pdf-landscape-page gap-2">
+            <header className="surface-panel p-6">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+                <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
+                  <BrandMark variant="icon" size={13} />
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                  {PDF_BRAND_SIGNATURE}
+                </span>
+              </div>
+              <h1 className="mt-1 text-4xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
+              <p className="mt-2 text-base text-slate-600">
+                Relatorio de investimento mensal da vertical selecionada.
+              </p>
+            </header>
+
+            <section className="surface-panel p-4">
+              <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
+                <div className="lg:col-span-1">
+                  <PdfSelectorField
+                    label="Vertical"
+                    value={selectedVerticalFromQuery}
+                    icon={<Layers3 size={14} className="text-viasoft" />}
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <PdfSelectorField label="Campanhas ativas" value="Sem campanhas ativas" />
+                </div>
+                <div className="lg:col-span-1">
+                  <PdfSelectorField label="Periodo" value={`Ultimos ${rangeDays} dias`} />
+                </div>
+              </div>
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <VerticalBudgetSummaryPanel verticalBudget={verticalBudget} />
+              </div>
+            </section>
+
+            <PdfPageFooter pageNumber={1} totalPages={1} generatedAtLabel={generatedAtLabel} />
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const campaigns = await getActiveCampaigns(false);
   const campaignId = campaignFromQuery ?? campaigns[0]?.id;
@@ -350,16 +430,7 @@ export default async function PdfPage({
     payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
       ? payload.campaign.verticalTag
       : "Todas as verticais";
-  const generatedAtLabel = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).format(new Date(payload.generatedAt));
+  const generatedAtLabel = formatGeneratedAtLabel(payload.generatedAt);
   const adSetLimit = 10;
   const adLimit = 6;
   const visibleAdSets = adSets.slice(0, adSetLimit);
@@ -368,7 +439,7 @@ export default async function PdfPage({
   const hiddenAdsCount = Math.max(0, ads.length - visibleAds.length);
 
   return (
-    <main className="min-h-screen bg-white py-3 print:py-0">
+    <main className="bg-white py-3 print:py-0">
       <PdfReadyFlag />
       <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
         <div className="pdf-landscape-page pdf-page-break-after">
