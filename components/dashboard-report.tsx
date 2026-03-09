@@ -348,7 +348,10 @@ export function CampaignHeaderCard({
   isPdf = false
 }: CampaignHeaderCardProps) {
   return (
-    <div className={`surface-panel bg-gradient-to-br from-viasoft/10 via-white to-white p-5 ${isPdf ? "pdf-block" : ""}`}>
+    <div
+      data-dashboard-block="campaign-info"
+      className={`surface-panel bg-gradient-to-br from-viasoft/10 via-white to-white p-5 ${isPdf ? "pdf-block" : ""}`}
+    >
       <header className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <Megaphone size={17} className="text-viasoft" />
@@ -472,7 +475,10 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
         </div>
       ) : null}
 
-      <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${isPdf ? "pdf-block gap-2.5" : ""}`}>
+      <div
+        data-dashboard-block="metrics"
+        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${isPdf ? "pdf-block gap-2.5" : ""}`}
+      >
         {orderedMetricCards.map((card) => (
           <MetricCard
             key={card.metricKey}
@@ -491,24 +497,29 @@ export function DashboardReport({ data, isPdf = false, hideCampaignHeader = fals
         ))}
       </div>
 
-      <TrendCard
-        direction={comparison.trend.direction}
-        costPerResult={comparison.current.costPerResult}
-        objectiveCategory={campaign.objectiveCategory}
-        resultsDeltaPercent={comparison.deltas.results.percent}
-        ctrDeltaPercent={comparison.deltas.ctr.percent}
-        impressionsDeltaPercent={comparison.deltas.impressions.percent}
-        clicksDeltaPercent={comparison.deltas.clicks.percent}
-        cpcDeltaPercent={comparison.deltas.cpc.percent}
-        costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
-        currentImpressions={comparison.current.impressions}
-        currentClicks={comparison.current.clicks}
-        currentResults={comparison.current.results}
-        previousResults={comparison.previous.results}
-        isPdf={isPdf}
-      />
+      <div data-dashboard-block="trend">
+        <TrendCard
+          direction={comparison.trend.direction}
+          costPerResult={comparison.current.costPerResult}
+          objectiveCategory={campaign.objectiveCategory}
+          resultsDeltaPercent={comparison.deltas.results.percent}
+          ctrDeltaPercent={comparison.deltas.ctr.percent}
+          impressionsDeltaPercent={comparison.deltas.impressions.percent}
+          clicksDeltaPercent={comparison.deltas.clicks.percent}
+          cpcDeltaPercent={comparison.deltas.cpc.percent}
+          costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
+          currentImpressions={comparison.current.impressions}
+          currentClicks={comparison.current.clicks}
+          currentResults={comparison.current.results}
+          previousResults={comparison.previous.results}
+          isPdf={isPdf}
+        />
+      </div>
 
-      <div className={`surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-5 ${isPdf ? "pdf-block" : ""}`}>
+      <div
+        data-dashboard-block="daily-performance"
+        className={`surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-5 ${isPdf ? "pdf-block" : ""}`}
+      >
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <LineChart size={17} className="text-viasoft" />
           Performance diária

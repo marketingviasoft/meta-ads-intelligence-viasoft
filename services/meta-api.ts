@@ -29,6 +29,25 @@ type MetaAdPreviewResponseItem = {
   body?: string;
 };
 
+type MetaStoryAttachmentItem = {
+  url?: string;
+  unshimmed_url?: string;
+  target?: {
+    url?: string;
+  };
+  subattachments?: {
+    data?: MetaStoryAttachmentItem[];
+  };
+};
+
+type MetaStoryResponseItem = {
+  id?: string;
+  permalink_url?: string;
+  attachments?: {
+    data?: MetaStoryAttachmentItem[];
+  };
+};
+
 type MetaCampaignResponseItem = {
   id: string;
   name: string;
@@ -70,6 +89,8 @@ type MetaAdSetPromotedObject = {
 type MetaPageMessagingResponseItem = {
   id?: string;
   whatsapp_number?: string;
+  whatsapp_phone_number?: string;
+  linked_whatsapp_phone_number?: string;
   phone?: string;
 };
 
@@ -130,6 +151,9 @@ type MetaAdCreativeResponseItem = {
   image_url?: string;
   object_url?: string;
   link_url?: string;
+  website_url?: string;
+  template_url?: string;
+  url_tags?: string;
   object_story_id?: string;
   effective_object_story_id?: string;
   instagram_permalink_url?: string;
@@ -162,6 +186,7 @@ type MetaAdCreativeResponseItem = {
     link_urls?: MetaAdCreativeAssetFeedLinkUrl[];
     call_to_action_types?: string[];
   };
+  [key: string]: unknown;
 };
 
 type MetaInsightAction = {
@@ -195,6 +220,20 @@ const AD_PREVIEW_FORMAT_CANDIDATES = [
   "MOBILE_FEED_STANDARD",
   "INSTAGRAM_STANDARD"
 ] as const;
+const CREATIVE_FIELDS = [
+  "id",
+  "name",
+  "call_to_action_type",
+  "thumbnail_url",
+  "image_url",
+  "object_url",
+  "link_url",
+  "object_story_id",
+  "effective_object_story_id",
+  "instagram_permalink_url",
+  "object_story_spec{link_data{link,picture,call_to_action,child_attachments},video_data{image_url,call_to_action,link},photo_data{link,url,call_to_action},template_data{link,call_to_action}}",
+  "asset_feed_spec{link_urls,call_to_action_types}"
+].join(",");
 const INSIGHT_FIELDS = [
   "spend",
   "impressions",
@@ -208,6 +247,9 @@ const INSIGHT_FIELDS = [
   "date_stop"
 ].join(",");
 const DESTINATION_DIAGNOSTIC_ENABLED = process.env.META_DESTINATION_DIAGNOSTIC_LOG === "1";
+const DESTINATION_PREVIEW_FALLBACK_ENABLED =
+  process.env.META_DESTINATION_PREVIEW_FALLBACK === "1";
+const URL_HINT_KEY_PATTERN = /(url|link|website|destination|href)/i;
 
 function normalizeTagKey(value: string): string {
   return value
@@ -792,13 +834,50 @@ function isMetaSocialHost(hostname: string): boolean {
   );
 }
 
-function isMetaSocialUrl(value: string): boolean {
+function isMetaOwnedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    isMetaSocialHost(host) ||
+    host === "l.facebook.com" ||
+    host.endsWith(".l.facebook.com") ||
+    host === "l.instagram.com" ||
+    host.endsWith(".l.instagram.com") ||
+    host.endsWith(".fbcdn.net") ||
+    host.endsWith(".fbsbx.com") ||
+    host.endsWith(".cdninstagram.com") ||
+    host.endsWith(".scontent.xx.fbcdn.net")
+  );
+}
+
+function isMetaOwnedUrl(value: string): boolean {
   if (!isHttpUrl(value)) {
     return false;
   }
 
   try {
-    return isMetaSocialHost(new URL(value).hostname);
+    return isMetaOwnedHost(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyCreativeAssetUrl(value: string): boolean {
+  if (!isHttpUrl(value)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const assetExtensionPattern = /\.(?:jpe?g|png|gif|webp|svg|mp4|mov|webm|m3u8|avi)$/i;
+    if (assetExtensionPattern.test(parsed.pathname)) {
+      return true;
+    }
+
+    return (
+      parsed.pathname.includes("/scontent/") ||
+      parsed.pathname.includes("/t51.29350-15/") ||
+      parsed.pathname.includes("/v/t39.30808-6/")
+    );
   } catch {
     return false;
   }
@@ -886,6 +965,74 @@ function collectDestinationCandidates(values: Array<string | undefined>): string
   return candidates;
 }
 
+function looksLikeUrlSignal(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (isHttpUrl(trimmed)) {
+    return true;
+  }
+
+  return /^((www\.)?([a-z0-9-]+\.)+[a-z]{2,})(\/|$)/i.test(trimmed);
+}
+
+function extractDestinationHintsFromUnknown(
+  value: unknown,
+  result: Set<string>,
+  depth = 0
+): void {
+  if (depth > 6 || result.size >= 120 || value === null || value === undefined) {
+    return;
+  }
+
+  if (typeof value === "string") {
+    if (looksLikeUrlSignal(value)) {
+      result.add(value.trim());
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      extractDestinationHintsFromUnknown(item, result, depth + 1);
+    }
+    return;
+  }
+
+  if (typeof value === "object") {
+    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof nestedValue === "string") {
+        if (URL_HINT_KEY_PATTERN.test(key) && looksLikeUrlSignal(nestedValue)) {
+          result.add(nestedValue.trim());
+        }
+        continue;
+      }
+
+      if (typeof nestedValue === "object" && nestedValue !== null) {
+        if (URL_HINT_KEY_PATTERN.test(key) || depth <= 2) {
+          extractDestinationHintsFromUnknown(nestedValue, result, depth + 1);
+        }
+      }
+    }
+  }
+}
+
+function collectCreativeDeepDestinationHints(
+  creative: MetaAdCreativeResponseItem | undefined
+): string[] {
+  if (!creative) {
+    return [];
+  }
+
+  const hints = new Set<string>();
+  extractDestinationHintsFromUnknown(creative, hints);
+
+  const normalizedHints = collectDestinationCandidates(Array.from(hints));
+  return normalizedHints.filter((candidate) => !isLikelyCreativeAssetUrl(candidate));
+}
+
 function isTrafficObjectiveSignal(signal: string): boolean {
   return Boolean(signal) && getObjectiveCategory(signal) === "TRAFFIC";
 }
@@ -912,7 +1059,8 @@ function isWebsiteDestinationUrl(value: string): boolean {
     !isWhatsAppUrl(value) &&
     !isMessengerUrl(value) &&
     !isInstagramDirectUrl(value) &&
-    !isMetaSocialUrl(value)
+    !isMetaOwnedUrl(value) &&
+    !isLikelyCreativeAssetUrl(value)
   );
 }
 
@@ -937,7 +1085,7 @@ function looksLikeWebsiteUrl(value: string): boolean {
   }
 
   if (isHttpUrl(trimmed)) {
-    return !isMetaSocialUrl(trimmed);
+    return !isMetaOwnedUrl(trimmed) && !isLikelyCreativeAssetUrl(trimmed);
   }
 
   const withoutProtocol = normalized.replace(/^https?:\/\//, "");
@@ -970,6 +1118,76 @@ function normalizeWhatsAppNumber(value: string | undefined): string {
   return digits.length >= 8 ? digits : "";
 }
 
+function extractWhatsAppNumberFromUrl(value: string | undefined): string {
+  if (!value || !isWhatsAppUrl(value)) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(value);
+    const fromQuery =
+      parsed.searchParams.get("phone") ??
+      parsed.searchParams.get("phoneNumber") ??
+      parsed.searchParams.get("whatsapp") ??
+      "";
+
+    const normalizedFromQuery = normalizeWhatsAppNumber(fromQuery);
+    if (normalizedFromQuery) {
+      return normalizedFromQuery;
+    }
+
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    for (const segment of pathSegments.reverse()) {
+      const normalizedSegment = normalizeWhatsAppNumber(segment);
+      if (normalizedSegment) {
+        return normalizedSegment;
+      }
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+function extractWhatsAppNumberFromUnknown(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return normalizeWhatsAppNumber(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const number = extractWhatsAppNumberFromUnknown(item);
+      if (number) {
+        return number;
+      }
+    }
+    return "";
+  }
+
+  if (typeof value === "object") {
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      const normalizedKey = key.toLowerCase();
+      if (
+        normalizedKey.includes("whatsapp") ||
+        normalizedKey.includes("phone") ||
+        normalizedKey.includes("telephone")
+      ) {
+        const number = extractWhatsAppNumberFromUnknown(nested);
+        if (number) {
+          return number;
+        }
+      }
+    }
+  }
+
+  return "";
+}
+
 function resolveWhatsAppNumberOverride(pageId: string): string {
   const rawOverrides = process.env.META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON;
   if (!rawOverrides || !pageId) {
@@ -979,6 +1197,25 @@ function resolveWhatsAppNumberOverride(pageId: string): string {
   try {
     const parsed = JSON.parse(rawOverrides) as Record<string, unknown>;
     const rawNumber = parsed[pageId];
+    if (rawNumber === undefined || rawNumber === null) {
+      return "";
+    }
+
+    return normalizeWhatsAppNumber(String(rawNumber));
+  } catch {
+    return "";
+  }
+}
+
+function resolveWhatsAppNumberOverrideByAdSetId(adSetId: string): string {
+  const rawOverrides = process.env.META_WHATSAPP_NUMBER_BY_ADSET_ID_JSON;
+  if (!rawOverrides || !adSetId) {
+    return "";
+  }
+
+  try {
+    const parsed = JSON.parse(rawOverrides) as Record<string, unknown>;
+    const rawNumber = parsed[adSetId];
     if (rawNumber === undefined || rawNumber === null) {
       return "";
     }
@@ -1018,6 +1255,7 @@ function resolveMessagingDestinationUrl(
 ): string {
   const callToActions = collectCreativeCallToActions(creative);
   const ctaLinks = collectCreativeCallToActionLinks(creative);
+  const deepHintLinks = collectCreativeDeepDestinationHints(creative);
 
   const signalParts = [
     adSetContext?.destinationType ?? "",
@@ -1031,7 +1269,7 @@ function resolveMessagingDestinationUrl(
 
   if (joinedSignals.includes("WHATSAPP") || Boolean(adSetContext?.whatsappNumber)) {
     const whatsappLink =
-      ctaLinks.find((candidate) => isWhatsAppUrl(candidate)) ??
+      [...ctaLinks, ...deepHintLinks].find((candidate) => isWhatsAppUrl(candidate)) ??
       [creative?.link_url, creative?.object_url].find(
         (candidate): candidate is string =>
           typeof candidate === "string" && isWhatsAppUrl(candidate)
@@ -1041,9 +1279,13 @@ function resolveMessagingDestinationUrl(
       return whatsappLink.trim();
     }
 
+    const deepPhoneHint = extractWhatsAppNumberFromUnknown(creative);
     const whatsappNumber = [
       ...callToActions.map((cta) => cta.value?.whatsapp_number),
       ...callToActions.map((cta) => cta.value?.phone_number),
+      ...ctaLinks.map((candidate) => extractWhatsAppNumberFromUrl(candidate)),
+      ...deepHintLinks.map((candidate) => extractWhatsAppNumberFromUrl(candidate)),
+      deepPhoneHint,
       adSetContext?.whatsappNumber
     ]
       .map(normalizeWhatsAppNumber)
@@ -1123,6 +1365,7 @@ function resolveCreativeDestinationUrl(
     typeof storyId === "string" && storyId.includes("_")
       ? `https://www.facebook.com/${storyId.replace("_", "/posts/")}`
       : "";
+  const deepHintLinks = collectCreativeDeepDestinationHints(creative);
 
   const candidates = collectDestinationCandidates([
     ...collectCreativeCallToActionLinks(creative),
@@ -1134,16 +1377,22 @@ function resolveCreativeDestinationUrl(
     ...assetFeedLinks,
     creative?.object_url,
     creative?.link_url,
+    creative?.website_url,
+    creative?.template_url,
     adSetContext?.websiteUrl
+  ]);
+  const enrichedCandidates = collectDestinationCandidates([
+    ...candidates,
+    ...deepHintLinks
   ]);
 
   if (isTrafficDestinationContext(adSetContext)) {
-    const siteDestination = candidates.find((candidate) => isWebsiteDestinationUrl(candidate));
+    const siteDestination = enrichedCandidates.find((candidate) => isWebsiteDestinationUrl(candidate));
     if (siteDestination) {
       return siteDestination;
     }
 
-    const relaxedSiteDestination = candidates.find((candidate) => looksLikeWebsiteUrl(candidate));
+    const relaxedSiteDestination = enrichedCandidates.find((candidate) => looksLikeWebsiteUrl(candidate));
     if (relaxedSiteDestination) {
       return toDisplayableWebsiteUrl(relaxedSiteDestination);
     }
@@ -1159,8 +1408,13 @@ function resolveCreativeDestinationUrl(
     return "Site configurado na Meta Ads (URL não exposta pela API)";
   }
 
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
+  for (const candidate of enrichedCandidates) {
+    if (
+      typeof candidate === "string" &&
+      candidate.trim() &&
+      !isLikelyCreativeAssetUrl(candidate) &&
+      !isMetaOwnedUrl(candidate)
+    ) {
       return candidate.trim();
     }
   }
@@ -1203,6 +1457,146 @@ function extractIframeUrlFromAdPreviewBody(rawBody: string): string {
   }
 
   return src;
+}
+
+function decodeAdPreviewBody(rawBody: string): string {
+  return rawBody
+    .replace(/\\\//g, "/")
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\u003a/gi, ":")
+    .replace(/\\u002f/gi, "/")
+    .replace(/\\u0025/gi, "%")
+    .replace(/&amp;/g, "&");
+}
+
+function extractUrlCandidatesFromText(rawText: string): string[] {
+  const matches = rawText.match(/https?:\/\/[^\s"'<>\\]+/gi) ?? [];
+  return collectDestinationCandidates(matches);
+}
+
+function resolveDestinationFromAdPreviewBody(rawBody: string): string {
+  const decodedBody = decodeAdPreviewBody(rawBody);
+  const candidates = extractUrlCandidatesFromText(decodedBody);
+
+  const whatsappCandidate = candidates.find((candidate) => isWhatsAppUrl(candidate));
+  if (whatsappCandidate) {
+    const whatsappNumber = extractWhatsAppNumberFromUrl(whatsappCandidate);
+    if (whatsappNumber) {
+      return `https://wa.me/${whatsappNumber}`;
+    }
+    return whatsappCandidate;
+  }
+
+  const websiteCandidate = candidates.find((candidate) => isWebsiteDestinationUrl(candidate));
+  if (websiteCandidate) {
+    return websiteCandidate;
+  }
+
+  const relaxedWebsiteCandidate = candidates.find((candidate) => looksLikeWebsiteUrl(candidate));
+  if (relaxedWebsiteCandidate) {
+    return toDisplayableWebsiteUrl(relaxedWebsiteCandidate);
+  }
+
+  const messengerCandidate = candidates.find((candidate) => isMessengerUrl(candidate));
+  if (messengerCandidate) {
+    return messengerCandidate;
+  }
+
+  return "";
+}
+
+async function fetchDestinationFromAdPreview(adId: string): Promise<string> {
+  for (const adFormat of AD_PREVIEW_FORMAT_CANDIDATES) {
+    try {
+      const previews = await fetchMetaList<MetaAdPreviewResponseItem>(`${adId}/previews`, {
+        ad_format: adFormat,
+        fields: "body",
+        limit: "1"
+      });
+
+      for (const preview of previews) {
+        const body = typeof preview.body === "string" ? preview.body.trim() : "";
+        if (!body) {
+          continue;
+        }
+
+        const destinationFromBody = resolveDestinationFromAdPreviewBody(body);
+        if (destinationFromBody) {
+          return destinationFromBody;
+        }
+      }
+    } catch (error) {
+      if (isAdPreviewFormatValidationError(error)) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  return "";
+}
+
+function collectStoryAttachmentLinks(
+  attachments: MetaStoryAttachmentItem[] | undefined,
+  collector: string[]
+): void {
+  if (!attachments?.length) {
+    return;
+  }
+
+  for (const attachment of attachments) {
+    collector.push(attachment.unshimmed_url ?? "", attachment.url ?? "", attachment.target?.url ?? "");
+    if (attachment.subattachments?.data?.length) {
+      collectStoryAttachmentLinks(attachment.subattachments.data, collector);
+    }
+  }
+}
+
+function resolveDestinationFromStoryPayload(story: MetaStoryResponseItem): string {
+  const rawCandidates: string[] = [story.permalink_url ?? ""];
+  collectStoryAttachmentLinks(story.attachments?.data, rawCandidates);
+
+  const candidates = collectDestinationCandidates(rawCandidates);
+  const websiteCandidate = candidates.find((candidate) => isWebsiteDestinationUrl(candidate));
+  if (websiteCandidate) {
+    return websiteCandidate;
+  }
+
+  const relaxedWebsiteCandidate = candidates.find((candidate) => looksLikeWebsiteUrl(candidate));
+  if (relaxedWebsiteCandidate) {
+    return toDisplayableWebsiteUrl(relaxedWebsiteCandidate);
+  }
+
+  const whatsappCandidate = candidates.find((candidate) => isWhatsAppUrl(candidate));
+  if (whatsappCandidate) {
+    const whatsappNumber = extractWhatsAppNumberFromUrl(whatsappCandidate);
+    return whatsappNumber ? `https://wa.me/${whatsappNumber}` : whatsappCandidate;
+  }
+
+  const messengerCandidate = candidates.find((candidate) => isMessengerUrl(candidate));
+  if (messengerCandidate) {
+    return messengerCandidate;
+  }
+
+  return "";
+}
+
+async function fetchDestinationFromStoryId(storyId: string): Promise<string> {
+  if (!storyId) {
+    return "";
+  }
+
+  try {
+    const story = await fetchMetaObject<MetaStoryResponseItem>(storyId, {
+      fields:
+        "id,permalink_url,attachments{url,unshimmed_url,target{url},subattachments{url,unshimmed_url,target{url}}}"
+    });
+
+    return resolveDestinationFromStoryPayload(story);
+  } catch {
+    return "";
+  }
 }
 
 function isAdPreviewFormatValidationError(error: unknown): boolean {
@@ -1480,6 +1874,16 @@ async function fetchAdSetDestinationContext(
     });
 
     const context = createAdSetDestinationContext(adSet);
+    if (!context.whatsappNumber) {
+      const adSetOverrideWhatsApp = resolveWhatsAppNumberOverrideByAdSetId(adSetId);
+      if (adSetOverrideWhatsApp) {
+        return {
+          ...context,
+          whatsappNumber: adSetOverrideWhatsApp
+        };
+      }
+    }
+
     if (
       context.whatsappNumber ||
       !context.pageId ||
@@ -1498,11 +1902,14 @@ async function fetchAdSetDestinationContext(
 
     try {
       const page = await fetchMetaObject<MetaPageMessagingResponseItem>(context.pageId, {
-        fields: "id,whatsapp_number,phone"
+        fields: "id,whatsapp_number,whatsapp_phone_number,linked_whatsapp_phone_number,phone"
       });
 
       const pageWhatsAppNumber =
-        normalizeWhatsAppNumber(page.whatsapp_number) || normalizeWhatsAppNumber(page.phone);
+        normalizeWhatsAppNumber(page.whatsapp_number) ||
+        normalizeWhatsAppNumber(page.whatsapp_phone_number) ||
+        normalizeWhatsAppNumber(page.linked_whatsapp_phone_number) ||
+        normalizeWhatsAppNumber(page.phone);
 
       return {
         ...context,
@@ -1516,40 +1923,161 @@ async function fetchAdSetDestinationContext(
   }
 }
 
+async function fetchAdCreativeById(
+  creativeId: string
+): Promise<MetaAdCreativeResponseItem | null> {
+  if (!creativeId) {
+    return null;
+  }
+
+  try {
+    const creative = await fetchMetaObject<MetaAdCreativeResponseItem>(creativeId, {
+      fields: CREATIVE_FIELDS
+    });
+
+    if (!creative || typeof creative !== "object") {
+      return null;
+    }
+
+    return creative;
+  } catch {
+    return null;
+  }
+}
+
+function shouldRefineDestination(destinationUrl: string): boolean {
+  return (
+    !destinationUrl ||
+    destinationUrl === "Site configurado na Meta Ads (URL não exposta pela API)" ||
+    destinationUrl === "WhatsApp (número não identificado)" ||
+    destinationUrl === "Messenger (destino não identificado)"
+  );
+}
+
 export async function fetchAdSetAds(adSetId: string): Promise<MetaAd[]> {
   const [ads, adSetContext] = await Promise.all([
     fetchMetaList<MetaAdResponseItem>(`${adSetId}/ads`, {
-      fields:
-        "id,name,campaign_id,adset_id,destination_type,call_to_action_type,promoted_object,effective_status,status,configured_status,creative{id,name,call_to_action_type,thumbnail_url,image_url,object_url,link_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec,asset_feed_spec}",
+      fields: `id,name,campaign_id,adset_id,destination_type,call_to_action_type,promoted_object,effective_status,status,configured_status,creative{${CREATIVE_FIELDS}}`,
       limit: "5000"
     }),
     fetchAdSetDestinationContext(adSetId)
   ]);
 
+  const rawAdById = new Map(ads.map((ad) => [ad.id, ad]));
   const normalizedAds = ads
     .filter((ad) => Boolean(ad.id && ad.name))
     .filter((ad) => isAdDeliveringActive(ad))
     .map((ad) => normalizeAd(ad, adSetId, adSetContext))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const creativeRequestById = new Map<string, Promise<MetaAdCreativeResponseItem | null>>();
+  const refinedAds = await Promise.all(
+    normalizedAds.map(async (ad) => {
+      if (!ad.creativeId || !shouldRefineDestination(ad.destinationUrl)) {
+        return ad;
+      }
+
+      const rawAd = rawAdById.get(ad.id);
+      if (!rawAd) {
+        return ad;
+      }
+
+      let creativeRequest = creativeRequestById.get(ad.creativeId);
+      if (!creativeRequest) {
+        creativeRequest = fetchAdCreativeById(ad.creativeId);
+        creativeRequestById.set(ad.creativeId, creativeRequest);
+      }
+
+      const creative = await creativeRequest;
+      if (!creative) {
+        return ad;
+      }
+
+      const resolvedDestination = resolveCreativeDestinationUrl(creative, adSetContext);
+      if (!resolvedDestination || resolvedDestination === ad.destinationUrl) {
+        return ad;
+      }
+
+      return {
+        ...ad,
+        destinationUrl: resolvedDestination,
+        creativeName:
+          ad.creativeName === "Criativo não identificado" ? resolveCreativeName(creative) : ad.creativeName,
+        creativePreviewUrl: ad.creativePreviewUrl || resolveCreativePreviewUrl(creative)
+      };
+    })
+  );
+
+  const previewRefinedAds = DESTINATION_PREVIEW_FALLBACK_ENABLED
+    ? await Promise.all(
+        refinedAds.map(async (ad) => {
+          if (!shouldRefineDestination(ad.destinationUrl)) {
+            return ad;
+          }
+
+          const destinationFromPreview = await fetchDestinationFromAdPreview(ad.id);
+          if (!destinationFromPreview || destinationFromPreview === ad.destinationUrl) {
+            return ad;
+          }
+
+          return {
+            ...ad,
+            destinationUrl: destinationFromPreview
+          };
+        })
+      )
+    : refinedAds;
+
+  const storyDestinationById = new Map<string, Promise<string>>();
+  const storyRefinedAds = await Promise.all(
+    previewRefinedAds.map(async (ad) => {
+      if (!shouldRefineDestination(ad.destinationUrl)) {
+        return ad;
+      }
+
+      const rawAd = rawAdById.get(ad.id);
+      const storyId =
+        rawAd?.creative?.effective_object_story_id ?? rawAd?.creative?.object_story_id ?? "";
+      if (!storyId) {
+        return ad;
+      }
+
+      let storyRequest = storyDestinationById.get(storyId);
+      if (!storyRequest) {
+        storyRequest = fetchDestinationFromStoryId(storyId);
+        storyDestinationById.set(storyId, storyRequest);
+      }
+
+      const destinationFromStory = await storyRequest;
+      if (!destinationFromStory || destinationFromStory === ad.destinationUrl) {
+        return ad;
+      }
+
+      return {
+        ...ad,
+        destinationUrl: destinationFromStory
+      };
+    })
+  );
+
   const adSetHasWhatsAppDestination =
     Boolean(adSetContext.whatsappNumber) ||
     adSetContext.destinationType.includes("WHATSAPP") ||
-    normalizedAds.some(
+    storyRefinedAds.some(
       (ad) =>
         isWhatsAppUrl(ad.destinationUrl) ||
         normalizeSignal(ad.destinationUrl).includes("WHATSAPP")
     );
 
   if (!adSetHasWhatsAppDestination) {
-    return normalizedAds;
+    return refinedAds;
   }
 
   const defaultWhatsAppDestination = adSetContext.whatsappNumber
     ? `https://wa.me/${adSetContext.whatsappNumber}`
     : "WhatsApp (número não identificado)";
 
-  return normalizedAds.map((ad) => {
+  return storyRefinedAds.map((ad) => {
     if (!ad.destinationUrl || isSocialPostUrl(ad.destinationUrl)) {
       return {
         ...ad,

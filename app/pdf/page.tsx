@@ -280,8 +280,8 @@ export default async function PdfPage({
       <main className="bg-white py-3 print:py-0">
         <PdfReadyFlag />
         <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
-          <div className="pdf-landscape-page gap-2">
-            <header className="surface-panel p-6">
+          <div className="pdf-landscape-page gap-2" data-pdf-page="1">
+            <header data-pdf-block="header" className="surface-panel p-6">
               <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
                 <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
                   <BrandMark variant="icon" size={13} />
@@ -296,7 +296,7 @@ export default async function PdfPage({
               </p>
             </header>
 
-            <section className="surface-panel p-4">
+            <section data-pdf-block="filters" className="surface-panel p-4">
               <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
                 <div className="lg:col-span-1">
                   <PdfSelectorField
@@ -312,7 +312,7 @@ export default async function PdfPage({
                   <PdfSelectorField label="Periodo" value={`Ultimos ${rangeDays} dias`} />
                 </div>
               </div>
-              <div className="mt-4 border-t border-slate-200 pt-4">
+              <div data-pdf-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
                 <VerticalBudgetSummaryPanel verticalBudget={verticalBudget} />
               </div>
             </section>
@@ -442,8 +442,8 @@ export default async function PdfPage({
     <main className="bg-white py-3 print:py-0">
       <PdfReadyFlag />
       <section className="pdf-shell mx-auto w-full print:max-w-none print:px-0 print:py-0">
-        <div className="pdf-landscape-page pdf-page-break-after">
-          <header className="surface-panel p-6">
+        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="1">
+          <header data-pdf-block="header" className="surface-panel p-6">
             <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
               <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
                 <BrandMark variant="icon" size={13} />
@@ -458,7 +458,7 @@ export default async function PdfPage({
             </p>
           </header>
 
-          <section className="surface-panel p-5">
+          <section data-pdf-block="filters" className="surface-panel p-5">
             <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
               <div className="lg:col-span-1">
                 <PdfSelectorField
@@ -474,7 +474,7 @@ export default async function PdfPage({
                 <PdfSelectorField label="Período" value={`Últimos ${payload.range.days} dias`} />
               </div>
             </div>
-            <div className="mt-4 border-t border-slate-200 pt-4">
+            <div data-pdf-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
               <VerticalBudgetSummaryPanel verticalBudget={payload.verticalBudget} />
             </div>
           </section>
@@ -482,14 +482,16 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={1} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after">
-          <CampaignHeaderCard
-            campaign={payload.campaign}
-            range={payload.range}
-            isPdf
-          />
+        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="2">
+          <div data-pdf-block="campaign-info">
+            <CampaignHeaderCard
+              campaign={payload.campaign}
+              range={payload.range}
+              isPdf
+            />
+          </div>
 
-          <section className="surface-panel p-5">
+          <section data-pdf-block="campaign-structure" className="surface-panel p-5">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>
             <p className="mt-1 text-sm text-slate-600">
               Grupos de anúncios e anúncios ativos no momento da geração do relatório.
@@ -584,8 +586,8 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after">
-          <section className="surface-panel p-5">
+        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="3">
+          <section data-pdf-block="metrics" className="surface-panel p-5">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Cards de métricas</h2>
             <p className="mt-1 text-sm text-slate-600">
               Comparativo do período atual em relação ao período anterior equivalente.
@@ -612,25 +614,30 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after gap-2">
-          <TrendCard
-            direction={comparison.trend.direction}
-            costPerResult={comparison.current.costPerResult}
-            objectiveCategory={payload.campaign.objectiveCategory}
-            resultsDeltaPercent={comparison.deltas.results.percent}
-            ctrDeltaPercent={comparison.deltas.ctr.percent}
-            impressionsDeltaPercent={comparison.deltas.impressions.percent}
-            clicksDeltaPercent={comparison.deltas.clicks.percent}
-            cpcDeltaPercent={comparison.deltas.cpc.percent}
-            costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
-            currentImpressions={comparison.current.impressions}
-            currentClicks={comparison.current.clicks}
-            currentResults={comparison.current.results}
-            previousResults={comparison.previous.results}
-            isPdf
-          />
+        <div className="pdf-landscape-page pdf-page-break-after gap-2" data-pdf-page="4">
+          <div data-pdf-block="trend">
+            <TrendCard
+              direction={comparison.trend.direction}
+              costPerResult={comparison.current.costPerResult}
+              objectiveCategory={payload.campaign.objectiveCategory}
+              resultsDeltaPercent={comparison.deltas.results.percent}
+              ctrDeltaPercent={comparison.deltas.ctr.percent}
+              impressionsDeltaPercent={comparison.deltas.impressions.percent}
+              clicksDeltaPercent={comparison.deltas.clicks.percent}
+              cpcDeltaPercent={comparison.deltas.cpc.percent}
+              costPerResultDeltaPercent={comparison.deltas.costPerResult.percent}
+              currentImpressions={comparison.current.impressions}
+              currentClicks={comparison.current.clicks}
+              currentResults={comparison.current.results}
+              previousResults={comparison.previous.results}
+              isPdf
+            />
+          </div>
 
-          <section className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-3">
+          <section
+            data-pdf-block="daily-performance"
+            className="surface-panel relative overflow-hidden border border-viasoft/15 bg-white p-3"
+          >
             <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
               <TrendingUp size={17} className="text-viasoft" />
               Performance diária
@@ -649,8 +656,8 @@ export default async function PdfPage({
           <PdfPageFooter pageNumber={4} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page">
-          <div className="flex-1">
+        <div className="pdf-landscape-page" data-pdf-page="5">
+          <div className="flex-1" data-pdf-block="insights-recommendations">
             <InsightsPanel
               insights={payload.insights}
               recommendations={payload.recommendations}

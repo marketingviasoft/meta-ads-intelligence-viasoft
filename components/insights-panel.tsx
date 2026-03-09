@@ -49,7 +49,7 @@ export function InsightsPanel({
     <section
       className={`grid ${isPdf ? "gap-3 sm:grid-cols-2 pdf-block" : "gap-4 lg:grid-cols-2"} ${fillHeight ? "h-full items-stretch" : ""}`}
     >
-      <div className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
+      <div data-dashboard-block="insights" className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <Lightbulb size={17} className="text-viasoft" />
           Insights automáticos
@@ -71,7 +71,7 @@ export function InsightsPanel({
           ))}
         </div>
       </div>
-      <div className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
+      <div data-dashboard-block="recommendations" className={`surface-panel ${panelPadding} ${panelStretchClass}`}>
         <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
           <ListChecks size={17} className="text-viasoft" />
           Recomendações por objetivo

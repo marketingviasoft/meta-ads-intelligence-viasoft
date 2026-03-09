@@ -186,7 +186,7 @@ export function CampaignStructurePanel({
   const activePreviewError = selectedPreviewAd ? adPreviewErrorByAdId[selectedPreviewAd.id] : "";
 
   return (
-    <section className="surface-panel p-4 sm:p-5">
+    <section data-dashboard-block="campaign-structure" className="surface-panel p-4 sm:p-5">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-viasoft">

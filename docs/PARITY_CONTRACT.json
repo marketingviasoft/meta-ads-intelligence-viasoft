@@ -1,0 +1,36 @@
+{
+  "dashboardBlocks": [
+    "header",
+    "filters",
+    "vertical-budget",
+    "campaign-info",
+    "campaign-structure",
+    "metrics",
+    "trend",
+    "daily-performance",
+    "insights",
+    "recommendations"
+  ],
+  "pdfPages": [
+    {
+      "page": 1,
+      "blocks": ["header", "filters", "vertical-budget"]
+    },
+    {
+      "page": 2,
+      "blocks": ["campaign-info", "campaign-structure"]
+    },
+    {
+      "page": 3,
+      "blocks": ["metrics"]
+    },
+    {
+      "page": 4,
+      "blocks": ["trend", "daily-performance"]
+    },
+    {
+      "page": 5,
+      "blocks": ["insights-recommendations"]
+    }
+  ]
+}

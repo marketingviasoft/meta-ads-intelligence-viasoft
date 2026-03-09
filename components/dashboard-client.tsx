@@ -473,7 +473,7 @@ export function DashboardClient() {
 
   return (
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8">
-      <header className="surface-panel enter-fade p-6">
+      <header data-dashboard-block="header" className="surface-panel enter-fade p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
@@ -519,7 +519,7 @@ export function DashboardClient() {
         </div>
       </header>
 
-      <section className="surface-panel mt-5 p-5 sm:p-6">
+      <section data-dashboard-block="filters" className="surface-panel mt-5 p-5 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
           <div className="min-w-0 lg:col-span-1">
             <VerticalSelector
@@ -545,7 +545,7 @@ export function DashboardClient() {
             />
           </div>
         </div>
-        <div className="mt-4 border-t border-slate-200 pt-4">
+        <div data-dashboard-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
           {loadingVerticalBudget ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
               <div className="inline-flex items-center gap-2">
