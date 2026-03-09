@@ -472,7 +472,8 @@ Erros:
 
 Query:
 
-- `campaignId` (obrigatório)
+- `campaignId` (opcional)
+- `verticalTag` (opcional, obrigatório quando `campaignId` não for enviado)
 - `rangeDays` (7|14|28|30)
 
 Sucesso:
@@ -878,7 +879,7 @@ Todos com:
 `app/pdf/page.tsx`:
 
 1. Capa + seletores + orçamento vertical
-2. Estrutura da campanha (ad sets e ads)
+2. Informações da campanha + estrutura da campanha (ad sets e ads)
 3. Cards métricos
 4. Tendência + gráfico diário
 5. Insights + recomendações

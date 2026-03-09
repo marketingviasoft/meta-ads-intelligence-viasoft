@@ -65,6 +65,7 @@ npm run build
 - `GET /api/meta/ad-preview?adId=...`
 - `POST /api/meta/cache/invalidate`
 - `GET /api/pdf?campaignId=...&rangeDays=...`
+- `GET /api/pdf?verticalTag=...&rangeDays=...`
 
 ## 5) Fluxo de valida√ß√£o r√°pida (aceite)
 
@@ -180,8 +181,8 @@ Para vis√£o t√©cnica completa, usar tamb√©m:
 
 - `docs/DOCUMENTACAO_COMPLETA.md`
 
-## 11) ExportaÁ„o de PDF sem campanha ativa
+## 11) Exporta√ß√£o de PDF sem campanha ativa
 
-- Fluxo suportado: quando n„o houver campanha ativa na vertical, usar `GET /api/pdf?verticalTag=...&rangeDays=...`.
-- O PDF gerado nesse modo contÈm o bloco de investimento mensal da vertical e sinalizaÁ„o de ausÍncia de campanhas ativas.
-- Fluxo tradicional continua disponÌvel: `GET /api/pdf?campaignId=...&rangeDays=...`.
+- Fluxo suportado: quando n√£o houver campanha ativa na vertical, usar `GET /api/pdf?verticalTag=...&rangeDays=...`.
+- O PDF gerado nesse modo cont√©m o bloco de investimento mensal da vertical e sinaliza√ß√£o de aus√™ncia de campanhas ativas.
+- Fluxo tradicional continua dispon√≠vel: `GET /api/pdf?campaignId=...&rangeDays=...`.

@@ -166,7 +166,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isValidRangeDays(parsedRangeDays)) {
     return NextResponse.json(
       {
-        error: "PerÃ­odo invÃ¡lido. Use 7, 14, 28 ou 30"
+        error: "Período inválido. Use 7, 14, 28 ou 30"
       },
       {
         status: 400

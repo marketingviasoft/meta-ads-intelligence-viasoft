@@ -237,7 +237,7 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
   const progressTextTone = getBudgetProgressTone(totalUtilizationPercent);
   const investmentMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
   const totalMinWidthPx = totalWithTax > 0 ? 10 : 0;
-  const periodSuffix = verticalBudget.includesCurrentDay ? " (hoje, parcial)" : "";
+  const dataUntilSuffix = verticalBudget.includesCurrentDay ? " (hoje, parcial)" : "";
 
   return (
     <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-4">
@@ -249,10 +249,16 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
           <p className="mt-1 text-4xl font-semibold leading-none text-ink">
             {formatCurrencyBRL(totalWithTax)}
           </p>
-          <p className="mt-auto pt-2 text-xs text-slate-600">
-            Período: {formatDateLongBR(verticalBudget.monthSince)} até {formatDateLongBR(verticalBudget.dataUntil)}
-            {periodSuffix}.
-          </p>
+          <div className="mt-auto space-y-0.5 pt-2 text-xs text-slate-600">
+            <p>
+              Ciclo de faturamento Meta: {formatDateLongBR(verticalBudget.monthSince)} até{" "}
+              {formatDateLongBR(verticalBudget.monthUntil)}.
+            </p>
+            <p>
+              Acumulado até {formatDateLongBR(verticalBudget.dataUntil)}
+              {dataUntilSuffix}.
+            </p>
+          </div>
         </div>
 
         <div
