@@ -1295,7 +1295,7 @@ function resolveMessagingDestinationUrl(
       return `https://wa.me/${whatsappNumber}`;
     }
 
-    return "WhatsApp (número não identificado)";
+    return "WhatsApp";
   }
 
   if (
@@ -1505,6 +1505,24 @@ function resolveDestinationFromAdPreviewBody(rawBody: string): string {
   return "";
 }
 
+function toDisplayDestinationLabel(destinationUrl: string): string {
+  const trimmed = destinationUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (
+    trimmed === "WhatsApp (número não identificado)" ||
+    trimmed === "WhatsApp" ||
+    isWhatsAppUrl(trimmed) ||
+    normalizeSignal(trimmed).includes("WHATSAPP")
+  ) {
+    return "WhatsApp";
+  }
+
+  return trimmed;
+}
+
 async function fetchDestinationFromAdPreview(adId: string): Promise<string> {
   for (const adFormat of AD_PREVIEW_FORMAT_CANDIDATES) {
     try {
@@ -1671,7 +1689,7 @@ function resolveDestinationDiagnosticReason(destinationUrl: string): string | nu
     return "TRAFFIC_URL_NOT_EXPOSED";
   }
 
-  if (destinationUrl === "WhatsApp (número não identificado)") {
+  if (destinationUrl === "WhatsApp" || destinationUrl === "WhatsApp (número não identificado)") {
     return "WHATSAPP_NUMBER_NOT_IDENTIFIED";
   }
 
@@ -1949,6 +1967,7 @@ function shouldRefineDestination(destinationUrl: string): boolean {
   return (
     !destinationUrl ||
     destinationUrl === "Site configurado na Meta Ads (URL não exposta pela API)" ||
+    destinationUrl === "WhatsApp" ||
     destinationUrl === "WhatsApp (número não identificado)" ||
     destinationUrl === "Messenger (destino não identificado)"
   );
@@ -2069,15 +2088,18 @@ export async function fetchAdSetAds(adSetId: string): Promise<MetaAd[]> {
         normalizeSignal(ad.destinationUrl).includes("WHATSAPP")
     );
 
+  const displayAds = storyRefinedAds.map((ad) => ({
+    ...ad,
+    destinationUrl: toDisplayDestinationLabel(ad.destinationUrl)
+  }));
+
   if (!adSetHasWhatsAppDestination) {
-    return refinedAds;
+    return displayAds;
   }
 
-  const defaultWhatsAppDestination = adSetContext.whatsappNumber
-    ? `https://wa.me/${adSetContext.whatsappNumber}`
-    : "WhatsApp (número não identificado)";
+  const defaultWhatsAppDestination = "WhatsApp";
 
-  return storyRefinedAds.map((ad) => {
+  return displayAds.map((ad) => {
     if (!ad.destinationUrl || isSocialPostUrl(ad.destinationUrl)) {
       return {
         ...ad,
