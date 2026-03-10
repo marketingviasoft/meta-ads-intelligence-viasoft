@@ -1,6 +1,6 @@
 # Handoff Técnico Completo
 
-Última atualização: 2026-03-06
+Última atualização: 2026-03-10
 
 Este documento é a memória operacional para continuidade entre ambientes.
 
@@ -66,7 +66,9 @@ O painel mostra:
 
 ## 2.4 PDF
 
-- Endpoint: `GET /api/pdf?campaignId=...&rangeDays=...`
+- Endpoints:
+- `GET /api/pdf?campaignId=...&rangeDays=...` (relatório completo de campanha)
+- `GET /api/pdf?verticalTag=...&rangeDays=...` (resumo de investimento da vertical)
 - Geração backend em `lib/pdf-generator.ts`.
 - Layout atual: 5 páginas (`PDF_TOTAL_PAGES = 5`).
 - Compatível local/serverless.

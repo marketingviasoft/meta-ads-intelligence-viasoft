@@ -117,7 +117,7 @@ Mapeamento aplicado no c√°lculo (`utils/metrics.ts`):
 
 ## 13) PDF sem campanha ativa
 
-- A exportaÁ„o de PDF deve funcionar mesmo quando a vertical selecionada n„o possui campanhas ativas.
-- Nesse cen·rio, o PDF deve apresentar pelo menos o resumo de investimento mensal da vertical.
+- A exporta√ß√£o de PDF deve funcionar mesmo quando a vertical selecionada n√£o possui campanhas ativas.
+- Nesse cen√°rio, o PDF deve apresentar pelo menos o resumo de investimento mensal da vertical.
 - A rota `/api/pdf` deve aceitar `verticalTag` como alternativa ao `campaignId`.
 - Quando houver `campaignId`, o comportamento completo do PDF de campanha permanece inalterado.

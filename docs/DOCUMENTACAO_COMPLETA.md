@@ -784,7 +784,7 @@ Pipeline robusto para achar `destinationUrl`:
 Fallbacks importantes:
 
 - `Site configurado na Meta Ads (URL não exposta pela API)`
-- `WhatsApp (número não identificado)`
+- `WhatsApp` (sem número quando a API não expõe telefone)
 - `Messenger (destino não identificado)`
 
 Para conjuntos de WhatsApp, ads sem destino útil podem receber fallback para `wa.me/{número}` quando possível.
