@@ -9,6 +9,10 @@ type CampaignStructurePanelProps = {
   selectedAdSetId: string;
   onSelectAdSet: (adSetId: string) => void;
   ads: MetaAd[];
+  selectedCompareAdSetIds: string[];
+  onToggleCompareAdSet: (adSetId: string) => void;
+  selectedCompareAdIds: string[];
+  onToggleCompareAd: (adId: string) => void;
   loadingAdSets: boolean;
   loadingAds: boolean;
   errorMessage?: string;
@@ -65,6 +69,10 @@ export function CampaignStructurePanel({
   selectedAdSetId,
   onSelectAdSet,
   ads,
+  selectedCompareAdSetIds,
+  onToggleCompareAdSet,
+  selectedCompareAdIds,
+  onToggleCompareAd,
   loadingAdSets,
   loadingAds,
   errorMessage
@@ -77,6 +85,10 @@ export function CampaignStructurePanel({
   const loadingAdPreviewIdsRef = useRef<Set<string>>(new Set());
 
   const selectedAdSetName = adSets.find((adSet) => adSet.id === selectedAdSetId)?.name ?? "";
+  const adSetSelectionLimitReached = selectedCompareAdSetIds.length >= 2;
+  const adSelectionLimitReached = selectedCompareAdIds.length >= 2;
+  const adSetCompareCount = selectedCompareAdSetIds.length;
+  const adCompareCount = selectedCompareAdIds.length;
 
   useEffect(() => {
     setSelectedPreviewAd(null);
@@ -98,12 +110,9 @@ export function CampaignStructurePanel({
     }));
 
     try {
-      const response = await fetch(
-        `/api/meta/ad-preview?adId=${encodeURIComponent(adId)}`,
-        {
-          cache: "no-store"
-        }
-      );
+      const response = await fetch(`/api/meta/ad-preview?adId=${encodeURIComponent(adId)}`, {
+        cache: "no-store"
+      });
 
       const payload = (await response.json().catch(() => null)) as AdPreviewResponse | null;
       if (!response.ok) {
@@ -129,9 +138,7 @@ export function CampaignStructurePanel({
       setAdPreviewErrorByAdId((previous) => ({
         ...previous,
         [adId]:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar o preview avançado."
+          error instanceof Error ? error.message : "Não foi possível carregar o preview avançado."
       }));
     } finally {
       loadingAdPreviewIdsRef.current.delete(adId);
@@ -211,9 +218,14 @@ export function CampaignStructurePanel({
             <p className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
               Grupos de anúncios
             </p>
-            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
-              {loadingAdSets ? "Carregando..." : listCountLabel(adSets.length, "grupo", "grupos")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-viasoft/20 bg-viasoft/5 px-2 py-0.5 text-[11px] font-semibold text-viasoft">
+                {adSetCompareCount}/2 em comparação
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
+                {loadingAdSets ? "Carregando..." : listCountLabel(adSets.length, "grupo", "grupos")}
+              </span>
+            </div>
           </div>
 
           {loadingAdSets ? (
@@ -230,9 +242,18 @@ export function CampaignStructurePanel({
             <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
               {adSets.map((adSet) => {
                 const selected = adSet.id === selectedAdSetId;
+                const compareChecked = selectedCompareAdSetIds.includes(adSet.id);
+                const compareDisabled = !compareChecked && adSetSelectionLimitReached;
 
                 return (
-                  <li key={adSet.id}>
+                  <li
+                    key={adSet.id}
+                    className={`rounded-xl border p-2 transition ${
+                      compareChecked
+                        ? "border-viasoft/30 bg-viasoft/5"
+                        : "border-transparent bg-transparent"
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => onSelectAdSet(adSet.id)}
@@ -244,6 +265,24 @@ export function CampaignStructurePanel({
                     >
                       <p className="break-words font-medium leading-5">{adSet.name}</p>
                     </button>
+                    <label
+                      className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                        compareChecked
+                          ? "border-viasoft/30 bg-viasoft/10 text-viasoft"
+                          : compareDisabled
+                            ? "border-slate-200 bg-slate-100 text-slate-400"
+                            : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-viasoft focus:ring-viasoft/30"
+                        checked={compareChecked}
+                        disabled={compareDisabled}
+                        onChange={() => onToggleCompareAdSet(adSet.id)}
+                      />
+                      {compareChecked ? "Comparando" : "Comparar"}
+                    </label>
                   </li>
                 );
               })}
@@ -257,9 +296,14 @@ export function CampaignStructurePanel({
               <Megaphone size={14} />
               Anúncios
             </p>
-            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
-              {loadingAds ? "Carregando..." : listCountLabel(ads.length, "anúncio", "anúncios")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
+                {adCompareCount}/2 em comparação
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
+                {loadingAds ? "Carregando..." : listCountLabel(ads.length, "anúncio", "anúncios")}
+              </span>
+            </div>
           </div>
 
           {!selectedAdSetId ? (
@@ -278,69 +322,100 @@ export function CampaignStructurePanel({
             </p>
           ) : (
             <div>
-              <p className="mb-2 break-words text-xs text-slate-500">Grupo selecionado: {selectedAdSetName}</p>
+              <p className="mb-2 break-words text-xs text-slate-500">
+                Grupo selecionado: {selectedAdSetName}
+              </p>
               <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
-                {ads.map((ad) => (
-                  <li
-                    key={ad.id}
-                    className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 text-sm text-slate-700"
-                  >
-                    <div className="flex items-start gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openPreviewModal(ad)}
-                        className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35"
-                        aria-label={`Abrir preview avançado do anúncio ${ad.name}`}
-                        title="Abrir preview avançado"
-                      >
-                        {ad.creativePreviewUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={ad.creativePreviewUrl}
-                            alt={`Criativo do anúncio ${ad.name}`}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
+                {ads.map((ad) => {
+                  const compareChecked = selectedCompareAdIds.includes(ad.id);
+                  const compareDisabled = !compareChecked && adSelectionLimitReached;
+
+                  return (
+                    <li
+                      key={ad.id}
+                      className={`rounded-lg border p-3 text-sm text-slate-700 ${
+                        compareChecked
+                          ? "border-teal-300 bg-teal-50/60"
+                          : "border-slate-200 bg-slate-50/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => openPreviewModal(ad)}
+                          className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35"
+                          aria-label={`Abrir preview avançado do anúncio ${ad.name}`}
+                          title="Abrir preview avançado"
+                        >
+                          {ad.creativePreviewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={ad.creativePreviewUrl}
+                              alt={`Criativo do anúncio ${ad.name}`}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
+                              Sem arte
+                            </div>
+                          )}
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 bg-black/20 backdrop-blur-[1.5px] transition group-hover:bg-black/30 group-hover:backdrop-blur-[2px]"
                           />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
-                            Sem arte
-                          </div>
-                        )}
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-0 bg-black/20 backdrop-blur-[1.5px] transition group-hover:bg-black/30 group-hover:backdrop-blur-[2px]"
-                        />
-                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-white">
-                          <ZoomIn size={20} />
-                        </span>
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words font-medium leading-5">{ad.name}</p>
-                        <p className="mt-1 break-words text-xs text-slate-500">Criativo: {ad.creativeName}</p>
-                        {ad.destinationUrl ? (
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-white">
+                            <ZoomIn size={20} />
+                          </span>
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-medium leading-5">{ad.name}</p>
                           <p className="mt-1 break-words text-xs text-slate-500">
-                            Destino:{" "}
-                            {isHttpUrl(ad.destinationUrl) ? (
-                              <a
-                                href={ad.destinationUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="break-all text-viasoft underline-offset-2 hover:underline"
-                                title={ad.destinationUrl}
-                              >
-                                {formatDestinationLabel(ad.destinationUrl)}
-                              </a>
-                            ) : (
-                              <span className="break-all">{ad.destinationUrl}</span>
-                            )}
+                            Criativo: {ad.creativeName}
                           </p>
-                        ) : (
-                          <p className="mt-1 text-xs text-slate-500">Destino: não informado</p>
-                        )}
+                          {ad.destinationUrl ? (
+                            <p className="mt-1 break-words text-xs text-slate-500">
+                              Destino:{" "}
+                              {isHttpUrl(ad.destinationUrl) ? (
+                                <a
+                                  href={ad.destinationUrl}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="break-all text-viasoft underline-offset-2 hover:underline"
+                                  title={ad.destinationUrl}
+                                >
+                                  {formatDestinationLabel(ad.destinationUrl)}
+                                </a>
+                              ) : (
+                                <span className="break-all">{ad.destinationUrl}</span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-xs text-slate-500">Destino: não informado</p>
+                          )}
+                          <label
+                            className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                              compareChecked
+                                ? "border-teal-300 bg-teal-100/70 text-teal-700"
+                                : compareDisabled
+                                  ? "border-slate-200 bg-slate-100 text-slate-400"
+                                  : "border-slate-200 bg-white text-slate-600"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-viasoft focus:ring-viasoft/30"
+                              checked={compareChecked}
+                              disabled={compareDisabled}
+                              onChange={() => onToggleCompareAd(ad.id)}
+                            />
+                            {compareChecked ? "Comparando" : "Comparar"}
+                          </label>
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -359,7 +434,9 @@ export function CampaignStructurePanel({
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-slate-900">{selectedPreviewAd.name}</p>
-                <p className="mt-1 truncate text-xs text-slate-500">Criativo: {selectedPreviewAd.creativeName}</p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  Criativo: {selectedPreviewAd.creativeName}
+                </p>
                 <p className="mt-1 text-xs text-slate-500">
                   Destino:{" "}
                   {selectedPreviewAd.destinationUrl && isHttpUrl(selectedPreviewAd.destinationUrl) ? (

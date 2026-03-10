@@ -6,6 +6,7 @@ import {
   CAMPAIGNS_CACHE_KEY,
   campaignsCatalogCacheKey,
   campaignsCatalogCachePrefix,
+  structureComparisonCacheKey,
   verticalBudgetCacheKey,
   performanceCacheKey,
   performanceCachePrefix
@@ -17,10 +18,15 @@ import type {
   MetaAdSet,
   MetaCampaign,
   RangeDays,
+  StructureComparisonEntityType,
+  StructureComparisonPayload,
+  StructureComparisonItem,
   VerticalBudgetSummary
 } from "@/lib/types";
 import {
+  fetchAdInsights,
   fetchAdPreview,
+  fetchAdSetInsights,
   fetchAdSetAds,
   fetchActiveCampaigns,
   fetchCampaignActivityByRange,
@@ -46,6 +52,42 @@ const META_INVESTMENT_TAX_RATE = 0.1215;
 const VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX = 1000;
 const VIASOFT_VERTICAL_MONTHLY_CAP =
   VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
+const structureComparisonInFlight = new Map<string, Promise<StructureComparisonPayload>>();
+
+function isMetaRateLimitOrCooldownError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("cooldown") ||
+    normalized.includes("limite de requests") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("too many requests") ||
+    normalized.includes("429") ||
+    normalized.includes("code 17")
+  );
+}
+
+function extractRetryAfterSeconds(message: string): number | undefined {
+  const normalized = message.toLowerCase();
+  const patterns = [
+    /cerca de\s+(\d+)\s*s/i,
+    /em\s+(\d+)\s*s/i,
+    /(\d+)\s*seg/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match?.[1]) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+}
 
 function getStaleCacheValue<T>(key: string): T | null {
   const withOptionalStale = cache as typeof cache & {
@@ -369,6 +411,150 @@ export async function getDashboardPayload(params: {
 
     throw error;
   }
+}
+
+async function fetchStructureEntityInsights(params: {
+  entityType: StructureComparisonEntityType;
+  entityId: string;
+  since: string;
+  until: string;
+}) {
+  const { entityType, entityId, since, until } = params;
+
+  if (entityType === "ADSET") {
+    return fetchAdSetInsights({
+      adSetId: entityId,
+      since,
+      until
+    });
+  }
+
+  return fetchAdInsights({
+    adId: entityId,
+    since,
+    until
+  });
+}
+
+export async function getStructureComparisonPayload(params: {
+  campaignId: string;
+  entityType: StructureComparisonEntityType;
+  entityIds: string[];
+  rangeDays: RangeDays;
+  forceRefresh?: boolean;
+}): Promise<StructureComparisonPayload> {
+  const { campaignId, entityType, entityIds, rangeDays, forceRefresh = false } = params;
+
+  if (!isValidRangeDays(rangeDays)) {
+    throw new Error("Período inválido. Use 7, 14, 28 ou 30 dias.");
+  }
+
+  const uniqueIds = [...new Set(entityIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length !== 2) {
+    throw new Error("Selecione exatamente 2 itens para comparação.");
+  }
+
+  const range = buildDateRange(rangeDays);
+  const cacheKey = structureComparisonCacheKey(
+    entityType,
+    campaignId,
+    rangeDays,
+    range.until,
+    uniqueIds
+  );
+
+  const stalePayload = getStaleCacheValue<StructureComparisonPayload>(cacheKey);
+  const cachedPayload = cache.get<StructureComparisonPayload>(cacheKey);
+
+  if (cachedPayload && !forceRefresh) {
+    return {
+      ...cachedPayload,
+      isContingencySnapshot: false,
+      contingencyReason: undefined
+    };
+  }
+
+  const inFlight = structureComparisonInFlight.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const runner = (async (): Promise<StructureComparisonPayload> => {
+    try {
+      const campaign = await resolveCampaign(campaignId, forceRefresh);
+
+      const items = await Promise.all(
+        uniqueIds.map(async (entityId): Promise<StructureComparisonItem> => {
+          const [currentRows, previousRows] = await Promise.all([
+            fetchStructureEntityInsights({
+              entityType,
+              entityId,
+              since: range.since,
+              until: range.until
+            }),
+            fetchStructureEntityInsights({
+              entityType,
+              entityId,
+              since: range.previousSince,
+              until: range.previousUntil
+            })
+          ]);
+
+          const current = buildMetricSnapshot(currentRows, campaign.objectiveCategory);
+          const previous = buildMetricSnapshot(previousRows, campaign.objectiveCategory);
+          const comparison = buildMetricComparison(current, previous);
+
+          return {
+            id: entityId,
+            current,
+            previous,
+            deltas: comparison.deltas
+          };
+        })
+      );
+
+      const payload: StructureComparisonPayload = {
+        entityType,
+        range,
+        objectiveCategory: campaign.objectiveCategory,
+        items,
+        generatedAt: new Date().toISOString(),
+        isContingencySnapshot: false,
+        contingencyReason: undefined
+      };
+
+      cache.set(cacheKey, payload, CACHE_TTL_MS);
+      return payload;
+    } catch (error) {
+      if (stalePayload) {
+        const message = error instanceof Error ? error.message : String(error ?? "");
+        const retryAfterSeconds = extractRetryAfterSeconds(message);
+
+        if (isMetaRateLimitOrCooldownError(error)) {
+          return {
+            ...stalePayload,
+            isContingencySnapshot: true,
+            contingencyReason: "Meta API em cooldown/rate limit. Exibindo último snapshot disponível.",
+            retryAfterSeconds
+          };
+        }
+
+        return {
+          ...stalePayload,
+          isContingencySnapshot: true,
+          contingencyReason: "Meta API indisponível temporariamente. Exibindo último snapshot disponível.",
+          retryAfterSeconds
+        };
+      }
+
+      throw error;
+    } finally {
+      structureComparisonInFlight.delete(cacheKey);
+    }
+  })();
+
+  structureComparisonInFlight.set(cacheKey, runner);
+  return runner;
 }
 
 export function invalidateCampaignRangeCache(campaignId: string, rangeDays: RangeDays): number {

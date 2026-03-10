@@ -2283,6 +2283,60 @@ export async function fetchCampaignInsights(params: {
   return insights.map(normalizeInsightRow);
 }
 
+export async function fetchAdSetInsights(params: {
+  adSetId: string;
+  since: string;
+  until: string;
+  timeIncrement?: 1;
+}): Promise<NormalizedInsightRow[]> {
+  const { adSetId, since, until, timeIncrement } = params;
+
+  const queryParams: Record<string, string> = {
+    fields: INSIGHT_FIELDS,
+    level: "adset",
+    time_range: JSON.stringify({
+      since,
+      until
+    }),
+    limit: "5000"
+  };
+
+  if (timeIncrement) {
+    queryParams.time_increment = String(timeIncrement);
+  }
+
+  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adSetId}/insights`, queryParams);
+
+  return insights.map(normalizeInsightRow);
+}
+
+export async function fetchAdInsights(params: {
+  adId: string;
+  since: string;
+  until: string;
+  timeIncrement?: 1;
+}): Promise<NormalizedInsightRow[]> {
+  const { adId, since, until, timeIncrement } = params;
+
+  const queryParams: Record<string, string> = {
+    fields: INSIGHT_FIELDS,
+    level: "ad",
+    time_range: JSON.stringify({
+      since,
+      until
+    }),
+    limit: "5000"
+  };
+
+  if (timeIncrement) {
+    queryParams.time_increment = String(timeIncrement);
+  }
+
+  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adId}/insights`, queryParams);
+
+  return insights.map(normalizeInsightRow);
+}
+
 export async function fetchVerticalSpendInMonthRange(params: {
   verticalTag: string;
   since: string;

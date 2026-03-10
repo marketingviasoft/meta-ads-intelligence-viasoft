@@ -9,6 +9,7 @@ import { CampaignSelector } from "@/components/campaign-selector";
 import { CampaignHeaderCard, DashboardReport, VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
 import { OptionSelector } from "@/components/option-selector";
 import { PeriodSelector } from "@/components/period-selector";
+import { StructureComparisonSection } from "@/components/structure-comparison-section";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import type {
@@ -18,6 +19,8 @@ import type {
   MetaAdSet,
   MetaCampaign,
   RangeDays,
+  StructureComparisonEntityType,
+  StructureComparisonPayload,
   VerticalBudgetSummary
 } from "@/lib/types";
 import { resolveSupportedVertical, SUPPORTED_VERTICALS } from "@/lib/verticals";
@@ -44,6 +47,11 @@ type AdsResponse = {
 
 type VerticalBudgetResponse = {
   data?: VerticalBudgetSummary;
+  error?: string;
+};
+
+type StructureComparisonResponse = {
+  data?: StructureComparisonPayload;
   error?: string;
 };
 
@@ -94,6 +102,31 @@ async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Pro
   return body as T;
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function extractRetryAfterSecondsFromMessage(message: string): number | null {
+  const normalized = message.toLowerCase();
+  const patterns = [
+    /cerca de\s+(\d+)\s*s/i,
+    /em\s+(\d+)\s*s/i,
+    /(\d+)\s*seg/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match?.[1]) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function DashboardClient() {
   const campaignRefreshRequestedRef = useRef<string | null>(null);
   const adSetRefreshRequestedRef = useRef<boolean>(false);
@@ -108,18 +141,28 @@ export function DashboardClient() {
   const [adSets, setAdSets] = useState<MetaAdSet[]>([]);
   const [selectedAdSetId, setSelectedAdSetId] = useState<string>("");
   const [ads, setAds] = useState<MetaAd[]>([]);
+  const [selectedCompareAdSetIds, setSelectedCompareAdSetIds] = useState<string[]>([]);
+  const [selectedCompareAdIds, setSelectedCompareAdIds] = useState<string[]>([]);
+  const [adSetComparison, setAdSetComparison] = useState<StructureComparisonPayload | null>(null);
+  const [adComparison, setAdComparison] = useState<StructureComparisonPayload | null>(null);
   const [verticalBudget, setVerticalBudget] = useState<VerticalBudgetSummary | null>(null);
   const [rangeDays, setRangeDays] = useState<RangeDays>(7);
   const [reportData, setReportData] = useState<DashboardPayload | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState<boolean>(true);
   const [loadingAdSets, setLoadingAdSets] = useState<boolean>(false);
   const [loadingAds, setLoadingAds] = useState<boolean>(false);
+  const [loadingAdSetComparison, setLoadingAdSetComparison] = useState<boolean>(false);
+  const [loadingAdComparison, setLoadingAdComparison] = useState<boolean>(false);
   const [loadingVerticalBudget, setLoadingVerticalBudget] = useState<boolean>(false);
   const [loadingPerformance, setLoadingPerformance] = useState<boolean>(false);
   const [manualRefreshing, setManualRefreshing] = useState<boolean>(false);
   const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [structureErrorMessage, setStructureErrorMessage] = useState<string>("");
+  const [adSetComparisonErrorMessage, setAdSetComparisonErrorMessage] = useState<string>("");
+  const [adComparisonErrorMessage, setAdComparisonErrorMessage] = useState<string>("");
+  const [adSetComparisonRetryInSeconds, setAdSetComparisonRetryInSeconds] = useState<number | null>(null);
+  const [adComparisonRetryInSeconds, setAdComparisonRetryInSeconds] = useState<number | null>(null);
   const [verticalBudgetErrorMessage, setVerticalBudgetErrorMessage] = useState<string>("");
   const isMountedRef = useRef<boolean>(true);
   const pdfGenerationCleanupRef = useRef<(() => void) | null>(null);
@@ -154,6 +197,12 @@ export function DashboardClient() {
   const noCampaignsForSelectedVertical = !loadingCampaigns && !hasFilteredCampaigns;
   const isRefreshingData =
     manualRefreshing || loadingCampaigns || loadingPerformance || loadingVerticalBudget;
+  const adSetNameById = useMemo(() => {
+    return new Map(adSets.map((adSet) => [adSet.id, adSet.name]));
+  }, [adSets]);
+  const adNameById = useMemo(() => {
+    return new Map(ads.map((ad) => [ad.id, ad.name]));
+  }, [ads]);
 
   const loadCampaigns = useCallback(async (refresh = false): Promise<void> => {
     setLoadingCampaigns(true);
@@ -328,6 +377,165 @@ export function DashboardClient() {
     }
   }, []);
 
+  const loadStructureComparison = useCallback(
+    async (
+      entityType: StructureComparisonEntityType,
+      entityIds: string[],
+      forceRefresh = false,
+      signal?: AbortSignal
+    ): Promise<StructureComparisonPayload | null> => {
+      if (!selectedCampaignId || entityIds.length !== 2) {
+        return null;
+      }
+
+      const query = new URLSearchParams({
+        campaignId: selectedCampaignId,
+        entityType,
+        entityIds: entityIds.join(","),
+        rangeDays: String(rangeDays)
+      });
+
+      if (forceRefresh) {
+        query.set("refresh", "1");
+      }
+
+      const response = await requestJson<StructureComparisonResponse>(
+        `/api/meta/compare?${query.toString()}`,
+        {
+          signal
+        }
+      );
+
+      if (!response.data) {
+        throw new Error("Resposta de comparação vazia");
+      }
+
+      return response.data;
+    },
+    [rangeDays, selectedCampaignId]
+  );
+
+  const loadAdSetComparison = useCallback(
+    async (
+      entityIds: string[],
+      forceRefresh = false,
+      signal?: AbortSignal
+    ): Promise<void> => {
+      if (entityIds.length !== 2) {
+        setAdSetComparison(null);
+        setAdSetComparisonErrorMessage("");
+        return;
+      }
+
+      setLoadingAdSetComparison(true);
+
+      try {
+        const payload = await loadStructureComparison("ADSET", entityIds, forceRefresh, signal);
+        if (signal?.aborted) {
+          return;
+        }
+        setAdSetComparison(payload);
+        setAdSetComparisonErrorMessage("");
+        if (payload?.isContingencySnapshot && payload.retryAfterSeconds) {
+          setAdSetComparisonRetryInSeconds(payload.retryAfterSeconds);
+        } else {
+          setAdSetComparisonRetryInSeconds(null);
+        }
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+        const message =
+          error instanceof Error ? error.message : "Erro ao comparar grupos de anúncios";
+        const retryAfterSeconds = extractRetryAfterSecondsFromMessage(message);
+        setAdSetComparison(null);
+        setAdSetComparisonErrorMessage(
+          `Comparação de grupos: ${message}`
+        );
+        setAdSetComparisonRetryInSeconds(retryAfterSeconds);
+      } finally {
+        if (!signal?.aborted) {
+          setLoadingAdSetComparison(false);
+        }
+      }
+    },
+    [loadStructureComparison]
+  );
+
+  const loadAdComparison = useCallback(
+    async (
+      entityIds: string[],
+      forceRefresh = false,
+      signal?: AbortSignal
+    ): Promise<void> => {
+      if (entityIds.length !== 2) {
+        setAdComparison(null);
+        setAdComparisonErrorMessage("");
+        return;
+      }
+
+      setLoadingAdComparison(true);
+
+      try {
+        const payload = await loadStructureComparison("AD", entityIds, forceRefresh, signal);
+        if (signal?.aborted) {
+          return;
+        }
+        setAdComparison(payload);
+        setAdComparisonErrorMessage("");
+        if (payload?.isContingencySnapshot && payload.retryAfterSeconds) {
+          setAdComparisonRetryInSeconds(payload.retryAfterSeconds);
+        } else {
+          setAdComparisonRetryInSeconds(null);
+        }
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Erro ao comparar anúncios";
+        const retryAfterSeconds = extractRetryAfterSecondsFromMessage(message);
+        setAdComparison(null);
+        setAdComparisonErrorMessage(
+          `Comparação de anúncios: ${message}`
+        );
+        setAdComparisonRetryInSeconds(retryAfterSeconds);
+      } finally {
+        if (!signal?.aborted) {
+          setLoadingAdComparison(false);
+        }
+      }
+    },
+    [loadStructureComparison]
+  );
+
+  const toggleAdSetComparisonSelection = useCallback((adSetId: string): void => {
+    setSelectedCompareAdSetIds((previous) => {
+      if (previous.includes(adSetId)) {
+        return previous.filter((id) => id !== adSetId);
+      }
+
+      if (previous.length >= 2) {
+        return previous;
+      }
+
+      return [...previous, adSetId];
+    });
+  }, []);
+
+  const toggleAdComparisonSelection = useCallback((adId: string): void => {
+    setSelectedCompareAdIds((previous) => {
+      if (previous.includes(adId)) {
+        return previous.filter((id) => id !== adId);
+      }
+
+      if (previous.length >= 2) {
+        return previous;
+      }
+
+      return [...previous, adId];
+    });
+  }, []);
+
   useEffect(() => {
     void loadCampaigns(false);
   }, [loadCampaigns]);
@@ -350,6 +558,12 @@ export function DashboardClient() {
       setAdSets([]);
       setSelectedAdSetId("");
       setAds([]);
+      setSelectedCompareAdSetIds([]);
+      setSelectedCompareAdIds([]);
+      setAdSetComparison(null);
+      setAdComparison(null);
+      setAdSetComparisonRetryInSeconds(null);
+      setAdComparisonRetryInSeconds(null);
     }
   }, [filteredCampaigns]);
 
@@ -383,8 +597,124 @@ export function DashboardClient() {
     void loadAdSetAds(selectedAdSetId, shouldForceRefreshAds);
   }, [loadAdSetAds, selectedAdSetId]);
 
+  useEffect(() => {
+    setSelectedCompareAdSetIds((previous) =>
+      previous.filter((id) => adSets.some((adSet) => adSet.id === id))
+    );
+  }, [adSets]);
+
+  useEffect(() => {
+    setSelectedCompareAdIds((previous) => previous.filter((id) => ads.some((ad) => ad.id === id)));
+  }, [ads]);
+
+  useEffect(() => {
+    if (selectedCompareAdSetIds.length !== 2) {
+      setAdSetComparison(null);
+      setAdSetComparisonErrorMessage("");
+      setLoadingAdSetComparison(false);
+      setAdSetComparisonRetryInSeconds(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      void loadAdSetComparison(selectedCompareAdSetIds, false, controller.signal);
+    }, 350);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [loadAdSetComparison, selectedCompareAdSetIds]);
+
+  useEffect(() => {
+    if (selectedCompareAdIds.length !== 2) {
+      setAdComparison(null);
+      setAdComparisonErrorMessage("");
+      setLoadingAdComparison(false);
+      setAdComparisonRetryInSeconds(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      void loadAdComparison(selectedCompareAdIds, false, controller.signal);
+    }, 350);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [loadAdComparison, selectedCompareAdIds]);
+
+  useEffect(() => {
+    if (adSetComparisonRetryInSeconds === null || adSetComparisonRetryInSeconds <= 0) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setAdSetComparisonRetryInSeconds((previous) => {
+        if (previous === null) {
+          return previous;
+        }
+
+        return previous > 0 ? previous - 1 : previous;
+      });
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [adSetComparisonRetryInSeconds]);
+
+  useEffect(() => {
+    if (adComparisonRetryInSeconds === null || adComparisonRetryInSeconds <= 0) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setAdComparisonRetryInSeconds((previous) => {
+        if (previous === null) {
+          return previous;
+        }
+
+        return previous > 0 ? previous - 1 : previous;
+      });
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [adComparisonRetryInSeconds]);
+
+  useEffect(() => {
+    if (adSetComparisonRetryInSeconds !== 0) {
+      return;
+    }
+
+    setAdSetComparisonRetryInSeconds(null);
+    if (selectedCompareAdSetIds.length === 2) {
+      void loadAdSetComparison(selectedCompareAdSetIds, true);
+    }
+  }, [adSetComparisonRetryInSeconds, loadAdSetComparison, selectedCompareAdSetIds]);
+
+  useEffect(() => {
+    if (adComparisonRetryInSeconds !== 0) {
+      return;
+    }
+
+    setAdComparisonRetryInSeconds(null);
+    if (selectedCompareAdIds.length === 2) {
+      void loadAdComparison(selectedCompareAdIds, true);
+    }
+  }, [adComparisonRetryInSeconds, loadAdComparison, selectedCompareAdIds]);
+
   const handleCampaignChange = useCallback((campaignId: string): void => {
     campaignRefreshRequestedRef.current = campaignId;
+    setSelectedCompareAdSetIds([]);
+    setSelectedCompareAdIds([]);
+    setAdSetComparison(null);
+    setAdComparison(null);
+    setAdSetComparisonErrorMessage("");
+    setAdComparisonErrorMessage("");
+    setAdSetComparisonRetryInSeconds(null);
+    setAdComparisonRetryInSeconds(null);
     setSelectedCampaignId(campaignId);
   }, []);
 
@@ -398,6 +728,8 @@ export function DashboardClient() {
     try {
       const campaignIdForRefresh = selectedCampaignId;
       const adSetIdForRefresh = selectedAdSetId;
+      const adSetCompareIdsForRefresh = [...selectedCompareAdSetIds];
+      const adCompareIdsForRefresh = [...selectedCompareAdIds];
 
       await Promise.all([
         loadCampaigns(true),
@@ -413,6 +745,14 @@ export function DashboardClient() {
         if (adSetIdForRefresh) {
           await loadAdSetAds(adSetIdForRefresh, true);
         }
+
+        if (adSetCompareIdsForRefresh.length === 2) {
+          await loadAdSetComparison(adSetCompareIdsForRefresh, true);
+        }
+
+        if (adCompareIdsForRefresh.length === 2) {
+          await loadAdComparison(adCompareIdsForRefresh, true);
+        }
       }
     } catch (error) {
       setErrorMessage(
@@ -427,8 +767,12 @@ export function DashboardClient() {
     loadCampaignAdSets,
     loadCampaigns,
     loadPerformance,
+    loadAdComparison,
+    loadAdSetComparison,
     loadVerticalBudget,
     selectedAdSetId,
+    selectedCompareAdIds,
+    selectedCompareAdSetIds,
     selectedCampaignId,
     selectedVerticalSupported
   ]);
@@ -703,10 +1047,36 @@ export function DashboardClient() {
             selectedAdSetId={selectedAdSetId}
             onSelectAdSet={setSelectedAdSetId}
             ads={ads}
+            selectedCompareAdSetIds={selectedCompareAdSetIds}
+            onToggleCompareAdSet={toggleAdSetComparisonSelection}
+            selectedCompareAdIds={selectedCompareAdIds}
+            onToggleCompareAd={toggleAdComparisonSelection}
             loadingAdSets={loadingAdSets}
             loadingAds={loadingAds}
             errorMessage={structureErrorMessage}
           />
+          {selectedCompareAdSetIds.length > 0 ? (
+            <StructureComparisonSection
+              entityType="ADSET"
+              selectedIds={selectedCompareAdSetIds}
+              resolveName={(id) => adSetNameById.get(id) ?? id}
+              comparison={adSetComparison}
+              loading={loadingAdSetComparison}
+              errorMessage={adSetComparisonErrorMessage}
+              retryInSeconds={adSetComparisonRetryInSeconds}
+            />
+          ) : null}
+          {selectedCompareAdIds.length > 0 ? (
+            <StructureComparisonSection
+              entityType="AD"
+              selectedIds={selectedCompareAdIds}
+              resolveName={(id) => adNameById.get(id) ?? id}
+              comparison={adComparison}
+              loading={loadingAdComparison}
+              errorMessage={adComparisonErrorMessage}
+              retryInSeconds={adComparisonRetryInSeconds}
+            />
+          ) : null}
           <DashboardReport data={reportData} hideCampaignHeader />
           <p className="text-right text-xs text-slate-500">
             Atualizado em {new Date(reportData.generatedAt).toLocaleString("pt-BR")}

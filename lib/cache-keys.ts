@@ -4,6 +4,7 @@ export const CAMPAIGNS_CACHE_KEY = "campaigns:active";
 const CAMPAIGNS_CATALOG_CACHE_PREFIX = "campaigns:catalog";
 const ADS_CACHE_VERSION = "v2";
 const AD_PREVIEW_CACHE_VERSION = "v1";
+const STRUCTURE_COMPARISON_CACHE_VERSION = "v1";
 
 export function adSetsCacheKey(campaignId: string): string {
   return `structure:adsets:${campaignId}`;
@@ -52,4 +53,15 @@ export function campaignsCatalogCachePrefix(): string {
 export function verticalBudgetCacheKey(verticalTag: string, monthUntil: string): string {
   const normalizedVertical = encodeURIComponent((verticalTag || "sem-vertical").trim().toLowerCase());
   return `budget:vertical:${normalizedVertical}:${monthUntil}`;
+}
+
+export function structureComparisonCacheKey(
+  entityType: "ADSET" | "AD",
+  campaignId: string,
+  rangeDays: RangeDays,
+  rangeUntil: string,
+  entityIds: string[]
+): string {
+  const normalizedIds = [...new Set(entityIds)].sort().join(",");
+  return `compare:${STRUCTURE_COMPARISON_CACHE_VERSION}:${entityType}:${campaignId}:${rangeDays}:${rangeUntil}:${normalizedIds}`;
 }

@@ -118,6 +118,26 @@ export interface MetricComparison {
   trend: TrendSummary;
 }
 
+export type StructureComparisonEntityType = "ADSET" | "AD";
+
+export interface StructureComparisonItem {
+  id: string;
+  current: MetricSnapshot;
+  previous: MetricSnapshot;
+  deltas: MetricComparison["deltas"];
+}
+
+export interface StructureComparisonPayload {
+  entityType: StructureComparisonEntityType;
+  range: DateRangeSelection;
+  objectiveCategory: ObjectiveCategory;
+  items: StructureComparisonItem[];
+  generatedAt: string;
+  isContingencySnapshot?: boolean;
+  contingencyReason?: string;
+  retryAfterSeconds?: number;
+}
+
 export interface DailyMetricPoint {
   date: string;
   spend: number;
