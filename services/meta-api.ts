@@ -1,4 +1,5 @@
 import type {
+  CampaignLifecycleStatus,
   DeliveryStatus,
   MetaAd,
   MetaAdPreview,
@@ -53,6 +54,8 @@ type MetaCampaignResponseItem = {
   name: string;
   objective: string;
   effective_status?: string;
+  status?: string;
+  configured_status?: string;
 };
 
 type MetaAdSetDeliveryResponseItem = {
@@ -207,6 +210,13 @@ type MetaInsightResponseItem = {
   conversions?: string;
   actions?: MetaInsightAction[];
   cost_per_action_type?: MetaInsightAction[];
+};
+
+type MetaCampaignActivityInsightResponseItem = {
+  campaign_id?: string;
+  spend?: string;
+  impressions?: string;
+  clicks?: string;
 };
 
 type AdSetWithoutDeliveryReason = "COMPLETED" | "ADSET_DISABLED" | "UNKNOWN";
@@ -445,9 +455,25 @@ async function fetchMetaObject<T>(path: string, queryParams: Record<string, stri
 
 function normalizeCampaign(
   item: MetaCampaignResponseItem,
-  deliveryStatus: DeliveryStatus
+  deliveryStatus: DeliveryStatus,
+  activity?: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+  }
 ): MetaCampaign {
   const verticalTag = extractVerticalTagFromCampaignName(item.name);
+  const effective = (item.effective_status ?? "").toUpperCase();
+  const configured = resolveConfiguredStatus(item.status, item.configured_status).toUpperCase();
+  const lifecycleStatus = resolveCampaignLifecycleStatus({
+    effectiveStatus: effective,
+    configuredStatus: configured,
+    deliveryStatus
+  });
+
+  const periodSpend = activity?.spend ?? 0;
+  const periodImpressions = activity?.impressions ?? 0;
+  const periodClicks = activity?.clicks ?? 0;
 
   return {
     id: item.id,
@@ -456,7 +482,12 @@ function normalizeCampaign(
     objectiveCategory: getObjectiveCategory(item.objective),
     effectiveStatus: item.effective_status ?? "UNKNOWN",
     verticalTag,
-    deliveryStatus
+    deliveryStatus,
+    lifecycleStatus,
+    hasActivityInRange: periodSpend > 0 || periodImpressions > 0,
+    periodSpend,
+    periodImpressions,
+    periodClicks
   };
 }
 
@@ -629,6 +660,45 @@ function resolveConfiguredStatus(
   }
 
   return "UNKNOWN";
+}
+
+function resolveCampaignLifecycleStatus(params: {
+  effectiveStatus: string;
+  configuredStatus: string;
+  deliveryStatus: DeliveryStatus;
+}): CampaignLifecycleStatus {
+  const { effectiveStatus, configuredStatus, deliveryStatus } = params;
+
+  if (
+    effectiveStatus.includes("ARCHIVED") ||
+    configuredStatus.includes("ARCHIVED") ||
+    effectiveStatus.includes("DELETED") ||
+    configuredStatus.includes("DELETED")
+  ) {
+    return "ARCHIVED";
+  }
+
+  if (
+    effectiveStatus.includes("PAUSED") ||
+    configuredStatus.includes("PAUSED") ||
+    deliveryStatus === "ADSET_DISABLED"
+  ) {
+    return "PAUSED";
+  }
+
+  if (
+    effectiveStatus.includes("COMPLETED") ||
+    configuredStatus.includes("COMPLETED") ||
+    deliveryStatus === "COMPLETED"
+  ) {
+    return "COMPLETED";
+  }
+
+  if (effectiveStatus === "ACTIVE" && deliveryStatus === "ACTIVE") {
+    return "RUNNING";
+  }
+
+  return "WITHOUT_DELIVERY";
 }
 
 function resolveAdSetId(item: MetaAdResponseItem): string {
@@ -1805,22 +1875,6 @@ function normalizeAd(
   };
 }
 
-function isAdDeliveringActive(item: MetaAdResponseItem): boolean {
-  if (!isStatusActive(item.effective_status)) {
-    return false;
-  }
-
-  const configuredStatuses = [item.status, item.configured_status].filter(
-    (value): value is string => typeof value === "string"
-  );
-
-  if (configuredStatuses.length === 0) {
-    return true;
-  }
-
-  return configuredStatuses.some((status) => isStatusActive(status));
-}
-
 async function resolveCampaignDeliveryStatus(campaignId: string): Promise<DeliveryStatus> {
   const adsets = await fetchMetaList<MetaAdSetDeliveryResponseItem>(`${campaignId}/adsets`, {
     fields: "effective_status,status,configured_status,end_time",
@@ -1830,12 +1884,12 @@ async function resolveCampaignDeliveryStatus(campaignId: string): Promise<Delive
   return resolveCampaignDeliveryStatusFromAdSets(adsets);
 }
 
-export async function fetchActiveCampaigns(): Promise<MetaCampaign[]> {
+export async function fetchCampaignCatalog(): Promise<MetaCampaign[]> {
   const { adAccountId } = getMetaConfig();
 
   const [campaigns, campaignDeliveryAdSets] = await Promise.all([
     fetchMetaList<MetaCampaignResponseItem>(`${adAccountId}/campaigns`, {
-      fields: "id,name,objective,effective_status,status",
+      fields: "id,name,objective,effective_status,status,configured_status",
       limit: "200"
     }),
     fetchMetaList<MetaAdSetDeliveryResponseItem>(`${adAccountId}/adsets`, {
@@ -1846,20 +1900,71 @@ export async function fetchActiveCampaigns(): Promise<MetaCampaign[]> {
   const campaignDeliveryStatus = mapCampaignDeliveryStatus(campaignDeliveryAdSets);
 
   return campaigns
-    .filter((campaign) => isStatusActive(campaign.effective_status))
     .map((campaign) =>
-      normalizeCampaign(
-        campaign,
-        campaignDeliveryStatus.get(campaign.id) ?? "WITHOUT_DELIVERY"
-      )
+      normalizeCampaign(campaign, campaignDeliveryStatus.get(campaign.id) ?? "WITHOUT_DELIVERY")
     )
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function fetchCampaignActivityByRange(params: {
+  since: string;
+  until: string;
+}): Promise<Map<string, { spend: number; impressions: number; clicks: number }>> {
+  const { adAccountId } = getMetaConfig();
+  const { since, until } = params;
+
+  const insights = await fetchMetaList<MetaCampaignActivityInsightResponseItem>(`${adAccountId}/insights`, {
+    fields: "campaign_id,spend,impressions,clicks",
+    level: "campaign",
+    time_range: JSON.stringify({
+      since,
+      until
+    }),
+    limit: "5000"
+  });
+
+  const byCampaign = new Map<string, { spend: number; impressions: number; clicks: number }>();
+
+  for (const row of insights) {
+    const campaignId = row.campaign_id?.trim();
+    if (!campaignId) {
+      continue;
+    }
+
+    const spend = toNumber(row.spend);
+    const impressions = toNumber(row.impressions);
+    const clicks = toNumber(row.clicks);
+    const existing = byCampaign.get(campaignId);
+
+    if (existing) {
+      byCampaign.set(campaignId, {
+        spend: existing.spend + spend,
+        impressions: existing.impressions + impressions,
+        clicks: existing.clicks + clicks
+      });
+    } else {
+      byCampaign.set(campaignId, {
+        spend,
+        impressions,
+        clicks
+      });
+    }
+  }
+
+  return byCampaign;
+}
+
+export async function fetchActiveCampaigns(): Promise<MetaCampaign[]> {
+  const campaigns = await fetchCampaignCatalog();
+  return campaigns
+    .filter((campaign) => isStatusActive(campaign.effectiveStatus))
     .filter((campaign) => campaign.deliveryStatus === "ACTIVE")
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function fetchCampaignById(campaignId: string): Promise<MetaCampaign | null> {
   const campaign = await fetchMetaObject<MetaCampaignResponseItem>(campaignId, {
-    fields: "id,name,objective,effective_status,status"
+    fields: "id,name,objective,effective_status,status,configured_status"
   });
 
   if (!campaign?.id) {
@@ -1878,7 +1983,6 @@ export async function fetchCampaignAdSets(campaignId: string): Promise<MetaAdSet
 
   return adSets
     .filter((adSet) => Boolean(adSet.id && adSet.name))
-    .filter((adSet) => isAdSetDeliveringActive(adSet))
     .map((adSet) => normalizeAdSet(adSet, campaignId))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -1985,7 +2089,6 @@ export async function fetchAdSetAds(adSetId: string): Promise<MetaAd[]> {
   const rawAdById = new Map(ads.map((ad) => [ad.id, ad]));
   const normalizedAds = ads
     .filter((ad) => Boolean(ad.id && ad.name))
-    .filter((ad) => isAdDeliveringActive(ad))
     .map((ad) => normalizeAd(ad, adSetId, adSetContext))
     .sort((a, b) => a.name.localeCompare(b.name));
 

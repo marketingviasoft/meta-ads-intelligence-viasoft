@@ -1,6 +1,7 @@
 import type { RangeDays } from "@/lib/types";
 
 export const CAMPAIGNS_CACHE_KEY = "campaigns:active";
+const CAMPAIGNS_CATALOG_CACHE_PREFIX = "campaigns:catalog";
 const ADS_CACHE_VERSION = "v2";
 const AD_PREVIEW_CACHE_VERSION = "v1";
 
@@ -38,6 +39,14 @@ export function performanceCacheKey(
 
 export function performanceCachePrefix(campaignId: string, rangeDays: RangeDays): string {
   return `performance:${campaignId}:${rangeDays}:`;
+}
+
+export function campaignsCatalogCacheKey(rangeDays: RangeDays, rangeUntil: string): string {
+  return `${CAMPAIGNS_CATALOG_CACHE_PREFIX}:${rangeDays}:${rangeUntil}`;
+}
+
+export function campaignsCatalogCachePrefix(): string {
+  return `${CAMPAIGNS_CATALOG_CACHE_PREFIX}:`;
 }
 
 export function verticalBudgetCacheKey(verticalTag: string, monthUntil: string): string {

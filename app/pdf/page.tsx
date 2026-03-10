@@ -494,7 +494,7 @@ export default async function PdfPage({
           <section data-pdf-block="campaign-structure" className="surface-panel p-5">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Grupos de anúncios e anúncios ativos no momento da geração do relatório.
+              Grupos de anúncios e anúncios da campanha no momento da geração do relatório.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -504,7 +504,7 @@ export default async function PdfPage({
                 </div>
                 {visibleAdSets.length === 0 ? (
                   <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
-                    Nenhum grupo ativo encontrado.
+                    Nenhum grupo encontrado.
                   </p>
                 ) : (
                   <ul className="space-y-1.5 text-sm text-slate-700">
@@ -536,7 +536,7 @@ export default async function PdfPage({
                 </div>
                 {visibleAds.length === 0 ? (
                   <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
-                    Nenhum anúncio ativo encontrado.
+                    Nenhum anúncio encontrado.
                   </p>
                 ) : (
                   <ul className="space-y-2">

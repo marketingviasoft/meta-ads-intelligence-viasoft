@@ -4,6 +4,8 @@ import {
   adSetsCacheKey,
   adsCacheKey,
   CAMPAIGNS_CACHE_KEY,
+  campaignsCatalogCacheKey,
+  campaignsCatalogCachePrefix,
   verticalBudgetCacheKey,
   performanceCacheKey,
   performanceCachePrefix
@@ -21,6 +23,8 @@ import {
   fetchAdPreview,
   fetchAdSetAds,
   fetchActiveCampaigns,
+  fetchCampaignActivityByRange,
+  fetchCampaignCatalog,
   fetchVerticalSpendInMonthRange,
   fetchCampaignAdSets,
   fetchCampaignById,
@@ -38,6 +42,10 @@ import {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_MAX_AGE_MS = 15 * 60 * 1000;
 const DEFAULT_VERTICAL_MONTHLY_CAP = 535;
+const META_INVESTMENT_TAX_RATE = 0.1215;
+const VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX = 1000;
+const VIASOFT_VERTICAL_MONTHLY_CAP =
+  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
 
 function getStaleCacheValue<T>(key: string): T | null {
   const withOptionalStale = cache as typeof cache & {
@@ -62,6 +70,54 @@ export async function getActiveCampaigns(forceRefresh = false): Promise<MetaCamp
     const campaigns = await fetchActiveCampaigns();
     cache.set(CAMPAIGNS_CACHE_KEY, campaigns, CACHE_TTL_MS);
     return campaigns;
+  } catch (error) {
+    if (stale) {
+      return stale;
+    }
+
+    throw error;
+  }
+}
+
+export async function getCampaignCatalog(
+  rangeDays: RangeDays,
+  forceRefresh = false
+): Promise<MetaCampaign[]> {
+  if (!isValidRangeDays(rangeDays)) {
+    throw new Error("Período inválido. Use 7, 14, 28 ou 30 dias.");
+  }
+
+  const range = buildDateRange(rangeDays);
+  const cacheKey = campaignsCatalogCacheKey(rangeDays, range.until);
+  const stale = getStaleCacheValue<MetaCampaign[]>(cacheKey);
+  const cached = cache.get<MetaCampaign[]>(cacheKey);
+
+  if (cached && !forceRefresh) {
+    return cached;
+  }
+
+  try {
+    const [campaigns, activityByCampaign] = await Promise.all([
+      fetchCampaignCatalog(),
+      fetchCampaignActivityByRange({
+        since: range.since,
+        until: range.until
+      })
+    ]);
+
+    const catalog = campaigns.map((campaign) => {
+      const activity = activityByCampaign.get(campaign.id);
+      return {
+        ...campaign,
+        hasActivityInRange: (activity?.spend ?? 0) > 0 || (activity?.impressions ?? 0) > 0,
+        periodSpend: activity?.spend ?? 0,
+        periodImpressions: activity?.impressions ?? 0,
+        periodClicks: activity?.clicks ?? 0
+      };
+    });
+
+    cache.set(cacheKey, catalog, CACHE_TTL_MS);
+    return catalog;
   } catch (error) {
     if (stale) {
       return stale;
@@ -160,18 +216,14 @@ async function resolveCampaign(campaignId: string, forceRefresh = false): Promis
     throw new Error("Campanha não encontrada");
   }
 
-  if (fromApi.effectiveStatus.toUpperCase() !== "ACTIVE") {
-    throw new Error("Apenas campanhas ativadas são suportadas no MVP");
-  }
-
-  if (fromApi.deliveryStatus !== "ACTIVE") {
-    throw new Error("A campanha selecionada não possui veiculação ativa.");
-  }
-
   return fromApi;
 }
 
-function resolveVerticalMonthlyCap(): number {
+function resolveVerticalMonthlyCap(verticalTag: string): number {
+  if (verticalTag.localeCompare("VIASOFT", "pt-BR", { sensitivity: "base" }) === 0) {
+    return VIASOFT_VERTICAL_MONTHLY_CAP;
+  }
+
   const rawCap = process.env.VERTICAL_MONTHLY_CAP_BRL;
   if (!rawCap) {
     return DEFAULT_VERTICAL_MONTHLY_CAP;
@@ -191,7 +243,7 @@ export async function getVerticalBudgetSummary(params: {
 }): Promise<VerticalBudgetSummary> {
   const { verticalTag, forceRefresh = false } = params;
   const monthRange = buildCurrentMonthToCurrentDateRange();
-  const monthlyCap = resolveVerticalMonthlyCap();
+  const monthlyCap = resolveVerticalMonthlyCap(verticalTag);
   const cacheKey = verticalBudgetCacheKey(verticalTag, monthRange.until);
 
   const staleBudget = getStaleCacheValue<VerticalBudgetSummary>(cacheKey);
@@ -325,6 +377,7 @@ export function invalidateCampaignRangeCache(campaignId: string, rangeDays: Rang
 
 export function invalidateCampaignsCache(): void {
   cache.delete(CAMPAIGNS_CACHE_KEY);
+  cache.deleteByPrefix(campaignsCatalogCachePrefix());
 }
 
 export function invalidateAllCache(): void {

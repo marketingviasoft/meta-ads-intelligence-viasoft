@@ -8,6 +8,12 @@ export type DeliveryStatus =
   | "COMPLETED"
   | "ADSET_DISABLED"
   | "WITHOUT_DELIVERY";
+export type CampaignLifecycleStatus =
+  | "RUNNING"
+  | "PAUSED"
+  | "COMPLETED"
+  | "WITHOUT_DELIVERY"
+  | "ARCHIVED";
 
 export type InsightSeverity = "alert" | "opportunity" | "info";
 
@@ -19,6 +25,11 @@ export interface MetaCampaign {
   effectiveStatus: string;
   verticalTag: string;
   deliveryStatus: DeliveryStatus;
+  lifecycleStatus: CampaignLifecycleStatus;
+  hasActivityInRange: boolean;
+  periodSpend: number;
+  periodImpressions: number;
+  periodClicks: number;
 }
 
 export interface MetaAdSet {

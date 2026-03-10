@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveCampaigns } from "@/lib/meta-dashboard";
+import { getCampaignCatalog } from "@/lib/meta-dashboard";
+import { parseRangeDays } from "@/utils/date-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,14 +41,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const refresh = request.nextUrl.searchParams.get("refresh") === "1";
+  const rangeDays = parseRangeDays(request.nextUrl.searchParams.get("rangeDays"));
 
   try {
-    const campaigns = await getActiveCampaigns(refresh);
+    const campaigns = await getCampaignCatalog(rangeDays, refresh);
     return NextResponse.json({
       data: campaigns,
       meta: {
         count: campaigns.length,
-        refreshed: refresh
+        refreshed: refresh,
+        rangeDays
       }
     });
   } catch (error) {

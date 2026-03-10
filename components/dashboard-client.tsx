@@ -7,10 +7,12 @@ import { BrandMark } from "@/components/brand-mark";
 import { CampaignStructurePanel } from "@/components/campaign-structure-panel";
 import { CampaignSelector } from "@/components/campaign-selector";
 import { CampaignHeaderCard, DashboardReport, VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
+import { OptionSelector } from "@/components/option-selector";
 import { PeriodSelector } from "@/components/period-selector";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import type {
+  CampaignLifecycleStatus,
   DashboardPayload,
   MetaAd,
   MetaAdSet,
@@ -46,6 +48,20 @@ type VerticalBudgetResponse = {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const CAMPAIGN_STATUS_FILTER_ALL = "ALL" as const;
+const ALL_VERTICALS_VALUE = "__ALL_VERTICALS__" as const;
+
+const CAMPAIGN_STATUS_FILTERS: Array<{
+  value: typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus;
+  label: string;
+}> = [
+  { value: CAMPAIGN_STATUS_FILTER_ALL, label: "Todos os status" },
+  { value: "RUNNING", label: "Em veiculação" },
+  { value: "PAUSED", label: "Pausada" },
+  { value: "COMPLETED", label: "Encerrada" },
+  { value: "WITHOUT_DELIVERY", label: "Sem veiculação" },
+  { value: "ARCHIVED", label: "Arquivada" }
+];
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
@@ -84,7 +100,10 @@ export function DashboardClient() {
   const previousCampaignIdRef = useRef<string>("");
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
-  const [selectedVertical, setSelectedVertical] = useState<string>(SUPPORTED_VERTICALS[0]);
+  const [selectedVertical, setSelectedVertical] = useState<string>(ALL_VERTICALS_VALUE);
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<
+    typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus
+  >(CAMPAIGN_STATUS_FILTER_ALL);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [adSets, setAdSets] = useState<MetaAdSet[]>([]);
   const [selectedAdSetId, setSelectedAdSetId] = useState<string>("");
@@ -106,12 +125,30 @@ export function DashboardClient() {
   const pdfGenerationCleanupRef = useRef<(() => void) | null>(null);
 
   const verticalOptions = useMemo(() => [...SUPPORTED_VERTICALS], []);
+  const selectedVerticalSupported = useMemo(
+    () => resolveSupportedVertical(selectedVertical ?? ""),
+    [selectedVertical]
+  );
 
   const filteredCampaigns = useMemo(() => {
-    return campaigns.filter(
-      (campaign) => resolveSupportedVertical(campaign.verticalTag) === selectedVertical
-    );
-  }, [campaigns, selectedVertical]);
+    let nextCampaigns = campaigns;
+
+    if (selectedVertical !== ALL_VERTICALS_VALUE) {
+      nextCampaigns = nextCampaigns.filter(
+        (campaign) => resolveSupportedVertical(campaign.verticalTag) === selectedVerticalSupported
+      );
+    }
+
+    if (campaignStatusFilter !== CAMPAIGN_STATUS_FILTER_ALL) {
+      nextCampaigns = nextCampaigns.filter(
+        (campaign) => campaign.lifecycleStatus === campaignStatusFilter
+      );
+    }
+
+    const sorted = [...nextCampaigns];
+    sorted.sort((a, b) => a.name.localeCompare(b.name));
+    return sorted;
+  }, [campaignStatusFilter, campaigns, selectedVertical, selectedVerticalSupported]);
 
   const hasFilteredCampaigns = filteredCampaigns.length > 0;
   const noCampaignsForSelectedVertical = !loadingCampaigns && !hasFilteredCampaigns;
@@ -122,8 +159,16 @@ export function DashboardClient() {
     setLoadingCampaigns(true);
 
     try {
+      const query = new URLSearchParams({
+        rangeDays: String(rangeDays)
+      });
+
+      if (refresh) {
+        query.set("refresh", "1");
+      }
+
       const response = await requestJson<CampaignsResponse>(
-        `/api/meta/campaigns${refresh ? "?refresh=1" : ""}`
+        `/api/meta/campaigns?${query.toString()}`
       );
       const nextCampaigns = response.data ?? [];
 
@@ -149,11 +194,11 @@ export function DashboardClient() {
     } finally {
       setLoadingCampaigns(false);
     }
-  }, []);
+  }, [rangeDays]);
 
   const loadVerticalBudget = useCallback(
     async (verticalTag: string, refresh = false): Promise<void> => {
-      if (!verticalTag) {
+      if (!verticalTag || verticalTag === ALL_VERTICALS_VALUE) {
         setVerticalBudget(null);
         setVerticalBudgetErrorMessage("");
         return;
@@ -288,8 +333,8 @@ export function DashboardClient() {
   }, [loadCampaigns]);
 
   useEffect(() => {
-    void loadVerticalBudget(selectedVertical, false);
-  }, [loadVerticalBudget, selectedVertical]);
+    void loadVerticalBudget(selectedVerticalSupported ?? "", false);
+  }, [loadVerticalBudget, selectedVerticalSupported]);
 
   useEffect(() => {
     setSelectedCampaignId((previous) => {
@@ -356,7 +401,7 @@ export function DashboardClient() {
 
       await Promise.all([
         loadCampaigns(true),
-        loadVerticalBudget(selectedVertical, true)
+        loadVerticalBudget(selectedVerticalSupported ?? "", true)
       ]);
 
       if (campaignIdForRefresh) {
@@ -385,7 +430,7 @@ export function DashboardClient() {
     loadVerticalBudget,
     selectedAdSetId,
     selectedCampaignId,
-    selectedVertical
+    selectedVerticalSupported
   ]);
 
   const pdfUrl = useMemo(() => {
@@ -394,16 +439,19 @@ export function DashboardClient() {
     }
 
     const query = new URLSearchParams({
-      rangeDays: String(rangeDays),
-      verticalTag: selectedVertical
+      rangeDays: String(rangeDays)
     });
+
+    if (selectedVerticalSupported) {
+      query.set("verticalTag", selectedVerticalSupported);
+    }
 
     if (selectedCampaignId) {
       query.set("campaignId", selectedCampaignId);
     }
 
     return `/api/pdf?${query.toString()}`;
-  }, [rangeDays, selectedCampaignId, selectedVertical]);
+  }, [rangeDays, selectedCampaignId, selectedVertical, selectedVerticalSupported]);
 
   const handleGeneratePdf = useCallback((): void => {
     if (!pdfUrl || pdfGenerating) {
@@ -520,16 +568,34 @@ export function DashboardClient() {
       </header>
 
       <section data-dashboard-block="filters" className="surface-panel mt-5 p-5 sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 lg:items-end">
           <div className="min-w-0 lg:col-span-1">
             <VerticalSelector
               verticals={verticalOptions}
               value={selectedVertical}
               onChange={setSelectedVertical}
               disabled={loadingCampaigns}
+              allOptionValue={ALL_VERTICALS_VALUE}
             />
           </div>
-          <div className="min-w-0 lg:col-span-2">
+          <div className="min-w-0 lg:col-span-1">
+            <OptionSelector
+              label="Status da campanha"
+              value={campaignStatusFilter}
+              onChange={(nextValue) =>
+                setCampaignStatusFilter(
+                  nextValue as typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus
+                )
+              }
+              options={CAMPAIGN_STATUS_FILTERS.map((status) => ({
+                value: status.value,
+                label: status.label
+              }))}
+              ariaLabel="Seleção do status da campanha"
+              disabled={loadingCampaigns}
+            />
+          </div>
+          <div className="min-w-0 md:col-span-2 lg:col-span-3">
             <CampaignSelector
               campaigns={filteredCampaigns}
               value={selectedCampaignId}
@@ -537,7 +603,7 @@ export function DashboardClient() {
               disabled={loadingCampaigns || !hasFilteredCampaigns}
             />
           </div>
-          <div className="min-w-0 lg:col-span-1">
+          <div className="min-w-0 md:col-span-2 lg:col-span-1">
             <PeriodSelector
               value={rangeDays}
               onChange={setRangeDays}
@@ -546,7 +612,11 @@ export function DashboardClient() {
           </div>
         </div>
         <div data-dashboard-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
-          {loadingVerticalBudget ? (
+          {selectedVertical === ALL_VERTICALS_VALUE ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              Selecione uma vertical específica para visualizar o orçamento mensal.
+            </div>
+          ) : loadingVerticalBudget ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
               <div className="inline-flex items-center gap-2">
                 <Loader2 size={16} className="animate-spin" />
@@ -592,7 +662,10 @@ export function DashboardClient() {
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
                 Campanhas da vertical
               </p>
-              <p className="mt-1">Não há nenhuma campanha ativa para a vertical selecionada.</p>
+              <p className="mt-1">
+                Não há campanhas para os filtros atuais. Ajuste status ou período para ampliar a
+                análise.
+              </p>
             </div>
           </div>
         </section>

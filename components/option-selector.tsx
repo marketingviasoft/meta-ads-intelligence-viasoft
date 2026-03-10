@@ -1,14 +1,21 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type { MetaCampaign } from "@/lib/types";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
-type CampaignSelectorProps = {
-  campaigns: MetaCampaign[];
+type OptionItem = {
   value: string;
-  onChange: (campaignId: string) => void;
+  label: string;
+};
+
+type OptionSelectorProps = {
+  label: string;
+  options: OptionItem[];
+  value: string;
+  onChange: (value: string) => void;
   disabled?: boolean;
+  ariaLabel?: string;
+  emptyLabel?: string;
 };
 
 function getWrappedIndex(current: number, delta: number, total: number): number {
@@ -23,27 +30,21 @@ function getWrappedIndex(current: number, delta: number, total: number): number 
   return (current + delta + total) % total;
 }
 
-export function CampaignSelector({
-  campaigns,
+export function OptionSelector({
+  label,
+  options,
   value,
   onChange,
-  disabled = false
-}: CampaignSelectorProps) {
+  disabled = false,
+  ariaLabel,
+  emptyLabel = "Sem opções"
+}: OptionSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  const options = useMemo(
-    () =>
-      campaigns.map((campaign) => ({
-        value: campaign.id,
-        label: campaign.name
-      })),
-    [campaigns]
-  );
 
   const selectedOption = options.find((option) => option.value === value);
   const selectedIndex = options.findIndex((option) => option.value === value);
@@ -211,7 +212,7 @@ export function CampaignSelector({
           disabled ? "text-[#aaaaaa]" : "text-viasoft"
         }`}
       >
-        Campanhas
+        {label}
       </span>
       <div ref={rootRef} className="relative w-full min-w-0">
         <button
@@ -237,7 +238,7 @@ export function CampaignSelector({
           aria-disabled={disabled}
         >
           <span className="block min-w-0 flex-1 truncate text-left">
-            {selectedOption?.label ?? "Sem campanhas para os filtros"}
+            {selectedOption?.label ?? emptyLabel}
           </span>
           <ChevronDown
             size={16}
@@ -249,7 +250,12 @@ export function CampaignSelector({
 
         {isOpen && !disabled ? (
           <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-30 rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
-            <ul id={listboxId} className="max-h-72 overflow-auto" role="listbox" aria-label="Selecao de campanha">
+            <ul
+              id={listboxId}
+              className="max-h-72 overflow-auto"
+              role="listbox"
+              aria-label={ariaLabel ?? "Seleção"}
+            >
               {options.map((option, index) => {
                 const selected = option.value === value;
 

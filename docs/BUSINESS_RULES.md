@@ -59,6 +59,10 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 ## 6) Teto + imposto no card de orçamento
 
 - Teto base por vertical: `VERTICAL_MONTHLY_CAP_BRL` (default `535`).
+- Teto total padrão por vertical (com imposto): `R$ 600,00`.
+- Exceção de negócio:
+- vertical `VIASOFT` possui teto total do ciclo em `R$ 1.000,00` (já com imposto).
+- internamente o cálculo converte esse total para base pré-imposto (`1000 / 1,1215`) para manter consistência do demonstrativo.
 - Imposto sobre investimento: `12,15%`.
 - O card deve mostrar:
 - valor investido;
