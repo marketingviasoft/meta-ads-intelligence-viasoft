@@ -221,8 +221,38 @@ type MetaCampaignActivityInsightResponseItem = {
 
 type AdSetWithoutDeliveryReason = "COMPLETED" | "ADSET_DISABLED" | "UNKNOWN";
 
+type MetaAsyncReportRunResponse = {
+  report_run_id?: string;
+  async_status?: string;
+  async_percent_completion?: number;
+  error?: MetaApiError;
+};
+
+type MetaInsightsAsyncParams = {
+  fields: string;
+  level: "campaign" | "adset" | "ad";
+  timeRange: {
+    since: string;
+    until: string;
+  };
+  filtering?: Array<{
+    field: string;
+    operator: string;
+    value: unknown;
+  }>;
+  breakdowns?: string[];
+  timeIncrement?: 1;
+  limit?: number;
+  pollIntervalMs?: number;
+  maxPollAttempts?: number;
+};
+
 const GRAPH_API_BASE = "https://graph.facebook.com";
 const META_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+const META_HTTP_RETRY_MAX_ATTEMPTS = 5;
+const META_HTTP_RETRY_BASE_DELAY_MS = 1200;
+const META_ASYNC_DEFAULT_POLL_INTERVAL_MS = 3000;
+const META_ASYNC_DEFAULT_MAX_POLL_ATTEMPTS = 80;
 let metaRateLimitUntilMs = 0;
 const AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN = /\s+\d{4}-\d{2}-\d{2}-[a-f0-9]{16,}$/i;
 const AD_PREVIEW_FORMAT_CANDIDATES = [
@@ -280,6 +310,70 @@ function assertMetaRateLimitCooldown(): void {
       `Meta API em cooldown temporario por limite de requests. Tente novamente em cerca de ${waitSeconds}s.`
     );
   }
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function isRetryableMetaErrorCode(code: number | undefined): boolean {
+  return code === 4 || code === 17;
+}
+
+function parseRetryAfterMs(retryAfterHeader: string | null): number | null {
+  if (!retryAfterHeader) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(retryAfterHeader, 10);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+
+  return seconds * 1000;
+}
+
+function getBackoffDelayMs(attempt: number, retryAfterMs: number | null = null): number {
+  if (retryAfterMs && retryAfterMs > 0) {
+    return retryAfterMs;
+  }
+
+  const exponential = META_HTTP_RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1);
+  const jitter = Math.floor(Math.random() * 400);
+  return Math.min(exponential + jitter, 12_000);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function readJsonPayload(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+
+  return response.json().catch(() => null);
+}
+
+async function inspectMetaError(response: Response): Promise<{
+  code?: number;
+  retryAfterMs: number | null;
+}> {
+  const payload = (await readJsonPayload(response)) as { error?: MetaApiError } | null;
+  const code = payload?.error?.code;
+  const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
+
+  if (isRetryableMetaErrorCode(code)) {
+    startMetaRateLimitCooldown();
+  }
+
+  return {
+    code,
+    retryAfterMs
+  };
 }
 
 function getMetaConfig(): {
@@ -385,9 +479,99 @@ async function buildMetaHttpError(response: Response): Promise<Error> {
   return new Error(`Falha HTTP Meta API: ${response.status} ${summary}`);
 }
 
-async function fetchMetaList<T>(path: string, queryParams: Record<string, string>): Promise<T[]> {
-  assertMetaRateLimitCooldown();
+async function requestMetaJsonWithRetry<T>(params: {
+  url: string;
+  method?: "GET" | "POST";
+  maxAttempts?: number;
+}): Promise<T> {
+  const { url, method = "GET", maxAttempts = META_HTTP_RETRY_MAX_ATTEMPTS } = params;
 
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      try {
+        assertMetaRateLimitCooldown();
+      } catch (cooldownError) {
+        const message =
+          cooldownError instanceof Error ? cooldownError.message : String(cooldownError ?? "");
+        const secondsMatch = message.match(/cerca de\s+(\d+)s/i);
+        const cooldownMs = secondsMatch?.[1]
+          ? Number.parseInt(secondsMatch[1], 10) * 1000
+          : getBackoffDelayMs(attempt);
+
+        if (attempt < maxAttempts) {
+          await sleep(Math.max(1000, cooldownMs));
+          continue;
+        }
+
+        throw cooldownError;
+      }
+
+      const response = await fetch(url, {
+        method,
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        const inspection = await inspectMetaError(response.clone());
+        const retryable =
+          isRetryableHttpStatus(response.status) || isRetryableMetaErrorCode(inspection.code);
+
+        if (retryable && attempt < maxAttempts) {
+          await sleep(getBackoffDelayMs(attempt, inspection.retryAfterMs));
+          continue;
+        }
+
+        throw await buildMetaHttpError(response);
+      }
+
+      const payload = (await readJsonPayload(response)) as
+        | (T & {
+            error?: MetaApiError;
+          })
+        | null;
+
+      if (!payload) {
+        if (attempt < maxAttempts) {
+          await sleep(getBackoffDelayMs(attempt));
+          continue;
+        }
+
+        throw new Error("Meta API: resposta vazia ou inválida.");
+      }
+
+      if (payload.error) {
+        if (isRetryableMetaErrorCode(payload.error.code)) {
+          startMetaRateLimitCooldown();
+
+          if (attempt < maxAttempts) {
+            await sleep(getBackoffDelayMs(attempt));
+            continue;
+          }
+        }
+
+        throw new Error(`Meta API: ${payload.error.message}`);
+      }
+
+      return payload;
+    } catch (error) {
+      const isNetworkFailure =
+        error instanceof TypeError ||
+        (error instanceof Error &&
+          (error.message.includes("fetch failed") || error.message.includes("ECONNRESET")));
+
+      if (isNetworkFailure && attempt < maxAttempts) {
+        await sleep(getBackoffDelayMs(attempt));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Meta API: falha após múltiplas tentativas.");
+}
+
+async function fetchMetaList<T>(path: string, queryParams: Record<string, string>): Promise<T[]> {
   const items: T[] = [];
   let nextUrl: string | null = buildUrl(path, queryParams);
   let safetyPageCounter = 0;
@@ -397,24 +581,10 @@ async function fetchMetaList<T>(path: string, queryParams: Record<string, string
       throw new Error("Meta API: paginação excedeu o limite de segurança (60 páginas).");
     }
 
-    const response = await fetch(nextUrl, {
-      method: "GET",
-      cache: "no-store"
+    const payload: MetaApiListResponse<T> = await requestMetaJsonWithRetry<MetaApiListResponse<T>>({
+      url: nextUrl,
+      method: "GET"
     });
-
-    if (!response.ok) {
-      throw await buildMetaHttpError(response);
-    }
-
-    const payload = (await response.json()) as MetaApiListResponse<T>;
-
-    if (payload.error) {
-      if (payload.error.code === 17) {
-        startMetaRateLimitCooldown();
-      }
-
-      throw new Error(`Meta API: ${payload.error.message}`);
-    }
 
     items.push(...(payload.data ?? []));
     nextUrl = payload.paging?.next ?? null;
@@ -424,33 +594,17 @@ async function fetchMetaList<T>(path: string, queryParams: Record<string, string
   return items;
 }
 
-async function fetchMetaObject<T>(path: string, queryParams: Record<string, string>): Promise<T> {
-  assertMetaRateLimitCooldown();
-
+async function fetchMetaObject<T>(
+  path: string,
+  queryParams: Record<string, string>,
+  method: "GET" | "POST" = "GET"
+): Promise<T> {
   const url = buildUrl(path, queryParams);
 
-  const response = await fetch(url, {
-    method: "GET",
-    cache: "no-store"
+  return requestMetaJsonWithRetry<T>({
+    url,
+    method
   });
-
-  if (!response.ok) {
-    throw await buildMetaHttpError(response);
-  }
-
-  const payload = (await response.json()) as T & {
-    error?: MetaApiError;
-  };
-
-  if (payload.error) {
-    if (payload.error.code === 17) {
-      startMetaRateLimitCooldown();
-    }
-
-    throw new Error(`Meta API: ${payload.error.message}`);
-  }
-
-  return payload;
 }
 
 function normalizeCampaign(
@@ -1910,17 +2064,16 @@ export async function fetchCampaignActivityByRange(params: {
   since: string;
   until: string;
 }): Promise<Map<string, { spend: number; impressions: number; clicks: number }>> {
-  const { adAccountId } = getMetaConfig();
   const { since, until } = params;
 
-  const insights = await fetchMetaList<MetaCampaignActivityInsightResponseItem>(`${adAccountId}/insights`, {
+  const insights = await fetchMetaInsightsAsync<MetaCampaignActivityInsightResponseItem>({
     fields: "campaign_id,spend,impressions,clicks",
     level: "campaign",
-    time_range: JSON.stringify({
+    timeRange: {
       since,
       until
-    }),
-    limit: "5000"
+    },
+    limit: 5000
   });
 
   const byCampaign = new Map<string, { spend: number; impressions: number; clicks: number }>();
@@ -2256,6 +2409,103 @@ export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
   throw new Error("Preview avançado indisponível para este anúncio.");
 }
 
+function normalizeAsyncStatus(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isAsyncJobCompleted(status: string): boolean {
+  return status === "job completed" || status === "completed";
+}
+
+function isAsyncJobFailed(status: string): boolean {
+  return (
+    status === "job failed" ||
+    status === "failed" ||
+    status === "job skipped" ||
+    status === "skipped"
+  );
+}
+
+export async function fetchMetaInsightsAsync<T>(params: MetaInsightsAsyncParams): Promise<T[]> {
+  const {
+    fields,
+    level,
+    timeRange,
+    filtering,
+    breakdowns,
+    timeIncrement,
+    limit = 5000,
+    pollIntervalMs = META_ASYNC_DEFAULT_POLL_INTERVAL_MS,
+    maxPollAttempts = META_ASYNC_DEFAULT_MAX_POLL_ATTEMPTS
+  } = params;
+  const { adAccountId } = getMetaConfig();
+
+  const startQuery: Record<string, string> = {
+    fields,
+    level,
+    time_range: JSON.stringify(timeRange),
+    limit: String(limit),
+    async: "true"
+  };
+
+  if (filtering && filtering.length > 0) {
+    startQuery.filtering = JSON.stringify(filtering);
+  }
+
+  if (breakdowns && breakdowns.length > 0) {
+    startQuery.breakdowns = breakdowns.join(",");
+  }
+
+  if (timeIncrement) {
+    startQuery.time_increment = String(timeIncrement);
+  }
+
+  const startPayload = await fetchMetaObject<MetaAsyncReportRunResponse>(
+    `${adAccountId}/insights`,
+    startQuery,
+    "POST"
+  );
+
+  const reportRunId = startPayload.report_run_id?.trim();
+  if (!reportRunId) {
+    throw new Error("Meta API: não foi possível iniciar o relatório assíncrono.");
+  }
+
+  let completed = false;
+
+  for (let attempt = 1; attempt <= maxPollAttempts; attempt += 1) {
+    if (attempt > 1) {
+      await sleep(pollIntervalMs);
+    }
+
+    const statusPayload = await fetchMetaObject<MetaAsyncReportRunResponse>(reportRunId, {
+      fields: "async_status,async_percent_completion"
+    });
+
+    const normalizedStatus = normalizeAsyncStatus(statusPayload.async_status);
+
+    if (isAsyncJobCompleted(normalizedStatus)) {
+      completed = true;
+      break;
+    }
+
+    if (isAsyncJobFailed(normalizedStatus)) {
+      throw new Error(
+        `Meta API: relatório assíncrono falhou (${statusPayload.async_status ?? "status desconhecido"}).`
+      );
+    }
+  }
+
+  if (!completed) {
+    throw new Error("Meta API: timeout aguardando conclusão do relatório assíncrono.");
+  }
+
+  return fetchMetaList<T>(`${reportRunId}/insights`, {
+    fields,
+    limit: String(limit)
+  });
+}
+
 export async function fetchCampaignInsights(params: {
   campaignId: string;
   since: string;
@@ -2264,21 +2514,23 @@ export async function fetchCampaignInsights(params: {
 }): Promise<NormalizedInsightRow[]> {
   const { campaignId, since, until, timeIncrement } = params;
 
-  const queryParams: Record<string, string> = {
+  const insights = await fetchMetaInsightsAsync<MetaInsightResponseItem>({
     fields: INSIGHT_FIELDS,
     level: "campaign",
-    time_range: JSON.stringify({
+    timeRange: {
       since,
       until
-    }),
-    limit: "5000"
-  };
-
-  if (timeIncrement) {
-    queryParams.time_increment = String(timeIncrement);
-  }
-
-  const insights = await fetchMetaList<MetaInsightResponseItem>(`${campaignId}/insights`, queryParams);
+    },
+    filtering: [
+      {
+        field: "campaign.id",
+        operator: "EQUAL",
+        value: [campaignId]
+      }
+    ],
+    timeIncrement,
+    limit: 5000
+  });
 
   return insights.map(normalizeInsightRow);
 }
@@ -2291,21 +2543,23 @@ export async function fetchAdSetInsights(params: {
 }): Promise<NormalizedInsightRow[]> {
   const { adSetId, since, until, timeIncrement } = params;
 
-  const queryParams: Record<string, string> = {
+  const insights = await fetchMetaInsightsAsync<MetaInsightResponseItem>({
     fields: INSIGHT_FIELDS,
     level: "adset",
-    time_range: JSON.stringify({
+    timeRange: {
       since,
       until
-    }),
-    limit: "5000"
-  };
-
-  if (timeIncrement) {
-    queryParams.time_increment = String(timeIncrement);
-  }
-
-  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adSetId}/insights`, queryParams);
+    },
+    filtering: [
+      {
+        field: "adset.id",
+        operator: "EQUAL",
+        value: [adSetId]
+      }
+    ],
+    timeIncrement,
+    limit: 5000
+  });
 
   return insights.map(normalizeInsightRow);
 }
@@ -2318,21 +2572,23 @@ export async function fetchAdInsights(params: {
 }): Promise<NormalizedInsightRow[]> {
   const { adId, since, until, timeIncrement } = params;
 
-  const queryParams: Record<string, string> = {
+  const insights = await fetchMetaInsightsAsync<MetaInsightResponseItem>({
     fields: INSIGHT_FIELDS,
     level: "ad",
-    time_range: JSON.stringify({
+    timeRange: {
       since,
       until
-    }),
-    limit: "5000"
-  };
-
-  if (timeIncrement) {
-    queryParams.time_increment = String(timeIncrement);
-  }
-
-  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adId}/insights`, queryParams);
+    },
+    filtering: [
+      {
+        field: "ad.id",
+        operator: "EQUAL",
+        value: [adId]
+      }
+    ],
+    timeIncrement,
+    limit: 5000
+  });
 
   return insights.map(normalizeInsightRow);
 }
@@ -2342,17 +2598,16 @@ export async function fetchVerticalSpendInMonthRange(params: {
   since: string;
   until: string;
 }): Promise<number> {
-  const { adAccountId } = getMetaConfig();
   const { verticalTag, since, until } = params;
 
-  const insights = await fetchMetaList<MetaInsightResponseItem>(`${adAccountId}/insights`, {
+  const insights = await fetchMetaInsightsAsync<MetaInsightResponseItem>({
     fields: "campaign_id,campaign_name,spend,impressions",
     level: "campaign",
-    time_range: JSON.stringify({
+    timeRange: {
       since,
       until
-    }),
-    limit: "5000"
+    },
+    limit: 5000
   });
 
   const targetVertical = normalizeTagKey(verticalTag || FALLBACK_VERTICAL_TAG);
