@@ -56,7 +56,18 @@ const AD_METADATA_FIELDS = [
   "effective_status",
   "status",
   "configured_status",
-  "creative{id,thumbnail_url,image_url,link_url,object_url,website_url,template_url,object_story_spec{link_data{link},photo_data{link,url},template_data{link},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+  "creative{id,thumbnail_url,image_url,link_url,object_url,template_url,object_story_spec{link_data{link},photo_data{link,url},template_data{link},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+].join(",");
+
+const AD_METADATA_FIELDS_FALLBACK = [
+  "id",
+  "name",
+  "campaign_id",
+  "adset_id",
+  "effective_status",
+  "status",
+  "configured_status",
+  "creative{id,thumbnail_url,image_url,link_url,object_url,object_story_spec{link_data{link},photo_data{link,url},video_data{call_to_action{value{link}}}}}"
 ].join(",");
 
 function sleep(ms) {
@@ -171,6 +182,12 @@ function isMetaReduceDataError(error) {
     normalized.includes("reduce the amount of data") ||
     normalized.includes("reduce amount of data")
   );
+}
+
+function isMetaInvalidFieldError(error) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+  return normalized.includes("tried accessing nonexisting field");
 }
 
 function getMetaConfig() {
@@ -616,11 +633,24 @@ async function fetchAdSetMetadataMapByIds(adSetIds) {
 
 async function fetchAdMetadataMapByIds(adIds) {
   const { adAccountId } = getMetaConfig();
-  const items = await fetchMetaEntitiesByIds({
-    path: `${adAccountId}/ads`,
-    fields: AD_METADATA_FIELDS,
-    ids: adIds
-  });
+  let items;
+  try {
+    items = await fetchMetaEntitiesByIds({
+      path: `${adAccountId}/ads`,
+      fields: AD_METADATA_FIELDS,
+      ids: adIds
+    });
+  } catch (error) {
+    if (!isMetaInvalidFieldError(error)) {
+      throw error;
+    }
+
+    items = await fetchMetaEntitiesByIds({
+      path: `${adAccountId}/ads`,
+      fields: AD_METADATA_FIELDS_FALLBACK,
+      ids: adIds
+    });
+  }
 
   const byAdId = new Map();
   for (const item of items) {
