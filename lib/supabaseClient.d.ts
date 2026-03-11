@@ -1,6 +1,7 @@
 declare module "@/lib/supabaseClient.js" {
   type SupabaseSelectChain = {
     eq: (...args: unknown[]) => SupabaseSelectChain;
+    in: (...args: unknown[]) => SupabaseSelectChain;
     gte: (...args: unknown[]) => SupabaseSelectChain;
     lte: (...args: unknown[]) => SupabaseSelectChain;
     order: (...args: unknown[]) => SupabaseSelectChain;

@@ -7,12 +7,57 @@ export const maxDuration = 300;
 
 const GRAPH_API_BASE = "https://graph.facebook.com";
 const META_API_VERSION = process.env.META_API_VERSION ?? "v19.0";
-const TABLE_NAME = "meta_campaign_insights";
+
+const INSIGHTS_TABLE_NAME = "meta_campaign_insights";
+const ADSETS_TABLE_NAME = "meta_adsets";
+const ADS_TABLE_NAME = "meta_ads";
+
 const PAGE_SIZE = 500;
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 90;
 const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 1200;
+
+const INSIGHT_FIELDS = [
+  "campaign_id",
+  "campaign_name",
+  "adset_id",
+  "adset_name",
+  "ad_id",
+  "ad_name",
+  "date_start",
+  "date_stop",
+  "spend",
+  "impressions",
+  "clicks",
+  "reach",
+  "frequency",
+  "ctr",
+  "cpc",
+  "cpm",
+  "cpp",
+  "unique_clicks",
+  "conversions",
+  "quality_ranking",
+  "engagement_rate_ranking",
+  "conversion_rate_ranking",
+  "actions",
+  "cost_per_action_type"
+].join(",");
+
+const CAMPAIGN_METADATA_FIELDS =
+  "id,name,objective,effective_status,status,configured_status";
+const ADSET_METADATA_FIELDS = "id,campaign_id,name,effective_status,status,configured_status";
+const AD_METADATA_FIELDS = [
+  "id",
+  "name",
+  "campaign_id",
+  "adset_id",
+  "effective_status",
+  "status",
+  "configured_status",
+  "creative{id,thumbnail_url,image_url,link_url,object_url,website_url,template_url,object_story_spec{link_data{link},photo_data{link,url},template_data{link},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+].join(",");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,6 +76,14 @@ function toNumber(value) {
   }
 
   return 0;
+}
+
+function normalizeStatus(value) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase();
+
+  return normalized || "UNKNOWN";
 }
 
 function parseRateLimitCode(payload) {
@@ -67,6 +120,57 @@ function resolveTimeRangeLast30Days() {
   const since = formatDateISO(sinceDate);
 
   return { since, until };
+}
+
+function parseIsoDate(isoDate) {
+  const [year, month, day] = String(isoDate).split("-").map((value) => Number.parseInt(value, 10));
+  return new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+}
+
+function addDaysToIsoDate(isoDate, days) {
+  const date = parseIsoDate(isoDate);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDateISO(date);
+}
+
+function getInclusiveDaysInRange(range) {
+  const since = parseIsoDate(range.since);
+  const until = parseIsoDate(range.until);
+  const diffMs = until.getTime() - since.getTime();
+  return Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
+}
+
+function splitTimeRange(range) {
+  const totalDays = getInclusiveDaysInRange(range);
+  if (totalDays <= 1) {
+    return [range];
+  }
+
+  const leftDays = Math.floor(totalDays / 2);
+  const leftUntil = addDaysToIsoDate(range.since, leftDays - 1);
+  const rightSince = addDaysToIsoDate(leftUntil, 1);
+
+  return [
+    {
+      since: range.since,
+      until: leftUntil
+    },
+    {
+      since: rightSince,
+      until: range.until
+    }
+  ];
+}
+
+function isMetaReduceDataError(error) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("please reduce the amount of data") ||
+    normalized.includes("reduce the amount of data") ||
+    normalized.includes("reduce amount of data")
+  );
 }
 
 function getMetaConfig() {
@@ -165,43 +269,97 @@ async function fetchMetaJsonWithRetry(url, init = {}) {
   throw new Error("Meta API indisponível após múltiplas tentativas");
 }
 
-async function startAsyncInsightsJob() {
-  const { adAccountId } = getMetaConfig();
-  const range = resolveTimeRangeLast30Days();
-  const fields = [
-    "campaign_id",
-    "campaign_name",
-    "date_start",
-    "date_stop",
-    "spend",
-    "impressions",
-    "clicks",
-    "actions"
-  ].join(",");
+async function fetchMetaList(path, query) {
+  const rows = [];
+  let nextUrl = buildMetaUrl(path, query);
+  let pageCount = 0;
 
-  const url = buildMetaUrl(`${adAccountId}/insights`, {
-    level: "campaign",
-    fields,
-    time_increment: "1",
-    time_range: JSON.stringify(range),
-    limit: "5000",
-    async: "true"
-  });
+  while (nextUrl) {
+    if (pageCount > 80) {
+      throw new Error("Paginação da Meta excedeu o limite de segurança (80 páginas)");
+    }
 
-  const payload = await fetchMetaJsonWithRetry(url, {
-    method: "POST"
-  });
-  const reportRunId = payload?.report_run_id;
-
-  if (!reportRunId) {
-    throw new Error("Não foi possível iniciar o relatório assíncrono da Meta");
+    const payload = await fetchMetaJsonWithRetry(nextUrl);
+    rows.push(...(payload?.data ?? []));
+    nextUrl = payload?.paging?.next ?? null;
+    pageCount += 1;
   }
 
-  return {
-    reportRunId,
-    range,
-    fields
-  };
+  return rows;
+}
+
+function chunkArray(values, chunkSize) {
+  if (chunkSize <= 0) {
+    return [values];
+  }
+
+  const chunks = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+async function fetchMetaEntitiesByIdChunk(params) {
+  const { path, fields, ids } = params;
+  if (ids.length === 0) {
+    return [];
+  }
+
+  try {
+    return await fetchMetaList(path, {
+      fields,
+      limit: "5000",
+      filtering: JSON.stringify([
+        {
+          field: "id",
+          operator: "IN",
+          value: ids
+        }
+      ])
+    });
+  } catch (error) {
+    if (!isMetaReduceDataError(error) || ids.length <= 1) {
+      throw error;
+    }
+
+    const splitIndex = Math.ceil(ids.length / 2);
+    const left = await fetchMetaEntitiesByIdChunk({
+      path,
+      fields,
+      ids: ids.slice(0, splitIndex)
+    });
+    const right = await fetchMetaEntitiesByIdChunk({
+      path,
+      fields,
+      ids: ids.slice(splitIndex)
+    });
+
+    return [...left, ...right];
+  }
+}
+
+async function fetchMetaEntitiesByIds(params) {
+  const { path, fields, ids } = params;
+  const uniqueIds = [...new Set(ids.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const chunks = chunkArray(uniqueIds, 150);
+  const rows = [];
+
+  for (const idsChunk of chunks) {
+    const chunkRows = await fetchMetaEntitiesByIdChunk({
+      path,
+      fields,
+      ids: idsChunk
+    });
+    rows.push(...chunkRows);
+  }
+
+  return rows;
 }
 
 function normalizeAsyncStatus(status) {
@@ -221,6 +379,30 @@ function isJobFailed(status) {
     status === "job skipped" ||
     status === "skipped"
   );
+}
+
+async function startAsyncInsightsJob(range) {
+  const { adAccountId } = getMetaConfig();
+
+  const url = buildMetaUrl(`${adAccountId}/insights`, {
+    level: "ad",
+    fields: INSIGHT_FIELDS,
+    time_increment: "1",
+    time_range: JSON.stringify(range),
+    limit: "5000",
+    async: "true"
+  });
+
+  const payload = await fetchMetaJsonWithRetry(url, {
+    method: "POST"
+  });
+  const reportRunId = payload?.report_run_id;
+
+  if (!reportRunId) {
+    throw new Error("Não foi possível iniciar o relatório assíncrono da Meta");
+  }
+
+  return reportRunId;
 }
 
 async function waitForJobCompletion(reportRunId) {
@@ -249,67 +431,378 @@ async function waitForJobCompletion(reportRunId) {
   throw new Error("Timeout aguardando finalização do relatório assíncrono da Meta");
 }
 
-async function fetchAllReportInsights(reportRunId, fields) {
-  const rows = [];
-  let nextUrl = buildMetaUrl(`${reportRunId}/insights`, {
-    fields,
+async function fetchAllReportInsights(reportRunId) {
+  return fetchMetaList(`${reportRunId}/insights`, {
+    fields: INSIGHT_FIELDS,
     limit: "5000"
   });
-  let pageCount = 0;
-
-  while (nextUrl) {
-    if (pageCount > 80) {
-      throw new Error("Paginação do relatório excedeu o limite de segurança (80 páginas)");
-    }
-
-    const payload = await fetchMetaJsonWithRetry(nextUrl);
-    rows.push(...(payload?.data ?? []));
-    nextUrl = payload?.paging?.next ?? null;
-    pageCount += 1;
-  }
-
-  return rows;
 }
 
-function extractPurchasesOrLeads(actions) {
-  if (!Array.isArray(actions)) {
-    return 0;
+async function fetchInsightsForRangeWithAdaptiveSplit(range, depth = 0) {
+  try {
+    const reportRunId = await startAsyncInsightsJob(range);
+    await waitForJobCompletion(reportRunId);
+    const rows = await fetchAllReportInsights(reportRunId);
+
+    return {
+      rows,
+      jobs: 1
+    };
+  } catch (error) {
+    if (!isMetaReduceDataError(error)) {
+      throw error;
+    }
+
+    const totalDays = getInclusiveDaysInRange(range);
+    if (totalDays <= 1) {
+      const baseMessage =
+        error instanceof Error ? error.message : "Meta API recusou a consulta para 1 dia";
+      throw new Error(`${baseMessage}. Nem mesmo uma janela diária foi aceita.`);
+    }
+
+    const [leftRange, rightRange] = splitTimeRange(range);
+    const left = await fetchInsightsForRangeWithAdaptiveSplit(leftRange, depth + 1);
+    const right = await fetchInsightsForRangeWithAdaptiveSplit(rightRange, depth + 1);
+
+    return {
+      rows: [...left.rows, ...right.rows],
+      jobs: left.jobs + right.jobs
+    };
+  }
+}
+
+function parseActionMap(raw) {
+  if (!Array.isArray(raw)) {
+    return {};
   }
 
-  return actions.reduce((total, item) => {
-    const actionType = String(item?.action_type ?? "").toLowerCase();
-    const value = toNumber(item?.value);
-    const isLeadOrPurchase = actionType.includes("lead") || actionType.includes("purchase");
+  return raw.reduce((accumulator, item) => {
+    const actionType = String(item?.action_type ?? "").trim();
+    if (!actionType) {
+      return accumulator;
+    }
 
-    return isLeadOrPurchase ? total + value : total;
+    accumulator[actionType] = toNumber(item?.value);
+    return accumulator;
+  }, {});
+}
+
+function readActionMetric(actionMap, actionType) {
+  return toNumber(actionMap[actionType]);
+}
+
+function sumActionMetricsByHints(actionMap, hints) {
+  return Object.entries(actionMap).reduce((total, [actionType, value]) => {
+    const normalizedActionType = actionType.toLowerCase();
+    const matched = hints.some((hint) => normalizedActionType.includes(hint));
+    return matched ? total + toNumber(value) : total;
   }, 0);
 }
 
-function normalizeInsightRowsForSupabase(rows) {
-  return rows
-    .map((row) => {
-      const date = String(row?.date_start ?? "").trim();
-      const campaignId = String(row?.campaign_id ?? "").trim();
-      const campaignName = String(row?.campaign_name ?? "").trim();
+function resolveCostPerResult(params) {
+  const {
+    spend,
+    conversions,
+    purchases,
+    leads,
+    linkClicks,
+    postEngagement
+  } = params;
 
-      if (!date || !campaignId || !campaignName) {
-        return null;
-      }
+  if (conversions > 0) {
+    return spend / conversions;
+  }
 
-      return {
-        date,
-        campaign_id: campaignId,
-        campaign_name: campaignName,
-        spend: toNumber(row?.spend),
-        impressions: Math.round(toNumber(row?.impressions)),
-        clicks: Math.round(toNumber(row?.clicks)),
-        purchases: extractPurchasesOrLeads(row?.actions)
-      };
-    })
-    .filter(Boolean);
+  const leadOrPurchase = purchases + leads;
+  if (leadOrPurchase > 0) {
+    return spend / leadOrPurchase;
+  }
+
+  if (linkClicks > 0) {
+    return spend / linkClicks;
+  }
+
+  if (postEngagement > 0) {
+    return spend / postEngagement;
+  }
+
+  return null;
 }
 
-async function upsertInsightsInBatches(rows) {
+function resolveCreativeThumb(creative) {
+  return (
+    String(creative?.thumbnail_url ?? "").trim() ||
+    String(creative?.image_url ?? "").trim() ||
+    null
+  );
+}
+
+function resolveCreativeLink(creative) {
+  const storyLink =
+    String(creative?.object_story_spec?.link_data?.link ?? "").trim() ||
+    String(creative?.object_story_spec?.photo_data?.link ?? "").trim() ||
+    String(creative?.object_story_spec?.photo_data?.url ?? "").trim() ||
+    String(creative?.object_story_spec?.template_data?.link ?? "").trim() ||
+    String(creative?.object_story_spec?.video_data?.call_to_action?.value?.link ?? "").trim();
+
+  const feedLinkCandidate = Array.isArray(creative?.asset_feed_spec?.link_urls)
+    ? creative.asset_feed_spec.link_urls.find((item) => {
+        const url = String(item?.website_url ?? item?.url ?? "").trim();
+        return Boolean(url);
+      })
+    : null;
+  const feedLink = String(feedLinkCandidate?.website_url ?? feedLinkCandidate?.url ?? "").trim();
+
+  return (
+    String(creative?.link_url ?? "").trim() ||
+    String(creative?.website_url ?? "").trim() ||
+    String(creative?.template_url ?? "").trim() ||
+    String(creative?.object_url ?? "").trim() ||
+    storyLink ||
+    feedLink ||
+    null
+  );
+}
+
+async function fetchCampaignMetadataMapByIds(campaignIds) {
+  const { adAccountId } = getMetaConfig();
+  const items = await fetchMetaEntitiesByIds({
+    path: `${adAccountId}/campaigns`,
+    fields: CAMPAIGN_METADATA_FIELDS,
+    ids: campaignIds
+  });
+
+  const byCampaignId = new Map();
+  for (const item of items) {
+    const campaignId = String(item?.id ?? "").trim();
+    if (!campaignId) {
+      continue;
+    }
+
+    byCampaignId.set(campaignId, {
+      objective: String(item?.objective ?? "").trim() || null,
+      effectiveStatus: normalizeStatus(item?.effective_status),
+      configuredStatus: normalizeStatus(item?.status ?? item?.configured_status)
+    });
+  }
+
+  return byCampaignId;
+}
+
+async function fetchAdSetMetadataMapByIds(adSetIds) {
+  const { adAccountId } = getMetaConfig();
+  const items = await fetchMetaEntitiesByIds({
+    path: `${adAccountId}/adsets`,
+    fields: ADSET_METADATA_FIELDS,
+    ids: adSetIds
+  });
+
+  const byAdSetId = new Map();
+  for (const item of items) {
+    const adSetId = String(item?.id ?? "").trim();
+    if (!adSetId) {
+      continue;
+    }
+
+    byAdSetId.set(adSetId, {
+      campaignId: String(item?.campaign_id ?? "").trim(),
+      name: String(item?.name ?? "").trim() || `AdSet ${adSetId}`,
+      status: normalizeStatus(item?.effective_status ?? item?.status ?? item?.configured_status)
+    });
+  }
+
+  return byAdSetId;
+}
+
+async function fetchAdMetadataMapByIds(adIds) {
+  const { adAccountId } = getMetaConfig();
+  const items = await fetchMetaEntitiesByIds({
+    path: `${adAccountId}/ads`,
+    fields: AD_METADATA_FIELDS,
+    ids: adIds
+  });
+
+  const byAdId = new Map();
+  for (const item of items) {
+    const adId = String(item?.id ?? "").trim();
+    if (!adId) {
+      continue;
+    }
+
+    const creative = item?.creative ?? null;
+    byAdId.set(adId, {
+      campaignId: String(item?.campaign_id ?? "").trim(),
+      adSetId: String(item?.adset_id ?? "").trim(),
+      name: String(item?.name ?? "").trim() || `Ad ${adId}`,
+      status: normalizeStatus(item?.effective_status ?? item?.status ?? item?.configured_status),
+      creativeThumb: resolveCreativeThumb(creative),
+      creativeLink: resolveCreativeLink(creative)
+    });
+  }
+
+  return byAdId;
+}
+
+function normalizeInsightRowsForSupabase(
+  rows,
+  campaignMetadataByCampaignId,
+  adSetMetadataById,
+  adMetadataById
+) {
+  const nowIso = new Date().toISOString();
+  const insightRows = [];
+  const adSetsById = new Map();
+  const adsById = new Map();
+
+  for (const row of rows) {
+    const date = String(row?.date_start ?? "").trim();
+    const dateStop = String(row?.date_stop ?? "").trim() || date;
+    const campaignId = String(row?.campaign_id ?? "").trim();
+    const campaignName = String(row?.campaign_name ?? "").trim();
+    const adSetId = String(row?.adset_id ?? "").trim();
+    const adSetNameFromInsight = String(row?.adset_name ?? "").trim();
+    const adId = String(row?.ad_id ?? "").trim();
+    const adNameFromInsight = String(row?.ad_name ?? "").trim();
+
+    if (!date || !campaignId || !campaignName) {
+      continue;
+    }
+
+    const campaignMetadata = campaignMetadataByCampaignId.get(campaignId);
+    const adSetMetadata = adSetMetadataById.get(adSetId);
+    const adMetadata = adMetadataById.get(adId);
+
+    const adSetName = adSetNameFromInsight || adSetMetadata?.name || null;
+    const adName = adNameFromInsight || adMetadata?.name || null;
+
+    const actions = parseActionMap(row?.actions);
+    const costPerActionType = parseActionMap(row?.cost_per_action_type);
+    const purchases = sumActionMetricsByHints(actions, ["purchase"]);
+    const leads = sumActionMetricsByHints(actions, ["lead"]);
+    const linkClicks = readActionMetric(actions, "link_click");
+    const postEngagement = readActionMetric(actions, "post_engagement");
+    const inlineLinkClicks =
+      readActionMetric(actions, "inline_link_click") ||
+      sumActionMetricsByHints(actions, ["inline_link_click"]);
+    const outboundClicks =
+      readActionMetric(actions, "outbound_click") ||
+      sumActionMetricsByHints(actions, ["outbound_click"]);
+    const spend = toNumber(row?.spend);
+    const impressions = Math.round(toNumber(row?.impressions));
+    const clicks = Math.round(toNumber(row?.clicks));
+    const conversionsRaw = toNumber(row?.conversions);
+    const conversions = conversionsRaw > 0 ? conversionsRaw : purchases + leads;
+    const costPerResult = resolveCostPerResult({
+      spend,
+      conversions,
+      purchases,
+      leads,
+      linkClicks,
+      postEngagement
+    });
+
+    insightRows.push({
+      date,
+      date_stop: dateStop,
+      campaign_id: campaignId,
+      campaign_name: campaignName,
+      adset_id: adSetId || "",
+      adset_name: adSetName,
+      ad_id: adId || "",
+      ad_name: adName,
+      objective: campaignMetadata?.objective ?? null,
+      effective_status: campaignMetadata?.effectiveStatus ?? "UNKNOWN",
+      configured_status: campaignMetadata?.configuredStatus ?? "UNKNOWN",
+      delivery_status: impressions > 0 || spend > 0 ? "ACTIVE" : "WITHOUT_DELIVERY",
+      spend,
+      impressions,
+      clicks,
+      reach: Math.round(toNumber(row?.reach)),
+      frequency: toNumber(row?.frequency),
+      ctr: toNumber(row?.ctr),
+      cpc: toNumber(row?.cpc),
+      cpm: toNumber(row?.cpm),
+      cpp: toNumber(row?.cpp),
+      unique_clicks: Math.round(toNumber(row?.unique_clicks)),
+      inline_link_clicks: Math.round(inlineLinkClicks),
+      outbound_clicks: Math.round(outboundClicks),
+      conversions,
+      purchases,
+      leads,
+      link_clicks: linkClicks,
+      post_engagement: postEngagement,
+      cost_per_result: costPerResult,
+      quality_ranking: String(row?.quality_ranking ?? "").trim() || null,
+      engagement_rate_ranking: String(row?.engagement_rate_ranking ?? "").trim() || null,
+      conversion_rate_ranking: String(row?.conversion_rate_ranking ?? "").trim() || null,
+      actions,
+      cost_per_action_type: costPerActionType,
+      updated_at: nowIso
+    });
+
+    if (adSetId) {
+      adSetsById.set(adSetId, {
+        id: adSetId,
+        campaign_id: campaignId || adSetMetadata?.campaignId || "",
+        name: adSetName || `AdSet ${adSetId}`,
+        status: adSetMetadata?.status ?? "UNKNOWN",
+        updated_at: nowIso
+      });
+    }
+
+    if (adId) {
+      const resolvedAdSetId = adSetId || adMetadata?.adSetId || "";
+      if (resolvedAdSetId) {
+        adsById.set(adId, {
+          id: adId,
+          adset_id: resolvedAdSetId,
+          campaign_id: campaignId || adMetadata?.campaignId || "",
+          name: adName || `Ad ${adId}`,
+          status: adMetadata?.status ?? "UNKNOWN",
+          creative_thumb: adMetadata?.creativeThumb ?? null,
+          creative_link: adMetadata?.creativeLink ?? null,
+          updated_at: nowIso
+        });
+      }
+    }
+  }
+
+  for (const [adSetId, adSetMetadata] of adSetMetadataById.entries()) {
+    if (!adSetsById.has(adSetId)) {
+      adSetsById.set(adSetId, {
+        id: adSetId,
+        campaign_id: adSetMetadata.campaignId || "",
+        name: adSetMetadata.name || `AdSet ${adSetId}`,
+        status: adSetMetadata.status || "UNKNOWN",
+        updated_at: nowIso
+      });
+    }
+  }
+
+  for (const [adId, adMetadata] of adMetadataById.entries()) {
+    if (!adsById.has(adId) && adMetadata.adSetId) {
+      adsById.set(adId, {
+        id: adId,
+        adset_id: adMetadata.adSetId,
+        campaign_id: adMetadata.campaignId || "",
+        name: adMetadata.name || `Ad ${adId}`,
+        status: adMetadata.status || "UNKNOWN",
+        creative_thumb: adMetadata.creativeThumb ?? null,
+        creative_link: adMetadata.creativeLink ?? null,
+        updated_at: nowIso
+      });
+    }
+  }
+
+  return {
+    insightRows,
+    adSetRows: [...adSetsById.values()],
+    adRows: [...adsById.values()]
+  };
+}
+
+async function upsertRowsInBatches(params) {
+  const { tableName, rows, onConflict } = params;
   if (rows.length === 0) {
     return 0;
   }
@@ -317,12 +810,10 @@ async function upsertInsightsInBatches(rows) {
   let total = 0;
   for (let from = 0; from < rows.length; from += PAGE_SIZE) {
     const batch = rows.slice(from, from + PAGE_SIZE);
-    const { error } = await supabase
-      .from(TABLE_NAME)
-      .upsert(batch, { onConflict: "date,campaign_id" });
+    const { error } = await supabase.from(tableName).upsert(batch, { onConflict });
 
     if (error) {
-      throw new Error(`Supabase upsert falhou: ${error.message}`);
+      throw new Error(`Supabase upsert falhou em ${tableName}: ${error.message}`);
     }
 
     total += batch.length;
@@ -368,17 +859,65 @@ export async function GET(request) {
     validateSupabaseEnv();
     getMetaConfig();
 
-    const { reportRunId, range, fields } = await startAsyncInsightsJob();
-    await waitForJobCompletion(reportRunId);
-    const reportRows = await fetchAllReportInsights(reportRunId, fields);
-    const normalizedRows = normalizeInsightRowsForSupabase(reportRows);
-    const upsertedRows = await upsertInsightsInBatches(normalizedRows);
+    const range = resolveTimeRangeLast30Days();
+    let insightResult;
+    try {
+      insightResult = await fetchInsightsForRangeWithAdaptiveSplit(range);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "falha desconhecida";
+      throw new Error(`Falha ao buscar insights assíncronos: ${message}`);
+    }
+
+    const reportRows = insightResult.rows;
+    const campaignIds = [...new Set(reportRows.map((row) => String(row?.campaign_id ?? "").trim()).filter(Boolean))];
+    const adSetIds = [...new Set(reportRows.map((row) => String(row?.adset_id ?? "").trim()).filter(Boolean))];
+    const adIds = [...new Set(reportRows.map((row) => String(row?.ad_id ?? "").trim()).filter(Boolean))];
+
+    let campaignMetadataByCampaignId;
+    let adSetMetadataById;
+    let adMetadataById;
+
+    try {
+      [campaignMetadataByCampaignId, adSetMetadataById, adMetadataById] = await Promise.all([
+        fetchCampaignMetadataMapByIds(campaignIds),
+        fetchAdSetMetadataMapByIds(adSetIds),
+        fetchAdMetadataMapByIds(adIds)
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "falha desconhecida";
+      throw new Error(`Falha ao buscar metadados de estrutura: ${message}`);
+    }
+
+    const { insightRows, adSetRows, adRows } = normalizeInsightRowsForSupabase(
+      reportRows,
+      campaignMetadataByCampaignId,
+      adSetMetadataById,
+      adMetadataById
+    );
+
+    const syncedAdSets = await upsertRowsInBatches({
+      tableName: ADSETS_TABLE_NAME,
+      rows: adSetRows,
+      onConflict: "id"
+    });
+    const syncedAds = await upsertRowsInBatches({
+      tableName: ADS_TABLE_NAME,
+      rows: adRows,
+      onConflict: "id"
+    });
+    const syncedInsights = await upsertRowsInBatches({
+      tableName: INSIGHTS_TABLE_NAME,
+      rows: insightRows,
+      onConflict: "date,campaign_id,adset_id,ad_id"
+    });
 
     return NextResponse.json({
       success: true,
-      reportRunId,
-      syncedRows: upsertedRows,
       fetchedRows: reportRows.length,
+      syncedInsights,
+      syncedAdSets,
+      syncedAds,
+      jobsExecuted: insightResult.jobs,
       range
     });
   } catch (error) {
@@ -394,4 +933,3 @@ export async function GET(request) {
     );
   }
 }
-

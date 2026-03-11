@@ -207,7 +207,15 @@ type MetaInsightResponseItem = {
   clicks: string;
   ctr: string;
   cpc: string;
+  reach?: string;
+  frequency?: string;
+  cpm?: string;
+  cpp?: string;
+  unique_clicks?: string;
   conversions?: string;
+  quality_ranking?: string;
+  engagement_rate_ranking?: string;
+  conversion_rate_ranking?: string;
   actions?: MetaInsightAction[];
   cost_per_action_type?: MetaInsightAction[];
 };
@@ -280,7 +288,15 @@ const INSIGHT_FIELDS = [
   "clicks",
   "ctr",
   "cpc",
+  "reach",
+  "frequency",
+  "cpm",
+  "cpp",
+  "unique_clicks",
   "conversions",
+  "quality_ranking",
+  "engagement_rate_ranking",
+  "conversion_rate_ranking",
   "actions",
   "cost_per_action_type",
   "date_start",
@@ -435,6 +451,14 @@ function parseActionMap(raw: unknown): Record<string, number> {
     accumulator[actionType] = toNumber(actionValue);
     return accumulator;
   }, {});
+}
+
+function sumActionValuesByHints(actionMap: Record<string, number>, hints: string[]): number {
+  return Object.entries(actionMap).reduce((total, [actionType, value]) => {
+    const normalizedType = actionType.toLowerCase();
+    const hasHint = hints.some((hint) => normalizedType.includes(hint));
+    return hasHint ? total + value : total;
+  }, 0);
 }
 
 async function buildMetaHttpError(response: Response): Promise<Error> {
@@ -649,6 +673,12 @@ function normalizeInsightRow(item: MetaInsightResponseItem): NormalizedInsightRo
   const spend = toNumber(item.spend);
   const impressions = toNumber(item.impressions);
   const clicks = toNumber(item.clicks);
+  const actions = parseActionMap(item.actions);
+  const costPerActionType = parseActionMap(item.cost_per_action_type);
+  const purchases = sumActionValuesByHints(actions, ["purchase"]);
+  const leads = sumActionValuesByHints(actions, ["lead"]);
+  const inlineLinkClicks = sumActionValuesByHints(actions, ["inline_link_click"]);
+  const outboundClicks = sumActionValuesByHints(actions, ["outbound_click"]);
 
   return {
     dateStart: item.date_start,
@@ -658,9 +688,21 @@ function normalizeInsightRow(item: MetaInsightResponseItem): NormalizedInsightRo
     clicks,
     ctr: toNumber(item.ctr),
     cpc: toNumber(item.cpc),
+    reach: toNumber(item.reach),
+    frequency: toNumber(item.frequency),
+    cpm: toNumber(item.cpm),
+    cpp: toNumber(item.cpp),
+    uniqueClicks: toNumber(item.unique_clicks),
+    inlineLinkClicks,
+    outboundClicks,
     conversions: toNumber(item.conversions),
-    actions: parseActionMap(item.actions),
-    costPerActionType: parseActionMap(item.cost_per_action_type)
+    purchases,
+    leads,
+    qualityRanking: item.quality_ranking?.trim() || null,
+    engagementRateRanking: item.engagement_rate_ranking?.trim() || null,
+    conversionRateRanking: item.conversion_rate_ranking?.trim() || null,
+    actions,
+    costPerActionType
   };
 }
 

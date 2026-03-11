@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStructureComparisonPayload } from "@/lib/meta-dashboard";
+import { getStructureComparisonPayloadFromStore } from "@/lib/meta-insights-store";
 import type { StructureComparisonEntityType } from "@/lib/types";
 import { isValidRangeDays } from "@/utils/date-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function validateMetaEnv(): NextResponse | null {
-  const accessToken = process.env.META_ACCESS_TOKEN?.trim();
-  const adAccountId = process.env.META_AD_ACCOUNT_ID?.trim();
+function validateSupabaseEnv(): NextResponse | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseKey = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
 
-  if (!accessToken) {
+  if (!supabaseUrl) {
     return NextResponse.json(
       {
-        error: "META_ACCESS_TOKEN não configurado"
+        error: "NEXT_PUBLIC_SUPABASE_URL não configurado"
       },
       {
         status: 400
@@ -21,10 +23,10 @@ function validateMetaEnv(): NextResponse | null {
     );
   }
 
-  if (!adAccountId) {
+  if (!supabaseKey) {
     return NextResponse.json(
       {
-        error: "META_AD_ACCOUNT_ID não configurado"
+        error: "NEXT_PUBLIC_SUPABASE_ANON_KEY não configurado"
       },
       {
         status: 400
@@ -44,7 +46,7 @@ function parseEntityType(raw: string | null): StructureComparisonEntityType | nu
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const envError = validateMetaEnv();
+  const envError = validateSupabaseEnv();
   if (envError) {
     return envError;
   }
@@ -108,7 +110,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const payload = await getStructureComparisonPayload({
+    const payload = await getStructureComparisonPayloadFromStore({
       campaignId,
       entityType,
       entityIds,
@@ -126,7 +128,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         error: message
       },
       {
-        status: 502
+        status: 500
       }
     );
   }

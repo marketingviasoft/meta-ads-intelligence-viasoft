@@ -75,7 +75,19 @@ export interface NormalizedInsightRow {
   clicks: number;
   ctr: number;
   cpc: number;
+  reach: number;
+  frequency: number;
+  cpm: number;
+  cpp: number;
+  uniqueClicks: number;
+  inlineLinkClicks: number;
+  outboundClicks: number;
   conversions: number;
+  purchases: number;
+  leads: number;
+  qualityRanking: string | null;
+  engagementRateRanking: string | null;
+  conversionRateRanking: string | null;
   actions: Record<string, number>;
   costPerActionType: Record<string, number>;
 }
