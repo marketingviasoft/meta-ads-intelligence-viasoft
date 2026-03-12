@@ -17,6 +17,7 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 90;
 const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 1200;
+const SYNC_VERSION = "sync-meta-v3-fallback-safe";
 
 const INSIGHT_FIELDS = [
   "campaign_id",
@@ -48,33 +49,103 @@ const INSIGHT_FIELDS = [
 const CAMPAIGN_METADATA_FIELDS =
   "id,name,objective,effective_status,status,configured_status";
 const ADSET_METADATA_FIELDS = "id,campaign_id,name,effective_status,status,configured_status";
-const AD_METADATA_FIELDS = [
-  "id",
-  "name",
-  "campaign_id",
-  "adset_id",
-  "destination_type",
-  "promoted_object",
-  "call_to_action_type",
-  "effective_status",
-  "status",
-  "configured_status",
-  "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
-].join(",");
+const AD_METADATA_FIELD_CANDIDATES = [
+  [
+    "id",
+    "name",
+    "campaign_id",
+    "adset_id",
+    "destination_type",
+    "promoted_object",
+    "call_to_action_type",
+    "effective_status",
+    "status",
+    "configured_status",
+    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+  ].join(","),
+  [
+    "id",
+    "name",
+    "campaign_id",
+    "adset_id",
+    "destination_type",
+    "promoted_object",
+    "call_to_action_type",
+    "effective_status",
+    "status",
+    "configured_status",
+    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{call_to_action{value{link}},child_attachments{call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},template_data{call_to_action{value{link}}},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+  ].join(","),
+  [
+    "id",
+    "name",
+    "campaign_id",
+    "adset_id",
+    "destination_type",
+    "call_to_action_type",
+    "effective_status",
+    "status",
+    "configured_status",
+    "creative{id,name,thumbnail_url,image_url}"
+  ].join(","),
+  [
+    "id",
+    "name",
+    "campaign_id",
+    "adset_id",
+    "destination_type",
+    "call_to_action_type",
+    "effective_status",
+    "status",
+    "configured_status"
+  ].join(",")
+];
 
-const AD_METADATA_FIELDS_FALLBACK = [
-  "id",
-  "name",
-  "campaign_id",
-  "adset_id",
-  "destination_type",
-  "promoted_object",
-  "call_to_action_type",
-  "effective_status",
-  "status",
-  "configured_status",
-  "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
-].join(",");
+const AD_CREATIVE_METADATA_FIELD_CANDIDATES = [
+  [
+    "id",
+    "name",
+    "call_to_action_type",
+    "thumbnail_url",
+    "image_url",
+    "link_url",
+    "object_url",
+    "template_url",
+    "object_story_id",
+    "effective_object_story_id",
+    "instagram_permalink_url",
+    "object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}}",
+    "asset_feed_spec{link_urls}"
+  ].join(","),
+  [
+    "id",
+    "name",
+    "call_to_action_type",
+    "thumbnail_url",
+    "image_url",
+    "link_url",
+    "object_url",
+    "template_url",
+    "object_story_id",
+    "effective_object_story_id",
+    "instagram_permalink_url",
+    "object_story_spec{link_data{call_to_action{value{link}},child_attachments{call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},video_data{call_to_action{value{link}}}}",
+    "asset_feed_spec{link_urls}"
+  ].join(","),
+  [
+    "id",
+    "name",
+    "call_to_action_type",
+    "thumbnail_url",
+    "image_url",
+    "link_url",
+    "object_url",
+    "template_url",
+    "object_story_id",
+    "effective_object_story_id",
+    "instagram_permalink_url"
+  ].join(",")
+];
 
 const AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN = /\s+\d{4}-\d{2}-\d{2}-[a-f0-9]{16,}$/i;
 
@@ -396,6 +467,33 @@ async function fetchMetaEntitiesByIds(params) {
   return rows;
 }
 
+async function fetchMetaEntitiesByIdsWithFieldFallback(params) {
+  const { path, ids, fieldCandidates } = params;
+  let lastError = null;
+
+  for (const fields of fieldCandidates) {
+    try {
+      return await fetchMetaEntitiesByIds({
+        path,
+        fields,
+        ids
+      });
+    } catch (error) {
+      if (!isMetaInvalidFieldError(error)) {
+        throw error;
+      }
+
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return [];
+}
+
 function normalizeAsyncStatus(status) {
   return String(status ?? "")
     .trim()
@@ -673,6 +771,44 @@ function resolveCreativeLink(params) {
   );
 }
 
+function mergeCreativeSources(creativeFromAd, creativeFromCatalog) {
+  if (!creativeFromAd && !creativeFromCatalog) {
+    return null;
+  }
+
+  const merged = {
+    ...(creativeFromCatalog ?? {}),
+    ...(creativeFromAd ?? {})
+  };
+
+  merged.object_story_spec =
+    creativeFromAd?.object_story_spec ??
+    creativeFromCatalog?.object_story_spec ??
+    null;
+  merged.asset_feed_spec =
+    creativeFromAd?.asset_feed_spec ??
+    creativeFromCatalog?.asset_feed_spec ??
+    null;
+
+  merged.name = toNonEmptyString(creativeFromAd?.name) || toNonEmptyString(creativeFromCatalog?.name);
+  merged.link_url =
+    toNonEmptyString(creativeFromAd?.link_url) || toNonEmptyString(creativeFromCatalog?.link_url);
+  merged.object_url =
+    toNonEmptyString(creativeFromAd?.object_url) || toNonEmptyString(creativeFromCatalog?.object_url);
+  merged.template_url =
+    toNonEmptyString(creativeFromAd?.template_url) || toNonEmptyString(creativeFromCatalog?.template_url);
+  merged.instagram_permalink_url =
+    toNonEmptyString(creativeFromAd?.instagram_permalink_url) ||
+    toNonEmptyString(creativeFromCatalog?.instagram_permalink_url);
+  merged.object_story_id =
+    toNonEmptyString(creativeFromAd?.object_story_id) || toNonEmptyString(creativeFromCatalog?.object_story_id);
+  merged.effective_object_story_id =
+    toNonEmptyString(creativeFromAd?.effective_object_story_id) ||
+    toNonEmptyString(creativeFromCatalog?.effective_object_story_id);
+
+  return merged;
+}
+
 function resolveDestinationFallbackLabel(params) {
   const signal = [
     String(params?.creative?.call_to_action_type ?? "").toUpperCase(),
@@ -817,25 +953,58 @@ async function fetchAdSetMetadataMapByIds(adSetIds) {
   return byAdSetId;
 }
 
-async function fetchAdMetadataMapByIds(adIds) {
-  const { adAccountId } = getMetaConfig();
-  let items;
+async function fetchAdCreativeMetadataByIds(adAccountId, creativeIds) {
+  if (!Array.isArray(creativeIds) || creativeIds.length === 0) {
+    return [];
+  }
+
   try {
-    items = await fetchMetaEntitiesByIds({
-      path: `${adAccountId}/ads`,
-      fields: AD_METADATA_FIELDS,
-      ids: adIds
+    return await fetchMetaEntitiesByIdsWithFieldFallback({
+      path: `${adAccountId}/adcreatives`,
+      ids: creativeIds,
+      fieldCandidates: AD_CREATIVE_METADATA_FIELD_CANDIDATES
     });
   } catch (error) {
-    if (!isMetaInvalidFieldError(error)) {
-      throw error;
-    }
+    const message = error instanceof Error ? error.message : String(error ?? "erro desconhecido");
+    console.warn(`Falha ao enriquecer adcreatives: ${message}`);
+    return [];
+  }
+}
 
-    items = await fetchMetaEntitiesByIds({
+async function fetchAdMetadataMapByIds(adIds) {
+  const { adAccountId } = getMetaConfig();
+  let items = [];
+
+  try {
+    items = await fetchMetaEntitiesByIdsWithFieldFallback({
       path: `${adAccountId}/ads`,
-      fields: AD_METADATA_FIELDS_FALLBACK,
-      ids: adIds
+      ids: adIds,
+      fieldCandidates: AD_METADATA_FIELD_CANDIDATES
     });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "erro desconhecido");
+    console.warn(`Falha ao enriquecer anúncios com metadados avançados: ${message}`);
+    items = [];
+  }
+
+  const creativeIds = [
+    ...new Set(
+      items
+        .map((item) => String(item?.creative?.id ?? "").trim())
+        .filter(Boolean)
+    )
+  ];
+  const adCreativeMetadataById = new Map();
+  if (creativeIds.length > 0) {
+    const creativeItems = await fetchAdCreativeMetadataByIds(adAccountId, creativeIds);
+
+    for (const creativeItem of creativeItems ?? []) {
+      const creativeId = String(creativeItem?.id ?? "").trim();
+      if (!creativeId) {
+        continue;
+      }
+      adCreativeMetadataById.set(creativeId, creativeItem);
+    }
   }
 
   const byAdId = new Map();
@@ -846,7 +1015,11 @@ async function fetchAdMetadataMapByIds(adIds) {
       continue;
     }
 
-    const creative = item?.creative ?? null;
+    const creativeId = String(item?.creative?.id ?? "").trim();
+    const creative = mergeCreativeSources(
+      item?.creative ?? null,
+      creativeId ? adCreativeMetadataById.get(creativeId) ?? null : null
+    );
     const storyId =
       String(creative?.effective_object_story_id ?? "").trim() ||
       String(creative?.object_story_id ?? "").trim() ||
@@ -1112,7 +1285,7 @@ function validateSupabaseEnv() {
 
 export async function GET(request) {
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "Não autorizado", syncVersion: SYNC_VERSION }, { status: 401 });
   }
 
   try {
@@ -1133,20 +1306,23 @@ export async function GET(request) {
     const adSetIds = [...new Set(reportRows.map((row) => String(row?.adset_id ?? "").trim()).filter(Boolean))];
     const adIds = [...new Set(reportRows.map((row) => String(row?.ad_id ?? "").trim()).filter(Boolean))];
 
-    let campaignMetadataByCampaignId;
-    let adSetMetadataById;
-    let adMetadataById;
-
-    try {
-      [campaignMetadataByCampaignId, adSetMetadataById, adMetadataById] = await Promise.all([
-        fetchCampaignMetadataMapByIds(campaignIds),
-        fetchAdSetMetadataMapByIds(adSetIds),
-        fetchAdMetadataMapByIds(adIds)
-      ]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "falha desconhecida";
-      throw new Error(`Falha ao buscar metadados de estrutura: ${message}`);
-    }
+    const [campaignMetadataByCampaignId, adSetMetadataById, adMetadataById] = await Promise.all([
+      fetchCampaignMetadataMapByIds(campaignIds).catch((error) => {
+        const message = error instanceof Error ? error.message : "falha desconhecida";
+        console.warn(`Falha ao buscar metadados de campanhas. Seguindo sem enriquecimento: ${message}`);
+        return new Map();
+      }),
+      fetchAdSetMetadataMapByIds(adSetIds).catch((error) => {
+        const message = error instanceof Error ? error.message : "falha desconhecida";
+        console.warn(`Falha ao buscar metadados de adsets. Seguindo sem enriquecimento: ${message}`);
+        return new Map();
+      }),
+      fetchAdMetadataMapByIds(adIds).catch((error) => {
+        const message = error instanceof Error ? error.message : "falha desconhecida";
+        console.warn(`Falha ao buscar metadados de anúncios. Seguindo sem enriquecimento: ${message}`);
+        return new Map();
+      })
+    ]);
 
     const { insightRows, adSetRows, adRows } = normalizeInsightRowsForSupabase(
       reportRows,
@@ -1173,6 +1349,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
+      syncVersion: SYNC_VERSION,
       fetchedRows: reportRows.length,
       syncedInsights,
       syncedAdSets,
@@ -1185,7 +1362,8 @@ export async function GET(request) {
     return NextResponse.json(
       {
         success: false,
-        error: message
+        error: message,
+        syncVersion: SYNC_VERSION
       },
       {
         status: 500
