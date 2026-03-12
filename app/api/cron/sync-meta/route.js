@@ -494,6 +494,76 @@ async function fetchMetaEntitiesByIdsWithFieldFallback(params) {
   return [];
 }
 
+async function fetchMetaNodesByIdsChunk(params) {
+  const { ids, fields } = params;
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const payload = await fetchMetaJsonWithRetry(
+    buildMetaUrl("", {
+      ids: ids.join(","),
+      fields
+    })
+  );
+
+  const rows = [];
+  for (const [nodeId, nodeValue] of Object.entries(payload ?? {})) {
+    if (!nodeValue || typeof nodeValue !== "object") {
+      continue;
+    }
+
+    const normalizedId = String(nodeValue.id ?? nodeId ?? "").trim();
+    if (!normalizedId) {
+      continue;
+    }
+
+    rows.push({
+      id: normalizedId,
+      ...nodeValue
+    });
+  }
+
+  return rows;
+}
+
+async function fetchMetaNodesByIdsWithFieldFallback(params) {
+  const { ids, fieldCandidates } = params;
+  const uniqueIds = [...new Set(ids.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const idChunks = chunkArray(uniqueIds, 50);
+  let lastError = null;
+
+  for (const fields of fieldCandidates) {
+    try {
+      const rows = [];
+      for (const idsChunk of idChunks) {
+        const chunkRows = await fetchMetaNodesByIdsChunk({
+          ids: idsChunk,
+          fields
+        });
+        rows.push(...chunkRows);
+      }
+
+      return rows;
+    } catch (error) {
+      if (!isMetaInvalidFieldError(error)) {
+        throw error;
+      }
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return [];
+}
+
 function normalizeAsyncStatus(status) {
   return String(status ?? "")
     .trim()
@@ -953,14 +1023,13 @@ async function fetchAdSetMetadataMapByIds(adSetIds) {
   return byAdSetId;
 }
 
-async function fetchAdCreativeMetadataByIds(adAccountId, creativeIds) {
+async function fetchAdCreativeMetadataByIds(creativeIds) {
   if (!Array.isArray(creativeIds) || creativeIds.length === 0) {
     return [];
   }
 
   try {
-    return await fetchMetaEntitiesByIdsWithFieldFallback({
-      path: `${adAccountId}/adcreatives`,
+    return await fetchMetaNodesByIdsWithFieldFallback({
       ids: creativeIds,
       fieldCandidates: AD_CREATIVE_METADATA_FIELD_CANDIDATES
     });
@@ -996,7 +1065,7 @@ async function fetchAdMetadataMapByIds(adIds) {
   ];
   const adCreativeMetadataById = new Map();
   if (creativeIds.length > 0) {
-    const creativeItems = await fetchAdCreativeMetadataByIds(adAccountId, creativeIds);
+    const creativeItems = await fetchAdCreativeMetadataByIds(creativeIds);
 
     for (const creativeItem of creativeItems ?? []) {
       const creativeId = String(creativeItem?.id ?? "").trim();
