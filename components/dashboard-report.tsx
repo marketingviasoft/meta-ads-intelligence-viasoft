@@ -225,9 +225,10 @@ const META_INVESTMENT_TAX_RATE = 0.1215;
 
 type VerticalBudgetSummaryPanelProps = {
   verticalBudget: DashboardPayload["verticalBudget"];
+  isPdf?: boolean;
 };
 
-export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSummaryPanelProps) {
+export function VerticalBudgetSummaryPanel({ verticalBudget, isPdf = false }: VerticalBudgetSummaryPanelProps) {
   const taxAmount = verticalBudget.spentInMonth * META_INVESTMENT_TAX_RATE;
   const totalWithTax = verticalBudget.spentInMonth + taxAmount;
   const totalCapWithTax = verticalBudget.monthlyCap * (1 + META_INVESTMENT_TAX_RATE);
@@ -246,18 +247,20 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
   const investmentMinWidthPx = verticalBudget.spentInMonth > 0 ? 10 : 0;
   const totalMinWidthPx = totalWithTax > 0 ? 10 : 0;
   const dataUntilSuffix = verticalBudget.includesCurrentDay ? " (hoje, parcial)" : "";
+  const titleValueClass = isPdf ? "mt-1 text-3xl font-semibold leading-none text-ink" : "mt-1 text-4xl font-semibold leading-none text-ink";
+  const secondaryValueClass = isPdf
+    ? `mt-1 text-3xl font-semibold leading-none ${isOverBudget ? "text-rose" : "text-emerald"}`
+    : `mt-1 text-4xl font-semibold leading-none ${isOverBudget ? "text-rose" : "text-emerald"}`;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-4">
-      <div className="grid gap-3 md:grid-cols-2">
+    <div className={`rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 ${isPdf ? "p-3" : "p-4"}`}>
+      <div className={`grid ${isPdf ? "gap-2.5 md:grid-cols-2" : "gap-3 md:grid-cols-2"}`}>
         <div className="flex h-full flex-col rounded-xl border border-viasoft/15 bg-white p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
             Investimento da vertical no mês atual (com imposto)
           </p>
-          <p className="mt-1 text-4xl font-semibold leading-none text-ink">
-            {formatCurrencyBRL(totalWithTax)}
-          </p>
-          <div className="mt-auto space-y-0.5 pt-2 text-xs text-slate-600">
+          <p className={titleValueClass}>{formatCurrencyBRL(totalWithTax)}</p>
+          <div className={`mt-auto space-y-0.5 ${isPdf ? "pt-1.5 text-[11px]" : "pt-2 text-xs"} text-slate-600`}>
             <p>
               Ciclo de faturamento Meta: {formatDateLongBR(verticalBudget.monthSince)} até{" "}
               {formatDateLongBR(verticalBudget.monthUntil)}.
@@ -277,16 +280,14 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
             {remainingLabel}
           </p>
-          <p className={`mt-1 text-4xl font-semibold leading-none ${isOverBudget ? "text-rose" : "text-emerald"}`}>
-            {formatCurrencyBRL(remainingValue)}
-          </p>
-          <p className="mt-auto pt-2 text-xs text-slate-600">
+          <p className={secondaryValueClass}>{formatCurrencyBRL(remainingValue)}</p>
+          <p className={`mt-auto ${isPdf ? "pt-1.5 text-[11px]" : "pt-2 text-xs"} text-slate-600`}>
             Teto total do ciclo: {formatCurrencyBRL(totalCapWithTax)}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-stretch">
+      <div className={`grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-stretch ${isPdf ? "mt-2.5" : "mt-3"}`}>
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
             Valor aplicado em campanhas
@@ -306,7 +307,7 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
         </div>
       </div>
 
-      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+      <div className={`rounded-xl border border-slate-200 bg-white p-3 ${isPdf ? "mt-2.5" : "mt-3"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <p className={`font-semibold ${progressTextTone}`}>
             Consumo do teto total: {formatPercentBR(totalUtilizationPercent, 1)}
@@ -335,7 +336,7 @@ export function VerticalBudgetSummaryPanel({ verticalBudget }: VerticalBudgetSum
           <span>{formatCurrencyBRL(0)}</span>
           <span>{formatCurrencyBRL(totalCapWithTax)}</span>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600 ${isPdf ? "mt-1.5" : "mt-2"}`}>
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#0f766e]" />
             Valor investido

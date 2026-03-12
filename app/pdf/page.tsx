@@ -1,5 +1,7 @@
 import {
+  Layers,
   Layers3,
+  Megaphone,
   MousePointerClick,
   Coins,
   Eye,
@@ -9,21 +11,28 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
-import { CampaignHeaderCard, VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
+import { VerticalBudgetSummaryPanel } from "@/components/dashboard-report";
 import { InsightsPanel } from "@/components/insights-panel";
 import { MetricCard } from "@/components/metric-card";
 import { PerformanceChart } from "@/components/performance-chart";
 import { PdfReadyFlag } from "@/components/pdf-ready-flag";
 import { TrendCard } from "@/components/trend-card";
 import {
-  getActiveCampaigns,
-  getAdSetAds,
-  getCampaignAdSets,
-  getDashboardPayload,
-  getVerticalBudgetSummary
-} from "@/lib/meta-dashboard";
+  getAdSetAdsFromStore,
+  getCampaignAdSetsFromStore,
+  getCampaignCatalogFromStore,
+  getDashboardPayloadFromStore,
+  getStructureComparisonPayloadFromStore,
+  getVerticalBudgetSummaryFromStore
+} from "@/lib/meta-insights-store";
 import { PDF_BRAND_SIGNATURE, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
-import type { DailyMetricPoint, DashboardPayload } from "@/lib/types";
+import type {
+  DailyMetricPoint,
+  DashboardPayload,
+  ObjectiveCategory,
+  StructureComparisonEntityType,
+  StructureComparisonPayload
+} from "@/lib/types";
 import { resolveSupportedVertical } from "@/lib/verticals";
 import { parseRangeDays } from "@/utils/date-range";
 import { formatCurrencyBRL, formatNumberBR, formatPercentBR } from "@/utils/formatters";
@@ -32,6 +41,17 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type MetricKey = "spend" | "impressions" | "clicks" | "ctr" | "cpc" | "results";
+type DeliveryFilterValue = "ALL" | "ACTIVE" | "PAUSED" | "WITH_ISSUES" | "PENDING_REVIEW" | "ARCHIVED";
+type ComparisonMetricKey = MetricKey;
+
+const DELIVERY_FILTER_LABELS: Record<DeliveryFilterValue, string> = {
+  ALL: "Todos os status",
+  ACTIVE: "Ativas",
+  PAUSED: "Pausadas",
+  WITH_ISSUES: "Com problemas",
+  PENDING_REVIEW: "Em análise",
+  ARCHIVED: "Arquivadas"
+};
 
 type MetricCardConfig = {
   metricKey: MetricKey;
@@ -43,6 +63,14 @@ type MetricCardConfig = {
   deltaAbsolute: number | null;
   deltaPercent: number | null;
   inverse?: boolean;
+};
+
+type ComparisonMetricConfig = {
+  key: ComparisonMetricKey;
+  label: string;
+  icon: ReactNode;
+  formatValue: (value: number | null) => string;
+  getValue: (item: StructureComparisonPayload["items"][number]) => number | null;
 };
 
 function getPrimaryMetricKey(category: DashboardPayload["campaign"]["objectiveCategory"]): MetricKey {
@@ -179,37 +207,186 @@ function PdfSelectorField({
   );
 }
 
-function formatDestinationLabel(url: string): string {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    const pathDigits = parsed.pathname.replace(/\D/g, "");
-    const queryPhoneDigits = parsed.searchParams.get("phone")?.replace(/\D/g, "") ?? "";
+function parseCsvIds(rawValue: string | undefined): string[] {
+  if (!rawValue) {
+    return [];
+  }
 
-    if (host === "wa.me" || host.endsWith(".wa.me")) {
-      const digits = pathDigits;
-      return digits ? `WhatsApp +${digits}` : "WhatsApp";
-    }
+  const ids = rawValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 
-    if (host.includes("whatsapp.com")) {
-      const digits = queryPhoneDigits || pathDigits;
-      return digits ? `WhatsApp +${digits}` : "WhatsApp";
-    }
+  return [...new Set(ids)];
+}
 
-    const path = parsed.pathname === "/" ? "" : parsed.pathname;
-    return `${parsed.hostname}${path}`;
-  } catch {
-    return url;
+function getDeliveryFilterLabel(rawValue: string | undefined): string {
+  if (!rawValue) {
+    return DELIVERY_FILTER_LABELS.ALL;
+  }
+
+  const normalized = rawValue.trim().toUpperCase() as DeliveryFilterValue;
+  return DELIVERY_FILTER_LABELS[normalized] ?? DELIVERY_FILTER_LABELS.ALL;
+}
+
+function getComparisonPrimaryMetricKey(objective: ObjectiveCategory): ComparisonMetricKey {
+  switch (objective) {
+    case "TRAFFIC":
+      return "clicks";
+    case "RECOGNITION":
+      return "impressions";
+    case "ENGAGEMENT":
+    case "CONVERSIONS":
+    default:
+      return "results";
   }
 }
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
+function getComparisonResultsLabel(objective: ObjectiveCategory): string {
+  if (objective === "ENGAGEMENT") {
+    return "Interações com o anúncio";
   }
+
+  return "Resultados da campanha";
+}
+
+function getComparisonMetrics(objective: ObjectiveCategory): ComparisonMetricConfig[] {
+  const metrics: ComparisonMetricConfig[] = [
+    {
+      key: "spend",
+      label: "Valor investido",
+      icon: <Wallet size={14} />,
+      formatValue: (value) => formatCurrencyBRL(value),
+      getValue: (item) => item.current.spend
+    },
+    {
+      key: "impressions",
+      label: "Visualizações do anúncio",
+      icon: <Eye size={14} />,
+      formatValue: (value) => formatNumberBR(value, 0, 0),
+      getValue: (item) => item.current.impressions
+    },
+    {
+      key: "clicks",
+      label: "Cliques no anúncio",
+      icon: <MousePointerClick size={14} />,
+      formatValue: (value) => formatNumberBR(value, 0, 0),
+      getValue: (item) => item.current.clicks
+    },
+    {
+      key: "ctr",
+      label: "Taxa de cliques",
+      icon: <Percent size={14} />,
+      formatValue: (value) => formatPercentBR(value),
+      getValue: (item) => item.current.ctr
+    },
+    {
+      key: "cpc",
+      label: "Custo por clique",
+      icon: <Coins size={14} />,
+      formatValue: (value) => formatCurrencyBRL(value),
+      getValue: (item) => item.current.cpc
+    },
+    {
+      key: "results",
+      label: getComparisonResultsLabel(objective),
+      icon: <TrendingUp size={14} />,
+      formatValue: (value) => formatNumberBR(value, 0, 2),
+      getValue: (item) => item.current.results
+    }
+  ];
+
+  const primaryMetric = getComparisonPrimaryMetricKey(objective);
+  return [
+    ...metrics.filter((metric) => metric.key === primaryMetric),
+    ...metrics.filter((metric) => metric.key !== primaryMetric)
+  ];
+}
+
+function getComparisonTitle(entityType: StructureComparisonEntityType): string {
+  return entityType === "ADSET" ? "Comparativo entre grupos de anúncios" : "Comparativo entre anúncios";
+}
+
+function PdfComparisonSection({
+  entityType,
+  comparison,
+  selectedIds,
+  nameById,
+  errorMessage
+}: {
+  entityType: StructureComparisonEntityType;
+  comparison: StructureComparisonPayload | null;
+  selectedIds: string[];
+  nameById: Map<string, string>;
+  errorMessage?: string;
+}) {
+  if (selectedIds.length !== 2) {
+    return null;
+  }
+
+  const metrics = comparison ? getComparisonMetrics(comparison.objectiveCategory) : [];
+  const firstSelectedName = comparison ? nameById.get(comparison.items[0]?.id) ?? comparison.items[0]?.id : selectedIds[0];
+  const secondSelectedName = comparison ? nameById.get(comparison.items[1]?.id) ?? comparison.items[1]?.id : selectedIds[1];
+
+  return (
+    <section className="surface-panel avoid-page-break p-4">
+      <header className="mb-3 flex items-start justify-between gap-2">
+        <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
+          {entityType === "ADSET" ? <Layers size={16} /> : <Megaphone size={16} />}
+          {getComparisonTitle(entityType)}
+        </h3>
+        <span className="rounded-full border border-viasoft/25 bg-viasoft/10 px-2 py-0.5 text-xs font-semibold text-viasoft">
+          Seleções: {selectedIds.length}/2
+        </span>
+      </header>
+
+      {errorMessage ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {!errorMessage && comparison ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+          <div className="grid grid-cols-[minmax(0,0.75fr)_minmax(0,1.1fr)_minmax(0,1.1fr)] items-start gap-2 border-b border-slate-200 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+            <span>Métrica</span>
+            <span className="break-words text-viasoft">{firstSelectedName}</span>
+            <span className="break-words text-viasoft">{secondSelectedName}</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {metrics.map((metric) => {
+              const firstItem = comparison.items[0];
+              const secondItem = comparison.items[1];
+              const isPrimary = metric.key === getComparisonPrimaryMetricKey(comparison.objectiveCategory);
+
+              return (
+                <div
+                  key={metric.key}
+                  className="grid grid-cols-[minmax(0,0.75fr)_minmax(0,1.1fr)_minmax(0,1.1fr)] items-start gap-2 py-1.5 text-[11px]"
+                >
+                  <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-viasoft">
+                    {metric.icon}
+                    <span className="break-words">{metric.label}</span>
+                    {isPrimary ? (
+                      <span className="shrink-0 rounded-full border border-viasoft/20 bg-viasoft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-viasoft">
+                        KPI
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="break-words font-semibold text-slate-800">
+                    {metric.formatValue(metric.getValue(firstItem))}
+                  </span>
+                  <span className="break-words font-semibold text-slate-800">
+                    {metric.formatValue(metric.getValue(secondItem))}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function PdfPageFooter({
@@ -266,12 +443,25 @@ export default async function PdfPage({
   const verticalFromQuery = Array.isArray(params.verticalTag)
     ? params.verticalTag[0]
     : params.verticalTag;
+  const deliveryFromQuery = Array.isArray(params.deliveryGroup)
+    ? params.deliveryGroup[0]
+    : params.deliveryGroup;
+  const selectedAdSetFromQuery = Array.isArray(params.selectedAdSetId)
+    ? params.selectedAdSetId[0]
+    : params.selectedAdSetId;
+  const compareAdSetIdsFromQuery = Array.isArray(params.compareAdSetIds)
+    ? params.compareAdSetIds[0]
+    : params.compareAdSetIds;
+  const compareAdIdsFromQuery = Array.isArray(params.compareAdIds)
+    ? params.compareAdIds[0]
+    : params.compareAdIds;
   const rangeFromQuery = Array.isArray(params.rangeDays) ? params.rangeDays[0] : params.rangeDays;
   const rangeDays = parseRangeDays(rangeFromQuery);
   const selectedVerticalFromQuery = resolveSupportedVertical(verticalFromQuery ?? "");
+  const deliveryLabel = getDeliveryFilterLabel(deliveryFromQuery);
 
   if (!campaignFromQuery && selectedVerticalFromQuery) {
-    const verticalBudget = await getVerticalBudgetSummary({
+    const verticalBudget = await getVerticalBudgetSummaryFromStore({
       verticalTag: selectedVerticalFromQuery
     });
     const generatedAtLabel = formatGeneratedAtLabel(new Date().toISOString());
@@ -290,30 +480,33 @@ export default async function PdfPage({
                   {PDF_BRAND_SIGNATURE}
                 </span>
               </div>
-              <h1 className="mt-1 text-4xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
+              <h1 className="mt-1 text-3xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
               <p className="mt-2 text-base text-slate-600">
-                Relatorio de investimento mensal da vertical selecionada.
+                Relatório de investimento mensal da vertical selecionada.
               </p>
             </header>
 
             <section data-pdf-block="filters" className="surface-panel p-4">
-              <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
-                <div className="lg:col-span-1">
+            <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-2 min-w-0">
                   <PdfSelectorField
                     label="Vertical"
                     value={selectedVerticalFromQuery}
                     icon={<Layers3 size={14} className="text-viasoft" />}
                   />
                 </div>
-                <div className="lg:col-span-2">
-                  <PdfSelectorField label="Campanhas ativas" value="Sem campanhas ativas" />
+                <div className="col-span-2 min-w-0">
+                  <PdfSelectorField label="Veiculação" value={deliveryLabel} />
                 </div>
-                <div className="lg:col-span-1">
-                  <PdfSelectorField label="Periodo" value={`Ultimos ${rangeDays} dias`} />
+                <div className="col-span-6 min-w-0">
+                  <PdfSelectorField label="Campanhas" value="Sem campanha selecionada" />
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <PdfSelectorField label="Período" value={`Últimos ${rangeDays} dias`} />
                 </div>
               </div>
               <div data-pdf-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
-                <VerticalBudgetSummaryPanel verticalBudget={verticalBudget} />
+                <VerticalBudgetSummaryPanel verticalBudget={verticalBudget} isPdf />
               </div>
             </section>
 
@@ -324,21 +517,32 @@ export default async function PdfPage({
     );
   }
 
-  const campaigns = await getActiveCampaigns(false);
+  const campaigns = await getCampaignCatalogFromStore(rangeDays, false);
   const campaignId = campaignFromQuery ?? campaigns[0]?.id;
 
   if (!campaignId) {
     return (
       <main className="mx-auto mt-6 max-w-3xl rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        Nenhuma campanha ACTIVE foi encontrada para renderizar o PDF.
+        Nenhuma campanha foi encontrada para renderizar o PDF.
       </main>
     );
   }
 
-  const payload = await getDashboardPayload({
-    campaignId,
-    rangeDays
-  });
+  let payload: DashboardPayload;
+  try {
+    payload = await getDashboardPayloadFromStore({
+      campaignId,
+      rangeDays
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao montar o relatório para PDF.";
+    return (
+      <main className="mx-auto mt-6 max-w-4xl rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <PdfReadyFlag />
+        {message}
+      </main>
+    );
+  }
   const comparison = payload.comparison;
   const deltas = comparison.deltas;
   const completeChartData = fillMissingChartDates(
@@ -422,21 +626,69 @@ export default async function PdfPage({
     ...metricCards.filter((card) => card.metricKey !== primaryMetricKey)
   ];
 
-  const adSets = await getCampaignAdSets(campaignId, false);
-  const selectedAdSetId = adSets[0]?.id ?? "";
-  const ads = selectedAdSetId ? await getAdSetAds(selectedAdSetId, false) : [];
-  const selectedAdSetName = adSets[0]?.name ?? "";
+  const adSets = await getCampaignAdSetsFromStore(campaignId, false);
+  const selectedAdSetId =
+    selectedAdSetFromQuery && adSets.some((adSet) => adSet.id === selectedAdSetFromQuery)
+      ? selectedAdSetFromQuery
+      : (adSets[0]?.id ?? "");
+  const ads = selectedAdSetId ? await getAdSetAdsFromStore(selectedAdSetId, false) : [];
+  const adSetIdSet = new Set(adSets.map((adSet) => adSet.id));
+  const adIdSet = new Set(ads.map((ad) => ad.id));
+  const selectedCompareAdSetIds = parseCsvIds(compareAdSetIdsFromQuery)
+    .filter((id) => adSetIdSet.has(id))
+    .slice(0, 2);
+  const selectedCompareAdIds = parseCsvIds(compareAdIdsFromQuery)
+    .filter((id) => adIdSet.has(id))
+    .slice(0, 2);
+  const hasAdSetComparisonSelection = selectedCompareAdSetIds.length === 2;
+  const hasAdComparisonSelection = selectedCompareAdIds.length === 2;
+
+  let adSetComparisonPayload: StructureComparisonPayload | null = null;
+  let adComparisonPayload: StructureComparisonPayload | null = null;
+  let adSetComparisonErrorMessage = "";
+  let adComparisonErrorMessage = "";
+
+  if (hasAdSetComparisonSelection) {
+    try {
+      adSetComparisonPayload = await getStructureComparisonPayloadFromStore({
+        campaignId,
+        entityType: "ADSET",
+        entityIds: selectedCompareAdSetIds,
+        rangeDays
+      });
+    } catch (error) {
+      adSetComparisonErrorMessage =
+        error instanceof Error ? error.message : "Falha ao montar comparativo entre grupos de anúncios.";
+    }
+  }
+
+  if (hasAdComparisonSelection) {
+    try {
+      adComparisonPayload = await getStructureComparisonPayloadFromStore({
+        campaignId,
+        entityType: "AD",
+        entityIds: selectedCompareAdIds,
+        rangeDays
+      });
+    } catch (error) {
+      adComparisonErrorMessage =
+        error instanceof Error ? error.message : "Falha ao montar comparativo entre anúncios.";
+    }
+  }
+
+  const shouldRenderComparisonPage = hasAdSetComparisonSelection || hasAdComparisonSelection;
   const selectedVerticalLabel =
-    payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
+    selectedVerticalFromQuery ??
+    (payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
       ? payload.campaign.verticalTag
-      : "Todas as verticais";
+      : "Todas as verticais");
+  const totalPages = shouldRenderComparisonPage ? 5 : 4;
+  const metricsPageNumber = shouldRenderComparisonPage ? 3 : 2;
+  const trendPageNumber = shouldRenderComparisonPage ? 4 : 3;
+  const insightsPageNumber = shouldRenderComparisonPage ? 5 : 4;
   const generatedAtLabel = formatGeneratedAtLabel(payload.generatedAt);
-  const adSetLimit = 10;
-  const adLimit = 6;
-  const visibleAdSets = adSets.slice(0, adSetLimit);
-  const visibleAds = ads.slice(0, adLimit);
-  const hiddenAdSetsCount = Math.max(0, adSets.length - visibleAdSets.length);
-  const hiddenAdsCount = Math.max(0, ads.length - visibleAds.length);
+  const adSetNameById = new Map(adSets.map((adSet) => [adSet.id, adSet.name]));
+  const adNameById = new Map(ads.map((ad) => [ad.id, ad.name]));
 
   return (
     <main className="bg-white py-3 print:py-0">
@@ -452,141 +704,73 @@ export default async function PdfPage({
                 {PDF_BRAND_SIGNATURE}
               </span>
             </div>
-            <h1 className="mt-1 text-4xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
+            <h1 className="mt-1 text-3xl font-semibold text-viasoft">Performance executiva com dados do Meta</h1>
             <p className="mt-2 text-base text-slate-600">
               Períodos de performance excluem o dia atual e comparam automaticamente contra o período anterior equivalente.
             </p>
           </header>
 
-          <section data-pdf-block="filters" className="surface-panel p-5">
-            <div className="grid gap-4 lg:grid-cols-4 lg:items-end">
-              <div className="lg:col-span-1">
+          <section data-pdf-block="filters" className="surface-panel p-4">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-2 min-w-0">
                 <PdfSelectorField
                   label="Vertical"
                   value={selectedVerticalLabel}
                   icon={<Layers3 size={14} className="text-viasoft" />}
                 />
               </div>
-              <div className="lg:col-span-2">
-                <PdfSelectorField label="Campanhas ativas" value={payload.campaign.name} />
+              <div className="col-span-2 min-w-0">
+                <PdfSelectorField label="Veiculação" value={deliveryLabel} />
               </div>
-              <div className="lg:col-span-1">
+              <div className="col-span-6 min-w-0">
+                <PdfSelectorField label="Campanhas" value={payload.campaign.name} />
+              </div>
+              <div className="col-span-2 min-w-0">
                 <PdfSelectorField label="Período" value={`Últimos ${payload.range.days} dias`} />
               </div>
             </div>
             <div data-pdf-block="vertical-budget" className="mt-4 border-t border-slate-200 pt-4">
-              <VerticalBudgetSummaryPanel verticalBudget={payload.verticalBudget} />
+              {selectedVerticalFromQuery ? (
+                <VerticalBudgetSummaryPanel verticalBudget={payload.verticalBudget} isPdf />
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                  Selecione uma vertical específica para visualizar o orçamento mensal.
+                </div>
+              )}
             </div>
           </section>
 
-          <PdfPageFooter pageNumber={1} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={1} totalPages={totalPages} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="2">
-          <div data-pdf-block="campaign-info">
-            <CampaignHeaderCard
-              campaign={payload.campaign}
-              range={payload.range}
-              isPdf
-            />
+        {shouldRenderComparisonPage ? (
+          <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="2">
+            <div className="space-y-3">
+              {hasAdSetComparisonSelection ? (
+                <PdfComparisonSection
+                  entityType="ADSET"
+                  comparison={adSetComparisonPayload}
+                  selectedIds={selectedCompareAdSetIds}
+                  nameById={adSetNameById}
+                  errorMessage={adSetComparisonErrorMessage}
+                />
+              ) : null}
+
+              {hasAdComparisonSelection ? (
+                <PdfComparisonSection
+                  entityType="AD"
+                  comparison={adComparisonPayload}
+                  selectedIds={selectedCompareAdIds}
+                  nameById={adNameById}
+                  errorMessage={adComparisonErrorMessage}
+                />
+              ) : null}
+            </div>
+            <PdfPageFooter pageNumber={2} totalPages={totalPages} generatedAtLabel={generatedAtLabel} />
           </div>
+        ) : null}
 
-          <section data-pdf-block="campaign-structure" className="surface-panel p-5">
-            <h2 className="pdf-section-title text-base font-semibold text-viasoft">Estrutura da campanha</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Grupos de anúncios e anúncios da campanha no momento da geração do relatório.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">Grupos de anúncios</p>
-                  <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">{adSets.length} grupos</span>
-                </div>
-                {visibleAdSets.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
-                    Nenhum grupo encontrado.
-                  </p>
-                ) : (
-                  <ul className="space-y-1.5 text-sm text-slate-700">
-                    {visibleAdSets.map((adSet, index) => (
-                      <li
-                        key={adSet.id}
-                        className={`rounded-md border px-2 py-1.5 ${
-                          index === 0 ? "border-viasoft/25 bg-viasoft/10 text-viasoft" : "border-slate-200 bg-white"
-                        }`}
-                      >
-                        <p className="truncate font-medium">{adSet.name}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {hiddenAdSetsCount > 0 ? (
-                  <p className="mt-2 text-xs text-slate-500">
-                    + {hiddenAdSetsCount} grupos não exibidos nesta página.
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-                    Anúncios ({selectedAdSetName || "grupo não selecionado"})
-                  </p>
-                  <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">{ads.length} anúncios</span>
-                </div>
-                {visibleAds.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-sm text-slate-500">
-                    Nenhum anúncio encontrado.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {visibleAds.map((ad) => (
-                      <li key={ad.id} className="rounded-md border border-slate-200 bg-slate-50/40 p-2">
-                        <div className="flex items-start gap-2">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
-                            {ad.creativePreviewUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={ad.creativePreviewUrl}
-                                alt={`Criativo do anúncio ${ad.name}`}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
-                                Sem arte
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1 text-xs text-slate-600">
-                            <p className="truncate text-sm font-semibold text-ink">{ad.name}</p>
-                            <p className="mt-0.5 truncate">Criativo: {ad.creativeName}</p>
-                            <p className="mt-0.5 truncate">
-                              Destino:{" "}
-                              {ad.destinationUrl ? (
-                                isHttpUrl(ad.destinationUrl) ? formatDestinationLabel(ad.destinationUrl) : ad.destinationUrl
-                              ) : (
-                                "não informado"
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {hiddenAdsCount > 0 ? (
-                  <p className="mt-2 text-xs text-slate-500">
-                    + {hiddenAdsCount} anúncios não exibidos nesta página.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </section>
-          <PdfPageFooter pageNumber={2} generatedAtLabel={generatedAtLabel} />
-        </div>
-
-        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page="3">
+        <div className="pdf-landscape-page pdf-page-break-after" data-pdf-page={String(metricsPageNumber)}>
           <section data-pdf-block="metrics" className="surface-panel p-5">
             <h2 className="pdf-section-title text-base font-semibold text-viasoft">Cards de métricas</h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -611,10 +795,14 @@ export default async function PdfPage({
               ))}
             </div>
           </section>
-          <PdfPageFooter pageNumber={3} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter
+            pageNumber={metricsPageNumber}
+            totalPages={totalPages}
+            generatedAtLabel={generatedAtLabel}
+          />
         </div>
 
-        <div className="pdf-landscape-page pdf-page-break-after gap-2" data-pdf-page="4">
+        <div className="pdf-landscape-page pdf-page-break-after gap-2" data-pdf-page={String(trendPageNumber)}>
           <div data-pdf-block="trend">
             <TrendCard
               direction={comparison.trend.direction}
@@ -653,19 +841,22 @@ export default async function PdfPage({
               />
             </div>
           </section>
-          <PdfPageFooter pageNumber={4} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter pageNumber={trendPageNumber} totalPages={totalPages} generatedAtLabel={generatedAtLabel} />
         </div>
 
-        <div className="pdf-landscape-page" data-pdf-page="5">
+        <div className="pdf-landscape-page" data-pdf-page={String(insightsPageNumber)}>
           <div className="flex-1" data-pdf-block="insights-recommendations">
             <InsightsPanel
               insights={payload.insights}
               recommendations={payload.recommendations}
               isPdf
-              fillHeight
             />
           </div>
-          <PdfPageFooter pageNumber={5} generatedAtLabel={generatedAtLabel} />
+          <PdfPageFooter
+            pageNumber={insightsPageNumber}
+            totalPages={totalPages}
+            generatedAtLabel={generatedAtLabel}
+          />
         </div>
       </section>
     </main>

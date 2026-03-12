@@ -802,12 +802,35 @@ export function DashboardClient() {
       query.set("verticalTag", selectedVerticalSupported);
     }
 
+    query.set("deliveryGroup", campaignStatusFilter);
+
     if (selectedCampaignId) {
       query.set("campaignId", selectedCampaignId);
     }
 
+    if (selectedAdSetId) {
+      query.set("selectedAdSetId", selectedAdSetId);
+    }
+
+    if (selectedCompareAdSetIds.length > 0) {
+      query.set("compareAdSetIds", selectedCompareAdSetIds.join(","));
+    }
+
+    if (selectedCompareAdIds.length > 0) {
+      query.set("compareAdIds", selectedCompareAdIds.join(","));
+    }
+
     return `/api/pdf?${query.toString()}`;
-  }, [rangeDays, selectedCampaignId, selectedVertical, selectedVerticalSupported]);
+  }, [
+    campaignStatusFilter,
+    rangeDays,
+    selectedAdSetId,
+    selectedCampaignId,
+    selectedCompareAdIds,
+    selectedCompareAdSetIds,
+    selectedVertical,
+    selectedVerticalSupported
+  ]);
 
   const handleGeneratePdf = useCallback((): void => {
     if (!pdfUrl || pdfGenerating) {

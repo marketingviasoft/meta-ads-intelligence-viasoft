@@ -100,9 +100,22 @@ export async function generateDashboardPdf(params: {
   baseUrl: string;
   campaignId?: string;
   verticalTag?: string;
+  deliveryGroup?: string;
+  selectedAdSetId?: string;
+  compareAdSetIds?: string;
+  compareAdIds?: string;
   rangeDays: RangeDays;
 }): Promise<Uint8Array> {
-  const { baseUrl, campaignId, verticalTag, rangeDays } = params;
+  const {
+    baseUrl,
+    campaignId,
+    verticalTag,
+    deliveryGroup,
+    selectedAdSetId,
+    compareAdSetIds,
+    compareAdIds,
+    rangeDays
+  } = params;
 
   if (!isValidRangeDays(rangeDays)) {
     throw new Error("Período inválido para PDF");
@@ -122,6 +135,22 @@ export async function generateDashboardPdf(params: {
 
   if (verticalTag) {
     query.set("verticalTag", verticalTag);
+  }
+
+  if (deliveryGroup) {
+    query.set("deliveryGroup", deliveryGroup);
+  }
+
+  if (selectedAdSetId) {
+    query.set("selectedAdSetId", selectedAdSetId);
+  }
+
+  if (compareAdSetIds) {
+    query.set("compareAdSetIds", compareAdSetIds);
+  }
+
+  if (compareAdIds) {
+    query.set("compareAdIds", compareAdIds);
   }
 
   const printUrl = `${baseUrl}/pdf?${query.toString()}`;

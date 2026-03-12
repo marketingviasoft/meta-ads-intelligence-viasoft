@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDashboardPdf } from "@/lib/pdf-generator";
 import { PUBLICATION_SLUG } from "@/lib/branding";
-import { getActiveCampaigns } from "@/lib/meta-dashboard";
+import { getCampaignCatalogFromStore } from "@/lib/meta-insights-store";
 import { resolveSupportedVertical, SUPPORTED_VERTICALS } from "@/lib/verticals";
 import { isValidRangeDays } from "@/utils/date-range";
 
@@ -92,7 +92,7 @@ async function buildPdfFileName(params: {
 
   if (campaignId) {
     try {
-      const campaigns = await getActiveCampaigns(false);
+      const campaigns = await getCampaignCatalogFromStore(rangeDays as 7 | 14 | 28 | 30, false);
       const campaign = campaigns.find((item) => item.id === campaignId);
 
       if (!campaign) {
@@ -134,6 +134,10 @@ async function buildPdfFileName(params: {
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const rawCampaignId = request.nextUrl.searchParams.get("campaignId") ?? "";
   const rawVerticalTag = request.nextUrl.searchParams.get("verticalTag") ?? "";
+  const rawDeliveryGroup = request.nextUrl.searchParams.get("deliveryGroup") ?? "";
+  const rawSelectedAdSetId = request.nextUrl.searchParams.get("selectedAdSetId") ?? "";
+  const rawCompareAdSetIds = request.nextUrl.searchParams.get("compareAdSetIds") ?? "";
+  const rawCompareAdIds = request.nextUrl.searchParams.get("compareAdIds") ?? "";
   const rawRangeDays = request.nextUrl.searchParams.get("rangeDays");
 
   const campaignId = rawCampaignId.trim() || null;
@@ -182,6 +186,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         baseUrl,
         campaignId: campaignId ?? undefined,
         verticalTag: parsedVerticalTag ?? undefined,
+        deliveryGroup: rawDeliveryGroup.trim() || undefined,
+        selectedAdSetId: rawSelectedAdSetId.trim() || undefined,
+        compareAdSetIds: rawCompareAdSetIds.trim() || undefined,
+        compareAdIds: rawCompareAdIds.trim() || undefined,
         rangeDays: parsedRangeDays
       }),
       buildPdfFileName({

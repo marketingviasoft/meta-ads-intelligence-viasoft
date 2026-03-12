@@ -103,7 +103,7 @@ export function PerformanceChart({
   const effectiveXAxisInterval = isNarrowViewport ? 0 : xAxisInterval;
   const leftAxisWidth = isNarrowViewport ? 34 : 64;
   const rightAxisWidth = isNarrowViewport ? 48 : 72;
-  const chartBottomMargin = isPdf ? 8 : isNarrowViewport ? 18 : 10;
+  const chartBottomMargin = isPdf ? 2 : isNarrowViewport ? 18 : 10;
   const chartLeftMargin = isNarrowViewport ? 0 : 6;
   const chartRightMargin = isNarrowViewport ? 0 : 8;
   const showDots = !isPdf && (!isNarrowViewport || data.length <= 14);
@@ -144,7 +144,7 @@ export function PerformanceChart({
 
   return (
     <div
-      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[324px] p-2" : "min-h-[380px] p-3 sm:p-4"}`}
+      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[278px] p-2" : "min-h-[380px] p-3 sm:p-4"}`}
     >
       {showSummaryCards ? (
         <div className="mb-3 flex flex-wrap gap-2">
@@ -171,9 +171,9 @@ export function PerformanceChart({
         </div>
       ) : null}
 
-      <div className={isPdf ? "flex min-h-[300px] flex-col justify-center" : ""}>
+      <div className={isPdf ? "flex min-h-[246px] flex-col justify-start" : ""}>
         <div className={`rounded-lg border border-slate-200/90 bg-white/85 ${isPdf ? "p-1.5" : "p-2.5 sm:p-3"}`}>
-          <div className={isPdf ? "h-[252px]" : isNarrowViewport ? "h-[300px]" : "h-[340px]"}>
+          <div className={isPdf ? "h-[210px]" : isNarrowViewport ? "h-[300px]" : "h-[340px]"}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={data}

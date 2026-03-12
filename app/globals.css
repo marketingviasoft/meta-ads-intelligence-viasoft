@@ -109,13 +109,15 @@ h4 {
 .pdf-landscape-page {
   width: 100%;
   min-height: 210mm;
+  height: 210mm;
   box-sizing: border-box;
-  padding: 10mm 12mm;
+  padding: 8mm 10mm;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   background: #ffffff;
   position: relative;
+  overflow: hidden;
 }
 
 .pdf-page-break-after {
@@ -130,7 +132,7 @@ h4 {
 }
 
 .pdf-footer {
-  min-height: 28px;
+  min-height: 22px;
 }
 
 .pdf-block {
@@ -161,7 +163,10 @@ h4 {
 
   .pdf-landscape-page {
     min-height: 210mm !important;
-    padding: 10mm 12mm !important;
+    height: 210mm !important;
+    padding: 8mm 10mm !important;
+    gap: 10px !important;
+    overflow: hidden !important;
   }
 
   .pdf-page-break-after {
