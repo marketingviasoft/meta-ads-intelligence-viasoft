@@ -1,4 +1,5 @@
 import type {
+  CampaignDeliveryGroup,
   CampaignLifecycleStatus,
   DeliveryStatus,
   MetaAd,
@@ -648,6 +649,11 @@ function normalizeCampaign(
     configuredStatus: configured,
     deliveryStatus
   });
+  const deliveryGroup = resolveCampaignDeliveryGroup({
+    effectiveStatus: effective,
+    configuredStatus: configured,
+    deliveryStatus
+  });
 
   const periodSpend = activity?.spend ?? 0;
   const periodImpressions = activity?.impressions ?? 0;
@@ -662,6 +668,7 @@ function normalizeCampaign(
     verticalTag,
     deliveryStatus,
     lifecycleStatus,
+    deliveryGroup,
     hasActivityInRange: periodSpend > 0 || periodImpressions > 0,
     periodSpend,
     periodImpressions,
@@ -895,6 +902,46 @@ function resolveCampaignLifecycleStatus(params: {
   }
 
   return "WITHOUT_DELIVERY";
+}
+
+function resolveCampaignDeliveryGroup(params: {
+  effectiveStatus: string;
+  configuredStatus: string;
+  deliveryStatus: DeliveryStatus;
+}): CampaignDeliveryGroup {
+  const { effectiveStatus, configuredStatus, deliveryStatus } = params;
+  const statusSignal = `${effectiveStatus} ${configuredStatus}`.toUpperCase();
+
+  if (statusSignal.includes("ARCHIVED") || statusSignal.includes("DELETED")) {
+    return "ARCHIVED";
+  }
+
+  if (
+    statusSignal.includes("DISAPPROVED") ||
+    statusSignal.includes("PENDING_BILLING_INFO") ||
+    statusSignal.includes("WITH_ERRORS")
+  ) {
+    return "WITH_ISSUES";
+  }
+
+  if (statusSignal.includes("PENDING_REVIEW") || statusSignal.includes("PENDING")) {
+    return "PENDING_REVIEW";
+  }
+
+  if (
+    statusSignal.includes("PAUSED") ||
+    statusSignal.includes("CAMPAIGN_PAUSED") ||
+    statusSignal.includes("ADSET_PAUSED") ||
+    deliveryStatus === "ADSET_DISABLED"
+  ) {
+    return "PAUSED";
+  }
+
+  if (statusSignal.includes("ACTIVE")) {
+    return "ACTIVE";
+  }
+
+  return "PAUSED";
 }
 
 function resolveAdSetId(item: MetaAdResponseItem): string {
@@ -1725,6 +1772,77 @@ function extractIframeUrlFromAdPreviewBody(rawBody: string): string {
   return src;
 }
 
+function isLikelyRestrictedIframeUrl(iframeUrl: string): boolean {
+  try {
+    const parsed = new URL(iframeUrl);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+
+    if (host.includes("instagram.com")) {
+      return true;
+    }
+
+    if (host.includes("facebook.com")) {
+      if (
+        path.includes("/profile") ||
+        path.includes("/permalink") ||
+        path.includes("/posts") ||
+        path.includes("/photos")
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isRestrictedPreviewHtml(html: string): boolean {
+  const normalized = html.toLowerCase();
+  return (
+    normalized.includes("você não tem permissão para acessar este perfil") ||
+    normalized.includes("voce nao tem permissao para acessar este perfil") ||
+    normalized.includes("you don't have permission to access this profile") ||
+    normalized.includes("you do not have permission to access this profile")
+  );
+}
+
+async function isEmbeddablePreviewIframe(iframeUrl: string): Promise<boolean> {
+  if (!iframeUrl) {
+    return false;
+  }
+
+  if (isLikelyRestrictedIframeUrl(iframeUrl)) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(iframeUrl, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      headers: {
+        "User-Agent": "MetaAdsIntelligencePreviewChecker/1.0"
+      }
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const html = await response.text();
+    if (!html) {
+      return true;
+    }
+
+    return !isRestrictedPreviewHtml(html);
+  } catch {
+    return false;
+  }
+}
+
 function decodeAdPreviewBody(rawBody: string): string {
   return rawBody
     .replace(/\\\//g, "/")
@@ -2424,7 +2542,7 @@ export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
         previews.find((item) => typeof item.body === "string" && item.body.trim())?.body ?? "";
       const iframeUrl = extractIframeUrlFromAdPreviewBody(previewBody);
 
-      if (iframeUrl) {
+      if (iframeUrl && (await isEmbeddablePreviewIframe(iframeUrl))) {
         return {
           adId,
           adFormat,

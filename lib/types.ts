@@ -14,6 +14,12 @@ export type CampaignLifecycleStatus =
   | "COMPLETED"
   | "WITHOUT_DELIVERY"
   | "ARCHIVED";
+export type CampaignDeliveryGroup =
+  | "ACTIVE"
+  | "PAUSED"
+  | "WITH_ISSUES"
+  | "PENDING_REVIEW"
+  | "ARCHIVED";
 
 export type InsightSeverity = "alert" | "opportunity" | "info";
 
@@ -26,6 +32,7 @@ export interface MetaCampaign {
   verticalTag: string;
   deliveryStatus: DeliveryStatus;
   lifecycleStatus: CampaignLifecycleStatus;
+  deliveryGroup: CampaignDeliveryGroup;
   hasActivityInRange: boolean;
   periodSpend: number;
   periodImpressions: number;

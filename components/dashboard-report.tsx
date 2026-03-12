@@ -65,27 +65,35 @@ function getObjectiveLabel(category: DashboardPayload["campaign"]["objectiveCate
   }
 }
 
-function getDeliveryStatusLabel(status: DashboardPayload["campaign"]["deliveryStatus"]): string {
+function getDeliveryStatusLabel(status: DashboardPayload["campaign"]["deliveryGroup"]): string {
   switch (status) {
     case "ACTIVE":
-      return "Ativo";
-    case "COMPLETED":
-      return "Concluídos";
-    case "ADSET_DISABLED":
-      return "Conjunto de anúncios desativado";
+      return "Ativa";
+    case "PAUSED":
+      return "Pausada";
+    case "WITH_ISSUES":
+      return "Com problemas";
+    case "PENDING_REVIEW":
+      return "Em análise";
+    case "ARCHIVED":
+      return "Arquivada";
     default:
-      return "Sem veiculação";
+      return "Status não mapeado";
   }
 }
 
-function getDeliveryStatusTone(status: DashboardPayload["campaign"]["deliveryStatus"]): string {
+function getDeliveryStatusTone(status: DashboardPayload["campaign"]["deliveryGroup"]): string {
   switch (status) {
     case "ACTIVE":
       return "border-green-200 bg-green-50 text-green-700";
-    case "COMPLETED":
+    case "PAUSED":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "WITH_ISSUES":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    case "PENDING_REVIEW":
       return "border-sky-200 bg-sky-50 text-sky-700";
-    case "ADSET_DISABLED":
-      return "border-yellow-200 bg-yellow-50 text-yellow-700";
+    case "ARCHIVED":
+      return "border-slate-300 bg-slate-100 text-slate-700";
     default:
       return "border-slate-300 bg-slate-100 text-slate-700";
   }
@@ -359,10 +367,10 @@ export function CampaignHeaderCard({
         </h3>
         <span
           className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${getDeliveryStatusTone(
-            campaign.deliveryStatus
+            campaign.deliveryGroup
           )}`}
         >
-          {getDeliveryStatusLabel(campaign.deliveryStatus)}
+          {getDeliveryStatusLabel(campaign.deliveryGroup)}
         </span>
       </header>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

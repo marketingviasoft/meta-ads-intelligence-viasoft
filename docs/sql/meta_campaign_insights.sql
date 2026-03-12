@@ -131,11 +131,18 @@ create table if not exists public.meta_ads (
   campaign_id text not null,
   name text not null,
   status text not null default 'UNKNOWN',
+  creative_name text,
   creative_thumb text,
   creative_link text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.meta_ads add column if not exists creative_name text;
+update public.meta_ads
+set creative_name = name
+where (creative_name is null or btrim(creative_name) = '')
+  and name is not null;
 
 create index if not exists idx_meta_ads_adset_id
   on public.meta_ads (adset_id);
@@ -249,6 +256,8 @@ comment on column public.meta_ads.name is
   'Nome do anúncio.';
 comment on column public.meta_ads.status is
   'Status normalizado do anúncio.';
+comment on column public.meta_ads.creative_name is
+  'Nome do criativo associado ao anúncio quando disponível.';
 comment on column public.meta_ads.creative_thumb is
   'URL de miniatura do criativo quando disponível.';
 comment on column public.meta_ads.creative_link is

@@ -13,7 +13,6 @@ import { StructureComparisonSection } from "@/components/structure-comparison-se
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import type {
-  CampaignLifecycleStatus,
   DashboardPayload,
   MetaAd,
   MetaAdSet,
@@ -58,17 +57,24 @@ type StructureComparisonResponse = {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CAMPAIGN_STATUS_FILTER_ALL = "ALL" as const;
 const ALL_VERTICALS_VALUE = "__ALL_VERTICALS__" as const;
+type CampaignStatusFilterValue =
+  | typeof CAMPAIGN_STATUS_FILTER_ALL
+  | "ACTIVE"
+  | "PAUSED"
+  | "WITH_ISSUES"
+  | "PENDING_REVIEW"
+  | "ARCHIVED";
 
-const CAMPAIGN_STATUS_FILTERS: Array<{
-  value: typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus;
+const DELIVERY_STATUS_FILTERS: Array<{
+  value: CampaignStatusFilterValue;
   label: string;
 }> = [
   { value: CAMPAIGN_STATUS_FILTER_ALL, label: "Todos os status" },
-  { value: "RUNNING", label: "Em veiculação" },
-  { value: "PAUSED", label: "Pausada" },
-  { value: "COMPLETED", label: "Encerrada" },
-  { value: "WITHOUT_DELIVERY", label: "Sem veiculação" },
-  { value: "ARCHIVED", label: "Arquivada" }
+  { value: "ACTIVE", label: "Ativas" },
+  { value: "PAUSED", label: "Pausadas" },
+  { value: "WITH_ISSUES", label: "Com problemas" },
+  { value: "PENDING_REVIEW", label: "Em análise" },
+  { value: "ARCHIVED", label: "Arquivadas" }
 ];
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
@@ -134,9 +140,8 @@ export function DashboardClient() {
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [selectedVertical, setSelectedVertical] = useState<string>(ALL_VERTICALS_VALUE);
-  const [campaignStatusFilter, setCampaignStatusFilter] = useState<
-    typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus
-  >(CAMPAIGN_STATUS_FILTER_ALL);
+  const [campaignStatusFilter, setCampaignStatusFilter] =
+    useState<CampaignStatusFilterValue>(CAMPAIGN_STATUS_FILTER_ALL);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [adSets, setAdSets] = useState<MetaAdSet[]>([]);
   const [selectedAdSetId, setSelectedAdSetId] = useState<string>("");
@@ -184,7 +189,7 @@ export function DashboardClient() {
 
     if (campaignStatusFilter !== CAMPAIGN_STATUS_FILTER_ALL) {
       nextCampaigns = nextCampaigns.filter(
-        (campaign) => campaign.lifecycleStatus === campaignStatusFilter
+        (campaign) => campaign.deliveryGroup === campaignStatusFilter
       );
     }
 
@@ -572,6 +577,13 @@ export function DashboardClient() {
       return;
     }
 
+    const selectedCampaignIsVisible = filteredCampaigns.some(
+      (campaign) => campaign.id === selectedCampaignId
+    );
+    if (!selectedCampaignIsVisible) {
+      return;
+    }
+
     const campaignChanged = previousCampaignIdRef.current !== selectedCampaignId;
     previousCampaignIdRef.current = selectedCampaignId;
 
@@ -586,7 +598,7 @@ export function DashboardClient() {
     if (campaignChanged || shouldForceRefresh) {
       void loadCampaignAdSets(selectedCampaignId, shouldForceRefresh);
     }
-  }, [filteredCampaigns.length, loadCampaignAdSets, loadPerformance, selectedCampaignId]);
+  }, [filteredCampaigns, loadCampaignAdSets, loadPerformance, selectedCampaignId]);
 
   useEffect(() => {
     const shouldForceRefreshAds = adSetRefreshRequestedRef.current;
@@ -924,18 +936,14 @@ export function DashboardClient() {
           </div>
           <div className="min-w-0 lg:col-span-1">
             <OptionSelector
-              label="Status da campanha"
+              label="Veiculação"
               value={campaignStatusFilter}
-              onChange={(nextValue) =>
-                setCampaignStatusFilter(
-                  nextValue as typeof CAMPAIGN_STATUS_FILTER_ALL | CampaignLifecycleStatus
-                )
-              }
-              options={CAMPAIGN_STATUS_FILTERS.map((status) => ({
+              onChange={(nextValue) => setCampaignStatusFilter(nextValue as CampaignStatusFilterValue)}
+              options={DELIVERY_STATUS_FILTERS.map((status) => ({
                 value: status.value,
                 label: status.label
               }))}
-              ariaLabel="Seleção do status da campanha"
+              ariaLabel="Seleção de veiculação"
               disabled={loadingCampaigns}
             />
           </div>

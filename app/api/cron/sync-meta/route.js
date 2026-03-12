@@ -53,10 +53,13 @@ const AD_METADATA_FIELDS = [
   "name",
   "campaign_id",
   "adset_id",
+  "destination_type",
+  "promoted_object",
+  "call_to_action_type",
   "effective_status",
   "status",
   "configured_status",
-  "creative{id,thumbnail_url,image_url,link_url,object_url,template_url,object_story_spec{link_data{link},photo_data{link,url},template_data{link},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+  "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
 ].join(",");
 
 const AD_METADATA_FIELDS_FALLBACK = [
@@ -64,11 +67,16 @@ const AD_METADATA_FIELDS_FALLBACK = [
   "name",
   "campaign_id",
   "adset_id",
+  "destination_type",
+  "promoted_object",
+  "call_to_action_type",
   "effective_status",
   "status",
   "configured_status",
-  "creative{id,thumbnail_url,image_url,link_url,object_url,object_story_spec{link_data{link},photo_data{link,url},video_data{call_to_action{value{link}}}}}"
+  "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
 ].join(",");
+
+const AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN = /\s+\d{4}-\d{2}-\d{2}-[a-f0-9]{16,}$/i;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,6 +103,15 @@ function normalizeStatus(value) {
     .toUpperCase();
 
   return normalized || "UNKNOWN";
+}
+
+function normalizeCreativeName(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized.replace(AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN, "").trim();
 }
 
 function parseRateLimitCode(payload) {
@@ -554,31 +571,200 @@ function resolveCreativeThumb(creative) {
   );
 }
 
-function resolveCreativeLink(creative) {
-  const storyLink =
-    String(creative?.object_story_spec?.link_data?.link ?? "").trim() ||
-    String(creative?.object_story_spec?.photo_data?.link ?? "").trim() ||
-    String(creative?.object_story_spec?.photo_data?.url ?? "").trim() ||
-    String(creative?.object_story_spec?.template_data?.link ?? "").trim() ||
-    String(creative?.object_story_spec?.video_data?.call_to_action?.value?.link ?? "").trim();
+function resolveCreativeName(params) {
+  const { creative, adName, adId } = params;
+  const creativeName = normalizeCreativeName(creative?.name);
+  if (creativeName) {
+    return creativeName;
+  }
 
-  const feedLinkCandidate = Array.isArray(creative?.asset_feed_spec?.link_urls)
-    ? creative.asset_feed_spec.link_urls.find((item) => {
-        const url = String(item?.website_url ?? item?.url ?? "").trim();
-        return Boolean(url);
-      })
-    : null;
-  const feedLink = String(feedLinkCandidate?.website_url ?? feedLinkCandidate?.url ?? "").trim();
+  const normalizedAdName = String(adName ?? "").trim();
+  if (normalizedAdName) {
+    return normalizedAdName;
+  }
+
+  const creativeId = String(creative?.id ?? "").trim();
+  if (creativeId) {
+    return `Criativo ${creativeId}`;
+  }
+
+  const normalizedAdId = String(adId ?? "").trim();
+  if (normalizedAdId) {
+    return `Criativo ${normalizedAdId}`;
+  }
+
+  return "Criativo não identificado";
+}
+
+function toNonEmptyString(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function extractCallToActionLink(callToAction) {
+  return toNonEmptyString(callToAction?.value?.link);
+}
+
+function extractLinkFromChildAttachments(childAttachments) {
+  if (!Array.isArray(childAttachments)) {
+    return null;
+  }
+
+  for (const attachment of childAttachments) {
+    const linkFromAttachment =
+      toNonEmptyString(attachment?.link) ||
+      extractCallToActionLink(attachment?.call_to_action);
+    if (linkFromAttachment) {
+      return linkFromAttachment;
+    }
+  }
+
+  return null;
+}
+
+function extractLinkFromAssetFeedSpec(assetFeedSpec) {
+  if (!assetFeedSpec || !Array.isArray(assetFeedSpec.link_urls)) {
+    return null;
+  }
+
+  for (const item of assetFeedSpec.link_urls) {
+    const linkCandidate =
+      toNonEmptyString(item?.website_url) ||
+      toNonEmptyString(item?.url) ||
+      toNonEmptyString(item?.deeplink_url);
+    if (linkCandidate) {
+      return linkCandidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveCreativeLink(params) {
+  const { creative, promotedObject } = params;
+  const objectStorySpec = creative?.object_story_spec;
+
+  const storyLink =
+    toNonEmptyString(objectStorySpec?.link_data?.link) ||
+    extractCallToActionLink(objectStorySpec?.link_data?.call_to_action) ||
+    extractLinkFromChildAttachments(objectStorySpec?.link_data?.child_attachments) ||
+    toNonEmptyString(objectStorySpec?.photo_data?.link) ||
+    toNonEmptyString(objectStorySpec?.photo_data?.url) ||
+    extractCallToActionLink(objectStorySpec?.photo_data?.call_to_action) ||
+    toNonEmptyString(objectStorySpec?.template_data?.link) ||
+    extractCallToActionLink(objectStorySpec?.template_data?.call_to_action) ||
+    toNonEmptyString(objectStorySpec?.video_data?.link) ||
+    extractCallToActionLink(objectStorySpec?.video_data?.call_to_action);
+
+  const feedLink = extractLinkFromAssetFeedSpec(creative?.asset_feed_spec);
 
   return (
-    String(creative?.link_url ?? "").trim() ||
-    String(creative?.website_url ?? "").trim() ||
-    String(creative?.template_url ?? "").trim() ||
-    String(creative?.object_url ?? "").trim() ||
+    toNonEmptyString(promotedObject?.website_url) ||
+    toNonEmptyString(promotedObject?.link) ||
+    toNonEmptyString(promotedObject?.custom_url) ||
+    toNonEmptyString(promotedObject?.object_store_url) ||
+    toNonEmptyString(creative?.link_url) ||
+    toNonEmptyString(creative?.template_url) ||
+    toNonEmptyString(creative?.object_url) ||
+    toNonEmptyString(creative?.instagram_permalink_url) ||
     storyLink ||
     feedLink ||
     null
   );
+}
+
+function resolveDestinationFallbackLabel(params) {
+  const signal = [
+    String(params?.creative?.call_to_action_type ?? "").toUpperCase(),
+    String(params?.adCallToActionType ?? "").toUpperCase(),
+    String(params?.adDestinationType ?? "").toUpperCase(),
+    String(params?.promotedObject?.whatsapp_number ?? "").toUpperCase(),
+    String(params?.promotedObject?.whatsapp_phone_number ?? "").toUpperCase()
+  ].join(" ");
+
+  if (signal.includes("WHATSAPP")) {
+    return "WhatsApp";
+  }
+
+  if (signal.includes("MESSENGER")) {
+    return "Messenger (destino não identificado)";
+  }
+
+  return "Site configurado na Meta Ads (URL não exposta pela API)";
+}
+
+function extractBestExternalUrl(candidates) {
+  const normalizedCandidates = candidates
+    .map((candidate) => toNonEmptyString(candidate))
+    .filter(Boolean);
+
+  if (normalizedCandidates.length === 0) {
+    return null;
+  }
+
+  const externalCandidate = normalizedCandidates.find((candidate) => {
+    const lowered = candidate.toLowerCase();
+    return (
+      lowered.startsWith("http://") ||
+      lowered.startsWith("https://")
+    ) && !lowered.includes("facebook.com") && !lowered.includes("instagram.com");
+  });
+
+  if (externalCandidate) {
+    return externalCandidate;
+  }
+
+  return normalizedCandidates.find((candidate) => {
+    const lowered = candidate.toLowerCase();
+    return lowered.startsWith("http://") || lowered.startsWith("https://");
+  }) ?? null;
+}
+
+function extractUrlFromStoryAttachments(attachments) {
+  if (!Array.isArray(attachments)) {
+    return null;
+  }
+
+  const candidates = [];
+  for (const attachment of attachments) {
+    candidates.push(attachment?.unshimmed_url);
+    candidates.push(attachment?.url);
+    candidates.push(attachment?.target?.url);
+
+    if (Array.isArray(attachment?.subattachments?.data)) {
+      for (const subattachment of attachment.subattachments.data) {
+        candidates.push(subattachment?.unshimmed_url);
+        candidates.push(subattachment?.url);
+        candidates.push(subattachment?.target?.url);
+      }
+    }
+  }
+
+  return extractBestExternalUrl(candidates);
+}
+
+async function fetchStoryDestinationLink(storyId) {
+  const normalizedStoryId = String(storyId ?? "").trim();
+  if (!normalizedStoryId) {
+    return null;
+  }
+
+  try {
+    const payload = await fetchMetaJsonWithRetry(
+      buildMetaUrl(normalizedStoryId, {
+        fields: "permalink_url,attachments{target,url,unshimmed_url,subattachments{target,url,unshimmed_url}}"
+      })
+    );
+
+    const attachmentsUrl = extractUrlFromStoryAttachments(payload?.attachments?.data ?? []);
+    if (attachmentsUrl) {
+      return attachmentsUrl;
+    }
+
+    return extractBestExternalUrl([payload?.permalink_url]);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchCampaignMetadataMapByIds(campaignIds) {
@@ -653,6 +839,7 @@ async function fetchAdMetadataMapByIds(adIds) {
   }
 
   const byAdId = new Map();
+  const storyDestinationById = new Map();
   for (const item of items) {
     const adId = String(item?.id ?? "").trim();
     if (!adId) {
@@ -660,13 +847,48 @@ async function fetchAdMetadataMapByIds(adIds) {
     }
 
     const creative = item?.creative ?? null;
+    const storyId =
+      String(creative?.effective_object_story_id ?? "").trim() ||
+      String(creative?.object_story_id ?? "").trim() ||
+      null;
+    let creativeLink = resolveCreativeLink({
+      creative,
+      promotedObject: item?.promoted_object
+    });
+
+    if (!creativeLink && storyId) {
+      let storyLink = null;
+      if (storyDestinationById.has(storyId)) {
+        storyLink = storyDestinationById.get(storyId) ?? null;
+      } else {
+        storyLink = await fetchStoryDestinationLink(storyId);
+        storyDestinationById.set(storyId, storyLink ?? null);
+      }
+
+      if (storyLink) {
+        creativeLink = storyLink;
+      }
+    }
+
     byAdId.set(adId, {
       campaignId: String(item?.campaign_id ?? "").trim(),
       adSetId: String(item?.adset_id ?? "").trim(),
       name: String(item?.name ?? "").trim() || `Ad ${adId}`,
       status: normalizeStatus(item?.effective_status ?? item?.status ?? item?.configured_status),
+      creativeName: resolveCreativeName({
+        creative,
+        adName: item?.name,
+        adId
+      }),
       creativeThumb: resolveCreativeThumb(creative),
-      creativeLink: resolveCreativeLink(creative)
+      creativeLink:
+        creativeLink ||
+        resolveDestinationFallbackLabel({
+          creative,
+          adCallToActionType: item?.call_to_action_type,
+          adDestinationType: item?.destination_type,
+          promotedObject: item?.promoted_object
+        })
     });
   }
 
@@ -789,6 +1011,10 @@ function normalizeInsightRowsForSupabase(
           campaign_id: campaignId || adMetadata?.campaignId || "",
           name: adName || `Ad ${adId}`,
           status: adMetadata?.status ?? "UNKNOWN",
+          creative_name:
+            adMetadata?.creativeName ||
+            adName ||
+            `Criativo ${adId}`,
           creative_thumb: adMetadata?.creativeThumb ?? null,
           creative_link: adMetadata?.creativeLink ?? null,
           updated_at: nowIso
@@ -817,6 +1043,10 @@ function normalizeInsightRowsForSupabase(
         campaign_id: adMetadata.campaignId || "",
         name: adMetadata.name || `Ad ${adId}`,
         status: adMetadata.status || "UNKNOWN",
+        creative_name:
+          adMetadata.creativeName ||
+          adMetadata.name ||
+          `Criativo ${adId}`,
         creative_thumb: adMetadata.creativeThumb ?? null,
         creative_link: adMetadata.creativeLink ?? null,
         updated_at: nowIso

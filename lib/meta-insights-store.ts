@@ -8,6 +8,7 @@ import {
   verticalBudgetCacheKey
 } from "@/lib/cache-keys";
 import type {
+  CampaignDeliveryGroup,
   MetaAd,
   MetaAdSet,
   CampaignLifecycleStatus,
@@ -84,6 +85,7 @@ type MetaAdStoreRow = {
   campaign_id: string;
   name: string;
   status: string | null;
+  creative_name: string | null;
   creative_thumb: string | null;
   creative_link: string | null;
 };
@@ -136,6 +138,7 @@ const META_INVESTMENT_TAX_RATE = 0.1215;
 const VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX = 1000;
 const VIASOFT_VERTICAL_MONTHLY_CAP =
   VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
+const CAMPAIGN_STATUS_LOOKBACK_DAYS = 180;
 
 function normalizeString(value: string): string {
   return value
@@ -343,7 +346,7 @@ async function fetchAdRowsByAdSetId(adSetId: string): Promise<MetaAdStoreRow[]> 
   while (true) {
     const { data, error } = await supabase
       .from(ADS_TABLE_NAME)
-      .select("id,adset_id,campaign_id,name,status,creative_thumb,creative_link")
+      .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link")
       .eq("adset_id", adSetId)
       .order("name", { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -394,7 +397,7 @@ async function fetchStructureRowsByIds(params: {
 
   const { data, error } = await supabase
     .from(ADS_TABLE_NAME)
-    .select("id,adset_id,campaign_id,name,status,creative_thumb,creative_link")
+    .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link")
     .in("id", entityIds)
     .range(0, entityIds.length - 1);
 
@@ -636,18 +639,159 @@ function toNormalizedInsightRow(row: MetaCampaignInsightStoreRow): NormalizedIns
   };
 }
 
-function inferStatusFromRows(rows: MetaCampaignInsightStoreRow[], rangeUntil: string): {
+function parseIsoDateTimeToMillis(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getMostRecentCampaignRow(
+  rows: MetaCampaignInsightStoreRow[],
+  fallbackRow?: MetaCampaignInsightStoreRow | null
+): MetaCampaignInsightStoreRow | null {
+  if (rows.length === 0 && !fallbackRow) {
+    return null;
+  }
+
+  const candidates = fallbackRow ? [...rows, fallbackRow] : [...rows];
+  candidates.sort((a, b) => {
+    const dateComparison = b.date.localeCompare(a.date);
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    const updatedComparison = parseIsoDateTimeToMillis(b.updated_at) - parseIsoDateTimeToMillis(a.updated_at);
+    if (updatedComparison !== 0) {
+      return updatedComparison;
+    }
+
+    const createdComparison = parseIsoDateTimeToMillis(b.created_at) - parseIsoDateTimeToMillis(a.created_at);
+    if (createdComparison !== 0) {
+      return createdComparison;
+    }
+
+    return String(b.delivery_status ?? "").localeCompare(String(a.delivery_status ?? ""));
+  });
+
+  return candidates[0] ?? null;
+}
+
+function shiftIsoDateByDays(isoDate: string, deltaDays: number): string {
+  const baseDate = new Date(`${isoDate}T00:00:00.000Z`);
+  if (Number.isNaN(baseDate.getTime())) {
+    return isoDate;
+  }
+
+  baseDate.setUTCDate(baseDate.getUTCDate() + deltaDays);
+  return baseDate.toISOString().slice(0, 10);
+}
+
+function inferStatusFromRows(
+  rows: MetaCampaignInsightStoreRow[],
+  rangeUntil: string,
+  fallbackLatestRow?: MetaCampaignInsightStoreRow | null
+): {
   deliveryStatus: DeliveryStatus;
   lifecycleStatus: CampaignLifecycleStatus;
+  deliveryGroup: CampaignDeliveryGroup;
   effectiveStatus: string;
 } {
-  const latestRow = [...rows].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const latestRow = getMostRecentCampaignRow(rows, fallbackLatestRow);
   const persistedDelivery = String(latestRow?.delivery_status ?? "")
     .trim()
     .toUpperCase();
   const persistedEffective = String(latestRow?.effective_status ?? "")
     .trim()
     .toUpperCase();
+  const persistedConfigured = String(latestRow?.configured_status ?? "")
+    .trim()
+    .toUpperCase();
+
+  const resolveLifecycleStatus = (
+    effectiveStatus: string,
+    configuredStatus: string,
+    deliveryStatus: DeliveryStatus
+  ): CampaignLifecycleStatus => {
+    if (
+      effectiveStatus.includes("ARCHIVED") ||
+      configuredStatus.includes("ARCHIVED") ||
+      effectiveStatus.includes("DELETED") ||
+      configuredStatus.includes("DELETED")
+    ) {
+      return "ARCHIVED";
+    }
+
+    if (
+      effectiveStatus.includes("PAUSED") ||
+      configuredStatus.includes("PAUSED") ||
+      deliveryStatus === "ADSET_DISABLED"
+    ) {
+      return "PAUSED";
+    }
+
+    if (
+      effectiveStatus.includes("COMPLETED") ||
+      configuredStatus.includes("COMPLETED") ||
+      deliveryStatus === "COMPLETED"
+    ) {
+      return "COMPLETED";
+    }
+
+    if (
+      (effectiveStatus === "ACTIVE" || configuredStatus === "ACTIVE") &&
+      deliveryStatus === "ACTIVE"
+    ) {
+      return "RUNNING";
+    }
+
+    if (deliveryStatus === "ACTIVE") {
+      return "RUNNING";
+    }
+
+    return "WITHOUT_DELIVERY";
+  };
+
+  const resolveDeliveryGroup = (
+    effectiveStatus: string,
+    configuredStatus: string,
+    deliveryStatus: DeliveryStatus
+  ): CampaignDeliveryGroup => {
+    const statusSignal = `${effectiveStatus} ${configuredStatus}`.toUpperCase();
+
+    if (statusSignal.includes("ARCHIVED") || statusSignal.includes("DELETED")) {
+      return "ARCHIVED";
+    }
+
+    if (
+      statusSignal.includes("DISAPPROVED") ||
+      statusSignal.includes("PENDING_BILLING_INFO") ||
+      statusSignal.includes("WITH_ERRORS")
+    ) {
+      return "WITH_ISSUES";
+    }
+
+    if (statusSignal.includes("PENDING_REVIEW") || statusSignal.includes("PENDING")) {
+      return "PENDING_REVIEW";
+    }
+
+    if (
+      statusSignal.includes("PAUSED") ||
+      statusSignal.includes("CAMPAIGN_PAUSED") ||
+      statusSignal.includes("ADSET_PAUSED") ||
+      deliveryStatus === "ADSET_DISABLED"
+    ) {
+      return "PAUSED";
+    }
+
+    if (statusSignal.includes("ACTIVE")) {
+      return "ACTIVE";
+    }
+
+    return "PAUSED";
+  };
 
   if (
     persistedDelivery === "ACTIVE" ||
@@ -655,17 +799,22 @@ function inferStatusFromRows(rows: MetaCampaignInsightStoreRow[], rangeUntil: st
     persistedDelivery === "ADSET_DISABLED" ||
     persistedDelivery === "WITHOUT_DELIVERY"
   ) {
+    const lifecycleStatus = resolveLifecycleStatus(
+      persistedEffective,
+      persistedConfigured,
+      persistedDelivery
+    );
+    const deliveryGroup = resolveDeliveryGroup(
+      persistedEffective,
+      persistedConfigured,
+      persistedDelivery
+    );
+
     return {
       deliveryStatus: persistedDelivery,
-      lifecycleStatus:
-        persistedDelivery === "ACTIVE"
-          ? "RUNNING"
-          : persistedDelivery === "COMPLETED"
-            ? "COMPLETED"
-            : persistedDelivery === "ADSET_DISABLED"
-              ? "PAUSED"
-              : "WITHOUT_DELIVERY",
-      effectiveStatus: persistedEffective || persistedDelivery
+      lifecycleStatus,
+      deliveryGroup,
+      effectiveStatus: persistedEffective || persistedConfigured || persistedDelivery
     };
   }
 
@@ -677,8 +826,17 @@ function inferStatusFromRows(rows: MetaCampaignInsightStoreRow[], rangeUntil: st
   if (!hasActivity) {
     return {
       deliveryStatus: "WITHOUT_DELIVERY",
-      lifecycleStatus: "WITHOUT_DELIVERY",
-      effectiveStatus: persistedEffective || "UNKNOWN"
+      lifecycleStatus: resolveLifecycleStatus(
+        persistedEffective,
+        persistedConfigured,
+        "WITHOUT_DELIVERY"
+      ),
+      deliveryGroup: resolveDeliveryGroup(
+        persistedEffective,
+        persistedConfigured,
+        "WITHOUT_DELIVERY"
+      ),
+      effectiveStatus: persistedEffective || persistedConfigured || "UNKNOWN"
     };
   }
 
@@ -693,17 +851,41 @@ function inferStatusFromRows(rows: MetaCampaignInsightStoreRow[], rangeUntil: st
   }, "");
 
   if (latestActiveDate >= rangeUntil) {
+    const lifecycleStatus = resolveLifecycleStatus(
+      persistedEffective,
+      persistedConfigured,
+      "ACTIVE"
+    );
+    const deliveryGroup = resolveDeliveryGroup(
+      persistedEffective,
+      persistedConfigured,
+      "ACTIVE"
+    );
+
     return {
       deliveryStatus: "ACTIVE",
-      lifecycleStatus: "RUNNING",
-      effectiveStatus: persistedEffective || "ACTIVE"
+      lifecycleStatus,
+      deliveryGroup,
+      effectiveStatus: persistedEffective || persistedConfigured || "ACTIVE"
     };
   }
 
+  const lifecycleStatus = resolveLifecycleStatus(
+    persistedEffective,
+    persistedConfigured,
+    "COMPLETED"
+  );
+  const deliveryGroup = resolveDeliveryGroup(
+    persistedEffective,
+    persistedConfigured,
+    "COMPLETED"
+  );
+
   return {
     deliveryStatus: "COMPLETED",
-    lifecycleStatus: "COMPLETED",
-    effectiveStatus: persistedEffective || "COMPLETED"
+    lifecycleStatus,
+    deliveryGroup,
+    effectiveStatus: persistedEffective || persistedConfigured || "COMPLETED"
   };
 }
 
@@ -747,6 +929,7 @@ function buildMetaCampaignFromRows(
     verticalTag: extractVerticalTagFromCampaignName(campaignName),
     deliveryStatus: status.deliveryStatus,
     lifecycleStatus: status.lifecycleStatus,
+    deliveryGroup: status.deliveryGroup,
     hasActivityInRange: totals.spend > 0 || totals.impressions > 0,
     periodSpend: totals.spend,
     periodImpressions: totals.impressions,
@@ -770,29 +953,96 @@ export async function getCampaignCatalogFromStore(
     return cached;
   }
 
-  const rows = await fetchRowsByDateRange({
+  const rowsInRange = await fetchRowsByDateRange({
     since: range.since,
     until: range.until
   });
+  const statusLookbackSince = shiftIsoDateByDays(range.until, -CAMPAIGN_STATUS_LOOKBACK_DAYS);
+  const statusRows = await fetchRowsByDateRange({
+    since: statusLookbackSince,
+    until: range.until
+  });
 
-  const byCampaign = new Map<string, MetaCampaignInsightStoreRow[]>();
+  const byCampaignInRange = new Map<string, MetaCampaignInsightStoreRow[]>();
+  const latestStatusByCampaign = new Map<string, MetaCampaignInsightStoreRow>();
 
-  for (const row of rows) {
+  for (const row of rowsInRange) {
     const campaignId = (row.campaign_id ?? "").trim();
     if (!campaignId) {
       continue;
     }
 
-    const existing = byCampaign.get(campaignId);
+    const existing = byCampaignInRange.get(campaignId);
     if (existing) {
       existing.push(row);
     } else {
-      byCampaign.set(campaignId, [row]);
+      byCampaignInRange.set(campaignId, [row]);
     }
   }
 
-  const campaigns = [...byCampaign.entries()]
-    .map(([campaignId, campaignRows]) => buildMetaCampaignFromRows(campaignId, campaignRows, range.until))
+  for (const row of statusRows) {
+    const campaignId = (row.campaign_id ?? "").trim();
+    if (!campaignId) {
+      continue;
+    }
+
+    const currentLatest = latestStatusByCampaign.get(campaignId);
+    const nextLatest = getMostRecentCampaignRow(
+      currentLatest ? [currentLatest] : [],
+      row
+    );
+    if (nextLatest) {
+      latestStatusByCampaign.set(campaignId, nextLatest);
+    }
+  }
+
+  const campaignIds = new Set<string>([
+    ...byCampaignInRange.keys(),
+    ...latestStatusByCampaign.keys()
+  ]);
+
+  const campaigns = [...campaignIds]
+    .map((campaignId) => {
+      const campaignRowsInRange = byCampaignInRange.get(campaignId) ?? [];
+      const latestStatusRow = latestStatusByCampaign.get(campaignId) ?? null;
+      const sourceRows =
+        campaignRowsInRange.length > 0
+          ? campaignRowsInRange
+          : latestStatusRow
+            ? [latestStatusRow]
+            : [];
+
+      const campaign = buildMetaCampaignFromRows(campaignId, sourceRows, range.until);
+      if (!campaign) {
+        return null;
+      }
+
+      const inferredStatus = inferStatusFromRows(
+        campaignRowsInRange,
+        range.until,
+        latestStatusRow
+      );
+      const totalsInRange = campaignRowsInRange.reduce(
+        (accumulator, row) => ({
+          spend: accumulator.spend + toNumber(row.spend),
+          impressions: accumulator.impressions + toNumber(row.impressions),
+          clicks: accumulator.clicks + toNumber(row.clicks)
+        }),
+        { spend: 0, impressions: 0, clicks: 0 }
+      );
+
+      return {
+        ...campaign,
+        effectiveStatus: inferredStatus.effectiveStatus,
+        deliveryStatus: inferredStatus.deliveryStatus,
+        lifecycleStatus: inferredStatus.lifecycleStatus,
+        deliveryGroup: inferredStatus.deliveryGroup,
+        hasActivityInRange: totalsInRange.spend > 0 || totalsInRange.impressions > 0,
+        periodSpend: totalsInRange.spend,
+        periodImpressions: totalsInRange.impressions,
+        periodClicks: totalsInRange.clicks
+      } satisfies MetaCampaign;
+    })
     .filter((campaign): campaign is MetaCampaign => campaign !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -903,8 +1153,17 @@ export async function getDashboardPayloadFromStore(params: {
     `Campanha ${campaignId}`;
   const objective = latestRow?.objective?.trim() || inferObjectiveFromCampaignName(campaignName);
   const objectiveCategory = inferObjectiveCategory(objective);
-  const campaignStatus = inferStatusFromRows(currentRowsRaw, range.until);
-  const campaign = buildMetaCampaignFromRows(campaignId, currentRowsRaw, range.until) ?? {
+  const campaignStatus = inferStatusFromRows(currentRowsRaw, range.until, latestRow);
+  const campaignFromRows = buildMetaCampaignFromRows(campaignId, currentRowsRaw, range.until);
+  const campaign = campaignFromRows
+    ? {
+        ...campaignFromRows,
+        effectiveStatus: campaignStatus.effectiveStatus,
+        deliveryStatus: campaignStatus.deliveryStatus,
+        lifecycleStatus: campaignStatus.lifecycleStatus,
+        deliveryGroup: campaignStatus.deliveryGroup
+      }
+    : {
     id: campaignId,
     name: campaignName,
     objective,
@@ -913,6 +1172,7 @@ export async function getDashboardPayloadFromStore(params: {
     verticalTag: extractVerticalTagFromCampaignName(campaignName),
     deliveryStatus: campaignStatus.deliveryStatus,
     lifecycleStatus: campaignStatus.lifecycleStatus,
+    deliveryGroup: campaignStatus.deliveryGroup,
     hasActivityInRange: false,
     periodSpend: 0,
     periodImpressions: 0,
@@ -986,6 +1246,13 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
   const rows = await fetchAdRowsByAdSetId(adSetId);
   const ads: MetaAd[] = rows.map((row) => {
     const status = String(row.status ?? "").trim().toUpperCase() || "UNKNOWN";
+    const destinationUrl =
+      String(row.creative_link ?? "").trim() || "Site configurado na Meta Ads (URL não exposta pela API)";
+    const creativeName =
+      String(row.creative_name ?? "").trim() ||
+      String(row.name ?? "").trim() ||
+      `Criativo ${row.id}`;
+
     return {
       id: row.id,
       name: row.name,
@@ -994,9 +1261,9 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
       effectiveStatus: status,
       configuredStatus: status,
       creativeId: row.id,
-      creativeName: "Criativo sincronizado",
+      creativeName,
       creativePreviewUrl: row.creative_thumb ?? "",
-      destinationUrl: row.creative_link ?? ""
+      destinationUrl
     };
   });
 
