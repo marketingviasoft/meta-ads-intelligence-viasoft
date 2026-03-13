@@ -612,31 +612,31 @@ export function CampaignStructurePanel({
                         <MetricCard
                           label="Investimento"
                           value={formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.spend)}
-                        //icon={<Layers size={14} className="text-blue-500" />}
+                        icon={<Layers size={14} className="text-blue-500" />}
                         />
                         <MetricCard
                           label="Resultados"
                           value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.results)}
                           subValue={adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult ? `${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult!)}/res` : undefined}
-                        //icon={<Megaphone size={14} className="text-purple-500" />}
+                        icon={<Megaphone size={14} className="text-purple-500" />}
                         />
                         {adAnalyticsByAdId[selectedPreviewAd.id].video && (
                           <MetricCard
                             label="Reproduções"
                             value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].video!.plays)}
-                          //icon={<Video size={14} className="text-red-500" />}
+                          icon={<Video size={14} className="text-red-500" />}
                           />
                         )}
                         <MetricCard
                           label="Impressões"
                           value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.impressions)}
-                        //icon={<ZoomIn size={14} className="text-slate-500" />}
+                        icon={<ZoomIn size={14} className="text-slate-500" />}
                         />
                         <MetricCard
                           label="CTR"
                           value={`${adAnalyticsByAdId[selectedPreviewAd.id].general.ctr.toFixed(2)}%`}
                           subValue={`CPC: ${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.cpc)}`}
-                        //icon={<ArrowLeftRight size={14} className="text-teal-500" />}
+                        icon={<ArrowLeftRight size={14} className="text-teal-500" />}
                         />
                       </div>
 
