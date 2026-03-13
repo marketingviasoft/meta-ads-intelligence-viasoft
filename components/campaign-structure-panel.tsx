@@ -109,8 +109,9 @@ export function CampaignStructurePanel({
   }, [selectedAdSetId]);
 
   useEffect(() => {
-    // Reset loaded IDs when range changes to force refetch
+    // Reset loaded IDs AND actual data when range changes to force refetch and avoid stale UI
     loadedAdAnalyticsIdsRef.current.clear();
+    setAdAnalyticsByAdId({});
   }, [rangeDays]);
 
   const loadAdPreview = useCallback(async (adId: string): Promise<void> => {
@@ -191,7 +192,7 @@ export function CampaignStructurePanel({
       loadingAdAnalyticsIdsRef.current.delete(adId);
       setAdAnalyticsLoadingByAdId((prev) => ({ ...prev, [adId]: false }));
     }
-  }, []);
+  }, [rangeDays]);
 
   function openPreviewModal(ad: MetaAd): void {
     setSelectedPreviewAd(ad);
