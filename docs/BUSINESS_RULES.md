@@ -1,6 +1,6 @@
 # Regras de Negócio Oficiais
 
-Última atualização: 2026-03-06
+Última atualização: 2026-03-13
 
 Este documento consolida as regras que devem ser preservadas no produto conforme implementação atual.
 
@@ -10,6 +10,7 @@ Este documento consolida as regras que devem ser preservadas no produto conforme
 - Dados em tempo real como o preview do anúncio (iframe do Meta) vêm diretamente da Meta API.
 - Não inventar métricas.
 - Não substituir dados reais por estimativas sem justificativa clara.
+- A sincronização dos dados da Meta para o Supabase é feita via job automático (`/api/cron/sync-meta`), agendado diariamente via Vercel Cron.
 
 ## 2) Elegibilidade de campanhas
 
@@ -63,7 +64,8 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 - Teto total padrão por vertical (com imposto): `R$ 600,00`.
 - Exceção de negócio:
 - vertical `VIASOFT` possui teto total do ciclo em `R$ 1.000,00` (já com imposto).
-- internamente o cálculo converte esse total para base pré-imposto (`1000 / 1,1215`) para manter consistência do demonstrativo.
+- internamente o código calcula o cap pré-imposto: `1000 / (1 + 0.1215) = ~R$ 891,66` (`VIASOFT_VERTICAL_MONTHLY_CAP`).
+- para as demais verticais, o cap padrão é `R$ 535,00` (pré-imposto), totalizando `~R$ 600,00` com imposto.
 - Imposto sobre investimento: `12,15%`.
 - O card deve mostrar:
 - valor investido;
@@ -106,6 +108,12 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 - Rota dedicada: `/api/pdf` + render de `/pdf`.
 - Deve preservar leitura executiva do dashboard.
 - Deve evitar cortes indevidos e quebras incorretas de página.
+- Parâmetros de PDF adicionais aceitos: `deliveryGroup`, `selectedAdSetId`, `compareAdSetIds`, `compareAdIds`.
+
+## 10.1) PDF por vertical (sem campanha ativa)
+
+- Quando não há campanha ativa na vertical selecionada, o PDF exibe apenas o resumo de orçamento mensal.
+- Render em modo compacto (1 página).
 
 ## 11) Branding
 
@@ -117,7 +125,9 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 
 - Não expor token em frontend.
 - Não versionar `.env.local`.
-- Banco de dados Supabase operando com `meta_campaign_insights` etc.
+- Banco de dados Supabase operando com `meta_campaign_insights`, `meta_adsets` e `meta_ads`.
+- Schema SQL deve ser executado manualmente antes da primeira operação (`docs/sql/meta_campaign_insights.sql`).
+- `CRON_SECRET` deve ser configurado para proteger a rota de sincronização em ambiente público.
 - Sem autenticação no MVP atual.
 
 ## 13) PDF sem campanha ativa
@@ -126,3 +136,11 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 - Nesse cenário, o PDF deve apresentar pelo menos o resumo de investimento mensal da vertical.
 - A rota `/api/pdf` deve aceitar `verticalTag` como alternativa ao `campaignId`.
 - Quando houver `campaignId`, o comportamento completo do PDF de campanha permanece inalterado.
+
+## 14) Comparação de estrutura
+
+- Endpoint: `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`.
+- Permite comparar exatamente 2 entidades (ad sets ou ads) da mesma campanha.
+- Retorna snapshots de métricas (atual e anterior) e deltas por entidade.
+- Validação: rejeita se `entityIds` não contiver exatamente 2 IDs.
+- Lógica em `lib/meta-insights-store.ts` função `getStructureComparisonPayloadFromStore`.

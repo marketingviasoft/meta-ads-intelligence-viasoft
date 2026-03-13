@@ -1,6 +1,6 @@
 # Documentação Completa da Aplicação
 
-Atualizado em: 2026-03-06
+Atualizado em: 2026-03-13
 
 ## 1. Visão geral
 
@@ -58,8 +58,17 @@ Fonte: `package.json`.
 
 ### 3.1 Setup local (Getting Started)
 
+A aplicação depende do Supabase como banco de dados. Sem as tabelas criadas, o dashboard retornará erro 500.
+
+1. **Instale dependências**:
 ```bash
 npm install
+```
+
+2. **Inicialize o banco**: execute `docs/sql/meta_campaign_insights.sql` no painel SQL do Supabase.
+
+3. **Inicie o servidor**:
+```bash
 npm run dev
 ```
 
@@ -74,6 +83,8 @@ Aplicação local:
 - UI client: `components/*`, `app/page.tsx`
 - API interna (BFF): `app/api/*`
 - Orquestração + cache: `lib/meta-dashboard.ts`
+- Leitura primária de dados (Supabase): `lib/meta-insights-store.ts`
+- Sincronização automática (Cron ETL): `app/api/cron/sync-meta/route.js`
 - Integração externa (Meta Graph API): `services/meta-api.ts`
 - Regras e cálculos: `utils/*`
 - Renderização para impressão: `app/pdf/page.tsx`, `lib/pdf-generator.ts`, `pdf/*`
@@ -95,22 +106,29 @@ flowchart LR
   UI --> API3[/GET /api/meta/adsets/]
   UI --> API4[/GET /api/meta/ads/]
   UI --> API5[/GET /api/meta/ad-preview/]
+  UI --> API9[/GET /api/meta/compare/]
   UI --> A6[/GET /api/pdf/]
 
-  API0 --> ORQ[lib/meta-dashboard.ts]
-  API1 --> ORQ[lib/meta-dashboard.ts]
-  API2 --> ORQ
-  API3 --> ORQ
-  API4 --> ORQ
-  API5 --> ORQ
+  API0 --> STORE[lib/meta-insights-store.ts]
+  API1 --> STORE
+  API2 --> STORE
+  API3 --> STORE
+  API4 --> STORE
+  API9 --> STORE
 
+  API5 --> ORQ[lib/meta-dashboard.ts]
+
+  STORE --> SUPA[(Supabase<br/>meta_campaign_insights<br/>meta_adsets / meta_ads)]
   ORQ --> CACHE[(Cache em memória<br/>TTL 5 min / stale 15 min)]
   ORQ --> META[services/meta-api.ts]
   META --> GRAPH[(Meta Graph API)]
 
+  CRON[/api/cron/sync-meta/] --> META
+  CRON --> SUPA
+
   A6 --> A7[lib/pdf-generator.ts]
   A7 --> A8[/GET /pdf/]
-  A8 --> ORQ
+  A8 --> STORE
 ```
 
 ## 5. Fluxos principais
@@ -531,12 +549,87 @@ Erros:
 - `400`: `verticalTag` ausente ou fora da lista suportada
 - `502`: erro de integração com Meta API
 
+## 6.10 `GET /api/meta/compare`
+
+Query:
+
+- `campaignId` (obrigatório)
+- `entityType` (`ADSET` ou `AD`, obrigatório)
+- `entityIds` (exatamente 2 IDs separados por vírgula, obrigatório)
+- `rangeDays` (7|14|28|30)
+- `refresh=1` (opcional)
+
+Sucesso:
+
+```json
+{
+  "data": {
+    "entityType": "ADSET",
+    "range": { "days": 7, "since": "...", "until": "...", "previousSince": "...", "previousUntil": "..." },
+    "objectiveCategory": "TRAFFIC",
+    "items": [
+      {
+        "id": "id_1",
+        "current": { "spend": 500, "impressions": 20000, "...": "..." },
+        "previous": { "spend": 400, "impressions": 18000, "...": "..." },
+        "deltas": { "spend": { "absolute": 100, "percent": 25 }, "...": "..." }
+      },
+      {
+        "id": "id_2",
+        "current": { "...": "..." },
+        "previous": { "...": "..." },
+        "deltas": { "...": "..." }
+      }
+    ],
+    "generatedAt": "2026-03-06T20:18:42.000Z",
+    "isContingencySnapshot": false
+  }
+}
+```
+
+Erros:
+
+- `400`: parâmetros inválidos (entityIds != 2, entityType inválido, período inválido)
+- `500`: erro ao comparar estrutura
+
+## 6.11 `GET /api/cron/sync-meta`
+
+Rota de sincronização automática Meta → Supabase.
+
+Autenticação:
+
+- Header `x-cron-secret` ou `Authorization: Bearer {secret}` comparado com env `CRON_SECRET`.
+- Sem `CRON_SECRET` definido, qualquer requisição é aceita.
+
+Sucesso:
+
+```json
+{
+  "success": true,
+  "syncVersion": "...",
+  "fetchedRows": 1500,
+  "syncedInsights": 1500,
+  "syncedAdSets": 25,
+  "syncedAds": 120,
+  "jobsExecuted": 1,
+  "range": { "since": "2026-02-11", "until": "2026-03-13" }
+}
+```
+
+Erros:
+
+- `401`: não autorizado (CRON_SECRET inválido)
+- `500`: falha na sincronização (Meta API, Supabase, ou normalizações)
+
 ## 7. Variáveis de ambiente
 
 Referência: `.env.example` + uso no código.
 
 Obrigatórias:
 
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `META_ACCESS_TOKEN`
 - `META_AD_ACCOUNT_ID`
 
@@ -558,6 +651,10 @@ Opcionais:
 - `META_DESTINATION_DIAGNOSTIC_LOG` (`1` habilita logs estruturados)
 - `CHROME_EXECUTABLE_PATH` / `PUPPETEER_EXECUTABLE_PATH` (PDF local)
 - Variáveis de runtime serverless (`VERCEL`, `AWS_*`) afetam escolha de browser
+
+Segurança (Cron):
+
+- `CRON_SECRET` (protege a rota `/api/cron/sync-meta`; sem ela, qualquer requisição é aceita)
 
 ## 8. Modelo de dados principal
 

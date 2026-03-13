@@ -1,6 +1,6 @@
 # Handoff Técnico Completo
 
-Última atualização: 2026-03-10
+Última atualização: 2026-03-13
 
 Este documento é a memória operacional para continuidade entre ambientes.
 
@@ -13,7 +13,8 @@ Este documento é a memória operacional para continuidade entre ambientes.
 - Tailwind CSS
 - Recharts
 - Puppeteer (`puppeteer-core` + `@sparticuz/chromium`)
-- Com banco de dados Supabase operando como cache
+- Com banco de dados Supabase (tabelas: `meta_campaign_insights`, `meta_adsets`, `meta_ads`)
+- Sincronização automática via Vercel Cron (`/api/cron/sync-meta`)
 - Sem autenticação (MVP)
 
 Objetivo atual:
@@ -51,6 +52,7 @@ Objetivo atual:
 - `GET /api/meta/adsets?campaignId=...`
 - `GET /api/meta/ads?adSetId=...`
 - `GET /api/meta/ad-preview?adId=...`
+- `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
 
 O painel mostra:
 
@@ -63,6 +65,21 @@ O painel mostra:
 
 - `GET /api/meta/performance?campaignId=...&rangeDays=...`
 - Retorna `DashboardPayload` com comparação atual vs anterior, chart diário, insights e recomendações.
+
+## 2.5 Comparação de estrutura
+
+- `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
+- Permite comparar 2 ad sets ou 2 ads da mesma campanha no mesmo período.
+- Retorna `StructureComparisonPayload` com snapshots e deltas individuais.
+
+## 2.6 Sincronização automática (Cron)
+
+- `GET /api/cron/sync-meta` — orquestrador de ETL Meta → Supabase.
+- Arquivo: `app/api/cron/sync-meta/route.js` (JavaScript).
+- Agenda: diária às 03:00 UTC via `vercel.json`.
+- Puxa insights assíncronos dos últimos 30 dias, enriquece com metadados de campanha/adset/ad, e faz upsert no Supabase.
+- Lógica de "Adaptive Splitting": janela dividida recursivamente se a Meta API rejeitar por volume.
+- Protegido por `CRON_SECRET` via header `x-cron-secret` ou `Authorization: Bearer`.
 
 ## 2.4 PDF
 
@@ -86,9 +103,10 @@ O painel mostra:
 
 ## 4) Módulos centrais (atalho)
 
-- Orquestração principal e cache Supabase: `lib/meta-insights-store.ts`
-- Lógica de Payload/View: `lib/meta-dashboard.ts`
-- Integração Meta API Direta (Previews): `services/meta-api.ts`
+- Orquestração principal e leitura Supabase (BFF): `lib/meta-insights-store.ts`
+- Orquestração secundária e cache com Meta API direta (previews): `lib/meta-dashboard.ts`
+- Sincronização Cron Meta → Supabase: `app/api/cron/sync-meta/route.js`
+- Integração Meta API Direta: `services/meta-api.ts`
 - Tipos: `lib/types.ts`
 - Cálculo de métricas: `utils/metrics.ts`
 - Insights: `utils/insights-engine.ts`
@@ -127,6 +145,10 @@ Relevantes:
 - `META_DESTINATION_DIAGNOSTIC_LOG`
 - `CHROME_EXECUTABLE_PATH`
 
+Segurança:
+
+- `CRON_SECRET` (protege a rota de sincronização `/api/cron/sync-meta`)
+
 ## 6.1 Verticais suportadas
 
 - `VIASOFT`
@@ -146,6 +168,10 @@ Observação:
 1. Alguns anúncios podem ficar sem URL final explícita por limitação de payload da Meta.
 2. Layout PDF é sensível a alterações de altura de blocos e espaçamentos.
 3. Cache em memória não é distribuído entre instâncias.
+4. A rota de sync (`/api/cron/sync-meta`) está em JavaScript puro (`.js`), não TypeScript.
+5. Sem `CRON_SECRET` configurado, a rota de sync fica pública (o `isAuthorized` retorna `true`).
+6. O sync cobre os últimos 30 dias. Dados anteriores exigem backfill manual.
+7. O schema SQL (`docs/sql/meta_campaign_insights.sql`) deve ser rodado manualmente antes da primeira execução.
 
 ## 8) Fluxo recomendado de retomada
 
@@ -177,3 +203,5 @@ npm run dev
 - Não remover imposto de 12,15% do card de orçamento.
 - Não expor tokens/segredos em frontend.
 - Preservar paridade de leitura entre dashboard e PDF.
+- Não remover `CRON_SECRET` da validação sem substituir por outro mecanismo de autenticação.
+- Não migrar `route.js` do cron para TS sem testar o build de produção (Vercel Functions).

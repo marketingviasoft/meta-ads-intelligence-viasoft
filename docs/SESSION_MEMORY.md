@@ -1,6 +1,6 @@
 # Memória de Sessão (Linha do Tempo)
 
-Última atualização: 2026-03-06
+Última atualização: 2026-03-13
 
 Este arquivo registra decisões e mudanças relevantes para manter continuidade técnica.
 
@@ -308,3 +308,26 @@ Este arquivo registra decisões e mudanças relevantes para manter continuidade 
 - A geração de PDF passou a reutilizar uma instância compartilhada de browser (`puppeteer`) por processo.
 - Antes: cada exportação abria e fechava o Chrome inteiro.
 - Agora: cada exportação abre/fecha apenas uma nova aba, reduzindo latência média por requisição.
+
+## 48) Arquitetura de sincronização documentada
+
+- Identificado e documentado que a aplicação possui um job de sincronização cron (`/api/cron/sync-meta`, JavaScript puro).
+- Agenda: diária às 03:00 UTC via `vercel.json`.
+- Fluxo: Meta API (relatórios assíncronos) → normalização → upsert Supabase (`meta_campaign_insights`, `meta_adsets`, `meta_ads`).
+- Protegido por `CRON_SECRET` (header `x-cron-secret` ou Bearer); sem ele, fica público.
+- Lógica de "Adaptive Splitting" para contornar rejeições da Meta por volume de dados.
+
+## 49) Rota de comparação de estrutura documentada
+
+- Rota `GET /api/meta/compare` existia no código mas estava ausente de toda a documentação.
+- Permite comparar exatamente 2 ad sets ou 2 ads da mesma campanha no mesmo período.
+- Lógica baseada em `getStructureComparisonPayloadFromStore` em `lib/meta-insights-store.ts`.
+
+## 50) Revisão completa da documentação (2026-03-13)
+
+- Revisão incremental dos arquivos `RUNBOOK`, `HANDOFF`, `BUSINESS_RULES`, `DOCUMENTACAO_COMPLETA` e `SESSION_MEMORY`.
+- Adicionadas seções sobre: schema SQL obrigatório, cron de sincronização, rota de comparação, `CRON_SECRET`, troubleshooting Supabase.
+- Diagrama Mermaid atualizado para refletir Supabase, cron e rota de compare.
+- Variáveis de ambiente Supabase adicionadas como obrigatórias na DOCUMENTACAO_COMPLETA.
+- Nenhum conteúdo existente foi removido.
+
