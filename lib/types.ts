@@ -58,6 +58,10 @@ export interface MetaAd {
   creativeName: string;
   creativePreviewUrl: string;
   destinationUrl: string;
+  demographics?: {
+    age: Record<string, number>;
+    gender: Record<string, number>;
+  };
 }
 
 export interface MetaAdPreview {
@@ -114,6 +118,28 @@ export interface MetricSnapshot {
 export interface MetricDelta {
   absolute: number;
   percent: number | null;
+}
+
+export interface VideoMetrics {
+  plays: number;
+  avgPlayTime: number;
+  partialViewRate: number; // 25% or similar
+  fullViewRate: number;    // ThruPlays
+}
+
+export interface DemographicBreakdown {
+  label: string;
+  value: number;
+  percent: number;
+}
+
+export interface AdAnalytics {
+  general: MetricSnapshot;
+  video?: VideoMetrics;
+  demographics: {
+    age: DemographicBreakdown[];
+    gender: DemographicBreakdown[];
+  };
 }
 
 export interface TrendSummary {

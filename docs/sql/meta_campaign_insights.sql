@@ -134,10 +134,12 @@ create table if not exists public.meta_ads (
   creative_name text,
   creative_thumb text,
   creative_link text,
+  demographics jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.meta_ads add column if not exists demographics jsonb not null default '{}'::jsonb;
 alter table public.meta_ads add column if not exists creative_name text;
 update public.meta_ads
 set creative_name = name

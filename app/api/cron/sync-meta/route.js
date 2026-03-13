@@ -43,7 +43,14 @@ const INSIGHT_FIELDS = [
   "engagement_rate_ranking",
   "conversion_rate_ranking",
   "actions",
-  "cost_per_action_type"
+  "cost_per_action_type",
+  "video_play_actions",
+  "video_avg_time_watched_actions",
+  "video_p25_watched_actions",
+  "video_p50_watched_actions",
+  "video_p75_watched_actions",
+  "video_p100_watched_actions",
+  "video_thruplay_watched_actions"
 ].join(",");
 
 const CAMPAIGN_METADATA_FIELDS =
@@ -1137,11 +1144,59 @@ async function fetchAdMetadataMapByIds(adIds) {
   return byAdId;
 }
 
+async function fetchAdDemographics(adIds) {
+  if (!adIds || adIds.length === 0) return new Map();
+
+  const { adAccountId } = getMetaConfig();
+  const range = resolveTimeRangeLast30Days();
+  const chunks = chunkArray(adIds, 50);
+  const demographicsByAdId = new Map();
+
+  for (const chunk of chunks) {
+    try {
+      const rows = await fetchMetaList(`${adAccountId}/insights`, {
+        level: "ad",
+        fields: "ad_id,spend,impressions",
+        breakdowns: "age,gender",
+        time_range: JSON.stringify(range),
+        filtering: JSON.stringify([
+          {
+            field: "ad.id",
+            operator: "IN",
+            value: chunk
+          }
+        ]),
+        limit: "5000"
+      });
+
+      for (const row of rows) {
+        const adId = String(row.ad_id);
+        if (!demographicsByAdId.has(adId)) {
+          demographicsByAdId.set(adId, { age: {}, gender: {} });
+        }
+        const data = demographicsByAdId.get(adId);
+        const spend = toNumber(row.spend);
+
+        if (row.age) {
+          data.age[row.age] = (data.age[row.age] ?? 0) + spend;
+        }
+        if (row.gender) {
+          data.gender[row.gender] = (data.gender[row.gender] ?? 0) + spend;
+        }
+      }
+    } catch (error) {
+      console.warn(`Falha ao buscar demografia para chunk de anúncios: ${error.message}`);
+    }
+  }
+  return demographicsByAdId;
+}
+
 function normalizeInsightRowsForSupabase(
   rows,
   campaignMetadataByCampaignId,
   adSetMetadataById,
-  adMetadataById
+  adMetadataById,
+  demographicsByAdId = new Map()
 ) {
   const nowIso = new Date().toISOString();
   const insightRows = [];
@@ -1170,6 +1225,26 @@ function normalizeInsightRowsForSupabase(
     const adName = adNameFromInsight || adMetadata?.name || null;
 
     const actions = parseActionMap(row?.actions);
+
+    // Merge video actions
+    const videoFields = [
+      "video_play_actions",
+      "video_avg_time_watched_actions",
+      "video_p25_watched_actions",
+      "video_p50_watched_actions",
+      "video_p75_watched_actions",
+      "video_p100_watched_actions",
+      "video_thruplay_watched_actions"
+    ];
+    for (const field of videoFields) {
+      if (row?.[field]) {
+        const fieldActions = parseActionMap(row[field]);
+        for (const [key, value] of Object.entries(fieldActions)) {
+          actions[key] = value;
+        }
+      }
+    }
+
     const costPerActionType = parseActionMap(row?.cost_per_action_type);
     const purchases = sumActionMetricsByHints(actions, ["purchase"]);
     const leads = sumActionMetricsByHints(actions, ["lead"]);
@@ -1259,6 +1334,7 @@ function normalizeInsightRowsForSupabase(
             `Criativo ${adId}`,
           creative_thumb: adMetadata?.creativeThumb ?? null,
           creative_link: adMetadata?.creativeLink ?? null,
+          demographics: demographicsByAdId.get(adId) ?? {},
           updated_at: nowIso
         });
       }
@@ -1291,6 +1367,7 @@ function normalizeInsightRowsForSupabase(
           `Criativo ${adId}`,
         creative_thumb: adMetadata.creativeThumb ?? null,
         creative_link: adMetadata.creativeLink ?? null,
+        demographics: demographicsByAdId.get(adId) ?? {},
         updated_at: nowIso
       });
     }
@@ -1393,11 +1470,17 @@ export async function GET(request) {
       })
     ]);
 
+    const demographicsByAdId = await fetchAdDemographics(adIds).catch((error) => {
+      console.warn(`Falha ao buscar demografia de anúncios: ${error.message}`);
+      return new Map();
+    });
+
     const { insightRows, adSetRows, adRows } = normalizeInsightRowsForSupabase(
       reportRows,
       campaignMetadataByCampaignId,
       adSetMetadataById,
-      adMetadataById
+      adMetadataById,
+      demographicsByAdId
     );
 
     const syncedAdSets = await upsertRowsInBatches({

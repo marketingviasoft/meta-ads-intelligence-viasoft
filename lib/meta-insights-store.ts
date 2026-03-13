@@ -88,6 +88,7 @@ type MetaAdStoreRow = {
   creative_name: string | null;
   creative_thumb: string | null;
   creative_link: string | null;
+  demographics: Record<string, any> | null;
 };
 
 const TABLE_NAME = "meta_campaign_insights";
@@ -346,7 +347,7 @@ async function fetchAdRowsByAdSetId(adSetId: string): Promise<MetaAdStoreRow[]> 
   while (true) {
     const { data, error } = await supabase
       .from(ADS_TABLE_NAME)
-      .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link")
+      .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link,demographics")
       .eq("adset_id", adSetId)
       .order("name", { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -372,7 +373,7 @@ async function fetchAdRowsByAdSetId(adSetId: string): Promise<MetaAdStoreRow[]> 
   return rows;
 }
 
-async function fetchStructureRowsByIds(params: {
+export async function fetchStructureRowsByIds(params: {
   entityType: StructureComparisonEntityType;
   entityIds: string[];
 }): Promise<Array<MetaAdSetStoreRow | MetaAdStoreRow>> {
@@ -397,7 +398,7 @@ async function fetchStructureRowsByIds(params: {
 
   const { data, error } = await supabase
     .from(ADS_TABLE_NAME)
-    .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link")
+    .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link,demographics")
     .in("id", entityIds)
     .range(0, entityIds.length - 1);
 
@@ -408,7 +409,7 @@ async function fetchStructureRowsByIds(params: {
   return (data ?? []) as MetaAdStoreRow[];
 }
 
-async function fetchStructureInsightRowsByRange(params: {
+export async function fetchStructureInsightRowsByRange(params: {
   campaignId: string;
   entityType: StructureComparisonEntityType;
   entityIds: string[];
@@ -557,7 +558,7 @@ function aggregateRowsByDate(rows: MetaCampaignInsightStoreRow[]): MetaCampaignI
   return [...grouped.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function toNormalizedInsightRow(row: MetaCampaignInsightStoreRow): NormalizedInsightRow {
+export function toNormalizedInsightRow(row: MetaCampaignInsightStoreRow): NormalizedInsightRow {
   const spend = toNumber(row.spend);
   const impressions = toNumber(row.impressions);
   const clicks = toNumber(row.clicks);
@@ -1263,7 +1264,8 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
       creativeId: row.id,
       creativeName,
       creativePreviewUrl: row.creative_thumb ?? "",
-      destinationUrl
+      destinationUrl,
+      demographics: (row.demographics as any) ?? {}
     };
   });
 

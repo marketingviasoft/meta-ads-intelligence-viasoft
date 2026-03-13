@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, Layers, Megaphone, X, ZoomIn } from "lucide-react";
-import type { MetaAd, MetaAdPreview, MetaAdSet } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftRight, BarChart3, Clock, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
+import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet } from "@/lib/types";
+import { formatCurrency, formatNumber } from "@/utils/numbers";
 
 type CampaignStructurePanelProps = {
   adSets: MetaAdSet[];
@@ -20,6 +21,11 @@ type CampaignStructurePanelProps = {
 
 type AdPreviewResponse = {
   data?: MetaAdPreview;
+  error?: string;
+};
+
+type AdAnalyticsResponse = {
+  data?: AdAnalytics;
   error?: string;
 };
 
@@ -81,8 +87,14 @@ export function CampaignStructurePanel({
   const [adPreviewByAdId, setAdPreviewByAdId] = useState<Record<string, MetaAdPreview>>({});
   const [adPreviewLoadingByAdId, setAdPreviewLoadingByAdId] = useState<Record<string, boolean>>({});
   const [adPreviewErrorByAdId, setAdPreviewErrorByAdId] = useState<Record<string, string>>({});
+
+  const [adAnalyticsByAdId, setAdAnalyticsByAdId] = useState<Record<string, AdAnalytics>>({});
+  const [adAnalyticsLoadingByAdId, setAdAnalyticsLoadingByAdId] = useState<Record<string, boolean>>({});
+
   const loadedAdPreviewIdsRef = useRef<Set<string>>(new Set());
   const loadingAdPreviewIdsRef = useRef<Set<string>>(new Set());
+  const loadedAdAnalyticsIdsRef = useRef<Set<string>>(new Set());
+  const loadingAdAnalyticsIdsRef = useRef<Set<string>>(new Set());
 
   const selectedAdSetName = adSets.find((adSet) => adSet.id === selectedAdSetId)?.name ?? "";
   const adSetSelectionLimitReached = selectedCompareAdSetIds.length >= 2;
@@ -149,9 +161,35 @@ export function CampaignStructurePanel({
     }
   }, []);
 
+  const loadAdAnalytics = useCallback(async (adId: string, campaignId: string): Promise<void> => {
+    if (!adId || !campaignId) return;
+    if (loadedAdAnalyticsIdsRef.current.has(adId) || loadingAdAnalyticsIdsRef.current.has(adId)) return;
+
+    loadingAdAnalyticsIdsRef.current.add(adId);
+    setAdAnalyticsLoadingByAdId((prev) => ({ ...prev, [adId]: true }));
+
+    try {
+      const response = await fetch(
+        `/api/meta/ad-analytics?adId=${encodeURIComponent(adId)}&campaignId=${encodeURIComponent(campaignId)}&rangeDays=7`,
+        { cache: "no-store" }
+      );
+      const payload = (await response.json()) as AdAnalyticsResponse;
+      if (payload.data) {
+        setAdAnalyticsByAdId((prev) => ({ ...prev, [adId]: payload.data! }));
+        loadedAdAnalyticsIdsRef.current.add(adId);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar analytics do anúncio:", error);
+    } finally {
+      loadingAdAnalyticsIdsRef.current.delete(adId);
+      setAdAnalyticsLoadingByAdId((prev) => ({ ...prev, [adId]: false }));
+    }
+  }, []);
+
   function openPreviewModal(ad: MetaAd): void {
     setSelectedPreviewAd(ad);
     void loadAdPreview(ad.id);
+    void loadAdAnalytics(ad.id, ad.campaignId);
   }
 
   const closePreviewModal = useCallback((): void => {
@@ -465,91 +503,246 @@ export function CampaignStructurePanel({
 
       {selectedPreviewAd ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-5"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm"
           onClick={closePreviewModal}
         >
           <div
-            className="flex h-[90vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="flex h-[92vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in duration-200"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-slate-900">{selectedPreviewAd.name}</p>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  Criativo: {selectedPreviewAd.creativeName}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Destino:{" "}
-                  {selectedPreviewAd.destinationUrl && isHttpUrl(selectedPreviewAd.destinationUrl) ? (
-                    <a
-                      href={selectedPreviewAd.destinationUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="break-all text-viasoft underline-offset-2 hover:underline"
-                      title={selectedPreviewAd.destinationUrl}
-                    >
-                      {formatDestinationLabel(selectedPreviewAd.destinationUrl)}
-                    </a>
-                  ) : selectedPreviewAd.destinationUrl ? (
-                    <span>{selectedPreviewAd.destinationUrl}</span>
-                  ) : (
-                    "não informado"
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md bg-viasoft/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-viasoft">
+                    Preview do Anúncio
+                  </span>
+                  <p className="truncate text-lg font-bold text-slate-900">{selectedPreviewAd.name}</p>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Megaphone size={12} /> {selectedPreviewAd.creativeName}
+                  </span>
+                  {selectedPreviewAd.destinationUrl && (
+                    <span className="flex items-center gap-1 truncate max-w-[400px]">
+                      <span className="font-medium text-slate-400">Destino:</span>
+                      <a
+                        href={selectedPreviewAd.destinationUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-viasoft hover:underline"
+                      >
+                        {formatDestinationLabel(selectedPreviewAd.destinationUrl)}
+                      </a>
+                    </span>
                   )}
-                </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={closePreviewModal}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35"
-                aria-label="Fechar preview avançado"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
               >
-                <X size={16} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 p-5">
-              {activePreview?.iframeUrl ? (
-                <div className="mx-auto w-full max-w-[660px] overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  <iframe
-                    src={activePreview.iframeUrl}
-                    title={`Preview do anúncio ${selectedPreviewAd.name}`}
-                    loading="lazy"
-                    className="block w-full border-0 bg-white"
-                    style={{ height: "clamp(440px, 64vh, 760px)" }}
-                  />
+            {/* Modal Body (Two-Column) */}
+            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+              {/* Left Column: Preview */}
+              <div className="relative flex flex-1 flex-col overflow-y-auto border-r border-slate-100 bg-slate-50/50 p-6">
+                <div className="m-auto w-full max-w-[500px]">
+                  {activePreview?.iframeUrl ? (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                      <iframe
+                        src={activePreview.iframeUrl}
+                        title="Meta Ad Preview"
+                        className="w-full border-0"
+                        style={{ height: "700px" }}
+                      />
+                    </div>
+                  ) : activePreviewLoading ? (
+                    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                      <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
+                      <div className="h-40 animate-pulse rounded bg-slate-100" />
+                      <div className="h-60 animate-pulse rounded bg-slate-100" />
+                      <p className="text-center text-xs text-slate-400">Carregando visualização interativa...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-lg">
+                      <img
+                        src={selectedPreviewAd.creativePreviewUrl}
+                        alt="Ad Preview"
+                        className="max-h-[700px] w-full object-contain"
+                      />
+                    </div>
+                  )}
                 </div>
-              ) : activePreviewLoading ? (
-                <div className="mx-auto w-full max-w-[660px] rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                  <div className="mt-3 h-24 animate-pulse rounded bg-slate-200" />
-                  <div className="mt-3 h-72 animate-pulse rounded bg-slate-200" />
-                  <p className="mt-3 text-xs text-slate-500">Carregando preview avançado...</p>
-                </div>
-              ) : selectedPreviewAd.creativePreviewUrl ? (
-                <div className="mx-auto w-full max-w-[660px] overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={selectedPreviewAd.creativePreviewUrl}
-                    alt={`Preview do criativo ${selectedPreviewAd.name}`}
-                    className="max-h-[64vh] w-full object-contain"
-                    loading="lazy"
-                  />
-                </div>
-              ) : (
-                <div className="mx-auto flex h-[500px] w-full max-w-[660px] items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">
-                  Preview indisponível
-                </div>
-              )}
-            </div>
+              </div>
 
-            {activePreviewError ? (
-              <p className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
-                Preview avançado indisponível para este anúncio.
-              </p>
-            ) : null}
+              {/* Right Column: Analytics */}
+              <div className="flex w-full flex-col overflow-y-auto bg-white lg:w-[420px] xl:w-[480px]">
+                <div className="p-6">
+                  <header className="mb-6 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-400">
+                      <BarChart3 size={16} /> Performance Estimada
+                    </h3>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                      Últimos 7 dias
+                    </span>
+                  </header>
+
+                  {adAnalyticsLoadingByAdId[selectedPreviewAd.id] ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-50" />
+                        ))}
+                      </div>
+                      <div className="h-40 animate-pulse rounded-xl bg-slate-50" />
+                      <div className="h-40 animate-pulse rounded-xl bg-slate-50" />
+                    </div>
+                  ) : adAnalyticsByAdId[selectedPreviewAd.id] ? (
+                    <div className="space-y-8">
+                      {/* Main Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <MetricCard
+                          label="Investimento"
+                          value={formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.spend)}
+                          icon={<Layers size={14} className="text-blue-500" />}
+                        />
+                        <MetricCard
+                          label="Resultados"
+                          value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.results)}
+                          subValue={adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult ? `${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult!)}/res` : undefined}
+                          icon={<Megaphone size={14} className="text-purple-500" />}
+                        />
+                        <MetricCard
+                          label="Impressões"
+                          value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.impressions)}
+                          icon={<ZoomIn size={14} className="text-slate-500" />}
+                        />
+                        <MetricCard
+                          label="CTR"
+                          value={`${adAnalyticsByAdId[selectedPreviewAd.id].general.ctr.toFixed(2)}%`}
+                          subValue={`CPC: ${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.cpc)}`}
+                          icon={<ArrowLeftRight size={14} className="text-teal-500" />}
+                        />
+                      </div>
+
+                      {/* Video Retain (if exists) */}
+                      {adAnalyticsByAdId[selectedPreviewAd.id].video && (
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-5">
+                          <h4 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                            <Video size={14} /> Retenção de Vídeo
+                          </h4>
+                          <div className="space-y-4">
+                            <RetentionRow
+                              label="25% do vídeo"
+                              percent={adAnalyticsByAdId[selectedPreviewAd.id].video!.partialViewRate}
+                              color="bg-blue-400"
+                            />
+                            <RetentionRow
+                              label="Visualizações Completas (ThruPlay)"
+                              percent={adAnalyticsByAdId[selectedPreviewAd.id].video!.fullViewRate}
+                              color="bg-viasoft"
+                            />
+                            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                              <span className="text-[11px] text-slate-500">Tempo médio de reprodução</span>
+                              <span className="flex items-center gap-1 font-mono text-xs font-bold text-slate-700">
+                                <Clock size={12} /> {adAnalyticsByAdId[selectedPreviewAd.id].video!.avgPlayTime.toFixed(1)}s
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Demographics */}
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                            <Users size={14} /> Distribuição por Idade
+                          </h4>
+                          <div className="space-y-2">
+                            {adAnalyticsByAdId[selectedPreviewAd.id].demographics.age.slice(0, 4).map((item) => (
+                              <DemographicRow key={item.label} label={item.label} percent={item.percent} color="bg-teal-500" />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                            Gênero
+                          </h4>
+                          <div className="space-y-2">
+                            {adAnalyticsByAdId[selectedPreviewAd.id].demographics.gender.map((item) => (
+                              <DemographicRow key={item.label} label={item.label === "male" ? "Masculino" : item.label === "female" ? "Feminino" : "Outros"} percent={item.percent} color="bg-purple-500" />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                      <BarChart3 size={32} className="mb-2 opacity-20" />
+                      <p className="text-xs">Métricas não disponíveis para o período.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
     </section>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  subValue,
+  icon
+}: {
+  label: string;
+  value: string;
+  subValue?: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        {icon}
+      </div>
+      <p className="text-xl font-bold text-slate-900">{value}</p>
+      {subValue && <p className="mt-0.5 text-[10px] font-medium text-slate-500">{subValue}</p>}
+    </div>
+  );
+}
+
+function RetentionRow({ label, percent, color }: { label: string; percent: number; color: string }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-[11px] font-medium">
+        <span className="text-slate-600">{label}</span>
+        <span className="text-slate-900">{percent.toFixed(1)}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/60">
+        <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DemographicRow({ label, percent, color }: { label: string; percent: number; color: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-12 text-[10px] font-bold text-slate-500">{label}</span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full ${color} opacity-80`} style={{ width: `${percent}%` }} />
+      </div>
+      <span className="w-8 text-right text-[10px] font-bold text-slate-700">{percent.toFixed(0)}%</span>
+    </div>
   );
 }

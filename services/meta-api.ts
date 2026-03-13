@@ -300,6 +300,13 @@ const INSIGHT_FIELDS = [
   "conversion_rate_ranking",
   "actions",
   "cost_per_action_type",
+  "video_play_actions",
+  "video_avg_time_watched_actions",
+  "video_p25_watched_actions",
+  "video_p50_watched_actions",
+  "video_p75_watched_actions",
+  "video_p100_watched_actions",
+  "video_thruplay_watched_actions",
   "date_start",
   "date_stop"
 ].join(",");
@@ -682,6 +689,25 @@ function normalizeInsightRow(item: MetaInsightResponseItem): NormalizedInsightRo
   const clicks = toNumber(item.clicks);
   const actions = parseActionMap(item.actions);
   const costPerActionType = parseActionMap(item.cost_per_action_type);
+
+  // Merge video actions if they are returned as separate fields
+  const videoFields = [
+    "video_play_actions",
+    "video_avg_time_watched_actions",
+    "video_p25_watched_actions",
+    "video_p50_watched_actions",
+    "video_p75_watched_actions",
+    "video_p100_watched_actions",
+    "video_thruplay_watched_actions"
+  ];
+
+  for (const field of videoFields) {
+    const fieldActions = parseActionMap(Reflect.get(item, field));
+    for (const [key, value] of Object.entries(fieldActions)) {
+      actions[key] = value;
+    }
+  }
+
   const purchases = sumActionValuesByHints(actions, ["purchase"]);
   const leads = sumActionValuesByHints(actions, ["lead"]);
   const inlineLinkClicks = sumActionValuesByHints(actions, ["inline_link_click"]);
@@ -2791,4 +2817,42 @@ export async function fetchVerticalSpendInMonthRange(params: {
 
     return total + spend;
   }, 0);
+}
+
+export async function fetchAdBreakdowns(params: {
+  adId: string;
+  since: string;
+  until: string;
+  breakdowns: string[];
+}): Promise<NormalizedInsightRow[]> {
+  const { adId, since, until, breakdowns } = params;
+
+  const insights = await fetchMetaInsightsAsync<MetaInsightResponseItem>({
+    fields: "spend,impressions,clicks,actions",
+    level: "ad",
+    timeRange: {
+      since,
+      until
+    },
+    filtering: [
+      {
+        field: "ad.id",
+        operator: "EQUAL",
+        value: [adId]
+      }
+    ],
+    breakdowns,
+    limit: 5000
+  });
+
+  return insights.map((row) => {
+    const normalized = normalizeInsightRow(row);
+    // Preservar os campos de breakdown no objeto retornado
+    for (const key of breakdowns) {
+      if (Reflect.has(row, key)) {
+        Reflect.set(normalized, key, Reflect.get(row, key));
+      }
+    }
+    return normalized;
+  });
 }
