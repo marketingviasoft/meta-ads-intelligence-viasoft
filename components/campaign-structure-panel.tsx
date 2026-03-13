@@ -294,11 +294,10 @@ export function CampaignStructurePanel({
                 return (
                   <li
                     key={adSet.id}
-                    className={`group relative flex flex-col rounded-xl border transition-all duration-200 ${
-                      selected
-                        ? "border-viasoft/30 bg-viasoft/[0.04] shadow-sm"
-                        : "border-slate-200 bg-white hover:border-viasoft/20 hover:bg-viasoft/[0.02]"
-                    } ${compareChecked ? "ring-1 ring-inset ring-viasoft/30" : ""}`}
+                    className={`group relative flex flex-col rounded-xl border transition-all duration-200 ${selected
+                      ? "border-viasoft/30 bg-viasoft/[0.04] shadow-sm"
+                      : "border-slate-200 bg-white hover:border-viasoft/20 hover:bg-viasoft/[0.02]"
+                      } ${compareChecked ? "ring-1 ring-inset ring-viasoft/30" : ""}`}
                   >
                     <div
                       role="button"
@@ -315,9 +314,8 @@ export function CampaignStructurePanel({
                       <div className="flex w-full items-center justify-between gap-3">
                         <div className="max-w-[calc(100%-40px)] flex-1">
                           <p
-                            className={`break-words text-sm font-medium leading-5 transition-colors ${
-                              selected ? "text-viasoft" : "text-slate-700 group-hover:text-viasoft/80"
-                            }`}
+                            className={`break-words text-sm font-medium leading-5 transition-colors ${selected ? "text-viasoft" : "text-slate-700 group-hover:text-viasoft/80"
+                              }`}
                           >
                             {adSet.name}
                           </p>
@@ -330,13 +328,12 @@ export function CampaignStructurePanel({
                             e.stopPropagation();
                             onToggleCompareAdSet(adSet.id);
                           }}
-                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${
-                            compareChecked
-                              ? "border-viasoft/40 bg-viasoft/20 text-viasoft shadow-sm"
-                              : compareDisabled
-                                ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
-                                : "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
-                          }`}
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${compareChecked
+                            ? "border-viasoft/40 bg-viasoft/20 text-viasoft shadow-sm"
+                            : compareDisabled
+                              ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
+                              : "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                            }`}
                           title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
                         >
                           <ArrowLeftRight
@@ -406,11 +403,10 @@ export function CampaignStructurePanel({
                   return (
                     <li
                       key={ad.id}
-                      className={`relative flex flex-col rounded-xl border p-3 transition-all duration-200 ${
-                        compareChecked
-                          ? "border-teal-300 bg-teal-50/[0.4] ring-1 ring-inset ring-teal-200/50"
-                          : "border-slate-200 bg-slate-50/30 hover:border-teal-200 hover:bg-white"
-                      }`}
+                      className={`relative flex flex-col rounded-xl border p-3 transition-all duration-200 ${compareChecked
+                        ? "border-teal-300 bg-teal-50/[0.4] ring-1 ring-inset ring-teal-200/50"
+                        : "border-slate-200 bg-slate-50/30 hover:border-teal-200 hover:bg-white"
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <button
@@ -475,13 +471,12 @@ export function CampaignStructurePanel({
                           type="button"
                           disabled={compareDisabled}
                           onClick={() => onToggleCompareAd(ad.id)}
-                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${
-                            compareChecked
-                              ? "border-teal-400 bg-teal-100 text-teal-700 shadow-sm"
-                              : compareDisabled
-                                ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
-                                : "border-slate-200 bg-white text-slate-400 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600"
-                          }`}
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${compareChecked
+                            ? "border-teal-400 bg-teal-100 text-teal-700 shadow-sm"
+                            : compareDisabled
+                              ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
+                              : "border-slate-200 bg-white text-slate-400 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600"
+                            }`}
                           title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
                         >
                           <ArrowLeftRight
@@ -617,31 +612,31 @@ export function CampaignStructurePanel({
                         <MetricCard
                           label="Investimento"
                           value={formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.spend)}
-                          icon={<Layers size={14} className="text-blue-500" />}
+                        //icon={<Layers size={14} className="text-blue-500" />}
                         />
                         <MetricCard
                           label="Resultados"
                           value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.results)}
                           subValue={adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult ? `${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult!)}/res` : undefined}
-                          icon={<Megaphone size={14} className="text-purple-500" />}
+                        //icon={<Megaphone size={14} className="text-purple-500" />}
                         />
                         {adAnalyticsByAdId[selectedPreviewAd.id].video && (
                           <MetricCard
                             label="Reproduções"
                             value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].video!.plays)}
-                            icon={<Video size={14} className="text-red-500" />}
+                          //icon={<Video size={14} className="text-red-500" />}
                           />
                         )}
                         <MetricCard
                           label="Impressões"
                           value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.impressions)}
-                          icon={<ZoomIn size={14} className="text-slate-500" />}
+                        //icon={<ZoomIn size={14} className="text-slate-500" />}
                         />
                         <MetricCard
                           label="CTR"
                           value={`${adAnalyticsByAdId[selectedPreviewAd.id].general.ctr.toFixed(2)}%`}
                           subValue={`CPC: ${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.cpc)}`}
-                          icon={<ArrowLeftRight size={14} className="text-teal-500" />}
+                        //icon={<ArrowLeftRight size={14} className="text-teal-500" />}
                         />
                       </div>
 
@@ -663,7 +658,7 @@ export function CampaignStructurePanel({
                               color="bg-viasoft"
                             />
                             <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                              <span className="text-[11px] text-slate-500">Tempo médio de reprodução</span>
+                              <span className="text-xs text-slate-500">Tempo médio de reprodução</span>
                               <span className="flex items-center gap-1 font-mono text-xs font-bold text-slate-700">
                                 <Clock size={12} /> {adAnalyticsByAdId[selectedPreviewAd.id].video!.avgPlayTime.toFixed(1)}s
                               </span>
@@ -739,7 +734,7 @@ function MetricCard({
 function RetentionRow({ label, percent, color }: { label: string; percent: number; color: string }) {
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-[11px] font-medium">
+      <div className="flex items-center justify-between text-xs font-medium">
         <span className="text-slate-600">{label}</span>
         <span className="text-slate-900">{percent.toFixed(1)}%</span>
       </div>
