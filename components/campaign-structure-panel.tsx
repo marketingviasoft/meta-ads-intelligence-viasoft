@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Layers, Megaphone, X, ZoomIn } from "lucide-react";
+import { ArrowLeftRight, Layers, Megaphone, X, ZoomIn } from "lucide-react";
 import type { MetaAd, MetaAdPreview, MetaAdSet } from "@/lib/types";
 
 type CampaignStructurePanelProps = {
@@ -239,7 +239,7 @@ export function CampaignStructurePanel({
               Nenhum grupo de anúncios encontrado para esta campanha.
             </p>
           ) : (
-            <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
+            <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden px-1 pr-1.5 py-1">
               {adSets.map((adSet) => {
                 const selected = adSet.id === selectedAdSetId;
                 const compareChecked = selectedCompareAdSetIds.includes(adSet.id);
@@ -248,41 +248,68 @@ export function CampaignStructurePanel({
                 return (
                   <li
                     key={adSet.id}
-                    className={`rounded-xl border p-2 transition ${
-                      compareChecked
-                        ? "border-viasoft/30 bg-viasoft/5"
-                        : "border-transparent bg-transparent"
-                    }`}
+                    className={`group relative flex flex-col rounded-xl border transition-all duration-200 ${
+                      selected
+                        ? "border-viasoft/30 bg-viasoft/[0.04] shadow-sm"
+                        : "border-slate-200 bg-white hover:border-viasoft/20 hover:bg-viasoft/[0.02]"
+                    } ${compareChecked ? "ring-1 ring-inset ring-viasoft/30" : ""}`}
                   >
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onSelectAdSet(adSet.id)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                        selected
-                          ? "border-viasoft/30 bg-viasoft/10 text-viasoft"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-viasoft/20 hover:bg-viasoft/5"
-                      }`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectAdSet(adSet.id);
+                        }
+                      }}
+                      className="flex w-full flex-col p-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35 rounded-xl"
                     >
-                      <p className="break-words font-medium leading-5">{adSet.name}</p>
-                    </button>
-                    <label
-                      className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${
-                        compareChecked
-                          ? "border-viasoft/30 bg-viasoft/10 text-viasoft"
-                          : compareDisabled
-                            ? "border-slate-200 bg-slate-100 text-slate-400"
-                            : "border-slate-200 bg-white text-slate-600"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-viasoft focus:ring-viasoft/30"
-                        checked={compareChecked}
-                        disabled={compareDisabled}
-                        onChange={() => onToggleCompareAdSet(adSet.id)}
-                      />
-                      {compareChecked ? "Comparando" : "Comparar"}
-                    </label>
+                      <div className="flex w-full items-center justify-between gap-3">
+                        <div className="max-w-[calc(100%-40px)] flex-1">
+                          <p
+                            className={`break-words text-sm font-medium leading-5 transition-colors ${
+                              selected ? "text-viasoft" : "text-slate-700 group-hover:text-viasoft/80"
+                            }`}
+                          >
+                            {adSet.name}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={compareDisabled}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleCompareAdSet(adSet.id);
+                          }}
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${
+                            compareChecked
+                              ? "border-viasoft/40 bg-viasoft/20 text-viasoft shadow-sm"
+                              : compareDisabled
+                                ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
+                                : "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                          }`}
+                          title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
+                        >
+                          <ArrowLeftRight
+                            size={15}
+                            className={`transition-transform duration-300 ${compareChecked ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      </div>
+
+                      {compareChecked && (
+                        <>
+                          <hr className="my-2.5 w-full border-viasoft/10" />
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-viasoft">
+                            <span className="h-1.5 w-1.5 rounded-full bg-viasoft animate-pulse" />
+                            Em comparação
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -325,7 +352,7 @@ export function CampaignStructurePanel({
               <p className="mb-2 break-words text-xs text-slate-500">
                 Grupo selecionado: {selectedAdSetName}
               </p>
-              <ul className="max-h-72 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
+              <ul className="max-h-72 space-y-3 overflow-y-auto overflow-x-hidden px-1 pr-1.5 py-1">
                 {ads.map((ad) => {
                   const compareChecked = selectedCompareAdIds.includes(ad.id);
                   const compareDisabled = !compareChecked && adSelectionLimitReached;
@@ -333,17 +360,17 @@ export function CampaignStructurePanel({
                   return (
                     <li
                       key={ad.id}
-                      className={`rounded-lg border p-3 text-sm text-slate-700 ${
+                      className={`relative flex flex-col rounded-xl border p-3 transition-all duration-200 ${
                         compareChecked
-                          ? "border-teal-300 bg-teal-50/60"
-                          : "border-slate-200 bg-slate-50/50"
+                          ? "border-teal-300 bg-teal-50/[0.4] ring-1 ring-inset ring-teal-200/50"
+                          : "border-slate-200 bg-slate-50/30 hover:border-teal-200 hover:bg-white"
                       }`}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => openPreviewModal(ad)}
-                          className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35"
+                          className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-transform active:scale-95"
                           aria-label={`Abrir preview avançado do anúncio ${ad.name}`}
                           title="Abrir preview avançado"
                         >
@@ -352,67 +379,81 @@ export function CampaignStructurePanel({
                             <img
                               src={ad.creativePreviewUrl}
                               alt={`Criativo do anúncio ${ad.name}`}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
                               Sem arte
                             </div>
                           )}
                           <span
                             aria-hidden
-                            className="pointer-events-none absolute inset-0 bg-black/20 backdrop-blur-[1.5px] transition group-hover:bg-black/30 group-hover:backdrop-blur-[2px]"
+                            className="pointer-events-none absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100"
                           />
-                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-white">
-                            <ZoomIn size={20} />
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-white opacity-0 transition-opacity group-hover:opacity-100">
+                            <ZoomIn size={18} />
                           </span>
                         </button>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-medium leading-5">{ad.name}</p>
-                          <p className="mt-1 break-words text-xs text-slate-500">
+
+                        <div className="min-w-0 flex-1 max-w-[calc(100%-100px)]">
+                          <p className="break-words text-sm font-semibold leading-5 text-slate-800">
+                            {ad.name}
+                          </p>
+
+                          <p className="mt-1 break-words text-[11px] text-slate-500 line-clamp-1">
                             Criativo: {ad.creativeName}
                           </p>
+
                           {ad.destinationUrl ? (
-                            <p className="mt-1 break-words text-xs text-slate-500">
+                            <p className="mt-1 break-words text-[11px] text-slate-500 line-clamp-1">
                               Destino:{" "}
                               {isHttpUrl(ad.destinationUrl) ? (
                                 <a
                                   href={ad.destinationUrl}
                                   target="_blank"
                                   rel="noreferrer noopener"
-                                  className="break-all text-viasoft underline-offset-2 hover:underline"
+                                  className="text-viasoft hover:underline"
                                   title={ad.destinationUrl}
                                 >
                                   {formatDestinationLabel(ad.destinationUrl)}
                                 </a>
                               ) : (
-                                <span className="break-all">{ad.destinationUrl}</span>
+                                <span>{ad.destinationUrl}</span>
                               )}
                             </p>
-                          ) : (
-                            <p className="mt-1 text-xs text-slate-500">Destino: não informado</p>
-                          )}
-                          <label
-                            className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${
-                              compareChecked
-                                ? "border-teal-300 bg-teal-100/70 text-teal-700"
-                                : compareDisabled
-                                  ? "border-slate-200 bg-slate-100 text-slate-400"
-                                  : "border-slate-200 bg-white text-slate-600"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-viasoft focus:ring-viasoft/30"
-                              checked={compareChecked}
-                              disabled={compareDisabled}
-                              onChange={() => onToggleCompareAd(ad.id)}
-                            />
-                            {compareChecked ? "Comparando" : "Comparar"}
-                          </label>
+                          ) : null}
                         </div>
+
+                        <button
+                          type="button"
+                          disabled={compareDisabled}
+                          onClick={() => onToggleCompareAd(ad.id)}
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${
+                            compareChecked
+                              ? "border-teal-400 bg-teal-100 text-teal-700 shadow-sm"
+                              : compareDisabled
+                                ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
+                                : "border-slate-200 bg-white text-slate-400 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-600"
+                          }`}
+                          title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
+                        >
+                          <ArrowLeftRight
+                            size={15}
+                            className={`transition-transform duration-300 ${compareChecked ? "rotate-180" : ""}`}
+                          />
+                        </button>
                       </div>
+
+                      {compareChecked && (
+                        <>
+                          <hr className="my-2.5 w-full border-teal-200/40" />
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-teal-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-pulse" />
+                            Em comparação
+                          </div>
+                        </>
+                      )}
                     </li>
                   );
                 })}
