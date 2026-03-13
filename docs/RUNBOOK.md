@@ -157,35 +157,35 @@ Pré-condições práticas:
 
 ## 10) Troubleshooting
 
-### 8.1 `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` / `NEXT_PUBLIC_SUPABASE_URL` não configurado
+### 10.1 `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` / `NEXT_PUBLIC_SUPABASE_URL` não configurado
 
 - revisar `.env.local`;
 - reiniciar o servidor após alterar env.
 
-### 8.2 Sem campanhas no seletor
+### 10.2 Sem campanhas no seletor
 
 - confirmar campanhas com `effective_status = ACTIVE`;
 - confirmar veiculação ativa (delivery calculado por ad sets);
 - revisar permissões do token (`ads_read`).
 
-### 8.3 Alerta de contingência (snapshot stale)
+### 10.3 Alerta de contingência (snapshot stale)
 
 - significa falha na leitura mais recente da Meta API;
 - o dashboard exibiu cache stale dentro da janela de contingência;
 - tentar novo refresh e validar conectividade/permissões.
 
-### 8.4 PDF falhando por browser local
+### 10.4 PDF falhando por browser local
 
 - definir `CHROME_EXECUTABLE_PATH`;
 - validar se o Chrome instalado está acessível pelo usuário atual.
 
-### 8.5 Destino de anúncio sem URL identificada
+### 10.5 Destino de anúncio sem URL identificada
 
 - alguns criativos não expõem URL final no payload da Meta;
 - revisar `services/meta-api.ts` (resolução de `destinationUrl`);
 - para diagnóstico, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1`.
 
-### 8.6 Divergência de investimento entre dashboard e Ads Manager
+### 10.6 Divergência de investimento entre dashboard e Ads Manager
 
 - o card de orçamento da vertical acumula até a data atual (dia atual parcial);
 - valide no Ads Manager com a mesma janela (`since` do ciclo até hoje);

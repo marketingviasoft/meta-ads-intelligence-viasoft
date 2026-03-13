@@ -42,10 +42,16 @@ Antes de continuar desenvolvimento em outro ambiente, leia:
 ```txt
 /app
   /api
+    /cron/sync-meta
     /meta
       /campaigns
       /performance
+      /adsets
+      /ads
+      /ad-preview
+      /compare
       /cache/invalidate
+      /vertical-budget
     /pdf
   /pdf
 /components
@@ -53,7 +59,8 @@ Antes de continuar desenvolvimento em outro ambiente, leia:
 /services
 /utils
 /pdf
-/api
+/docs
+  /sql
 ```
 
 ## Variáveis de ambiente
@@ -81,7 +88,13 @@ INSIGHTS_BASELINE_ACCOUNT_JSON=
 INSIGHTS_BASELINE_BY_VERTICAL_JSON=
 # Teto mensal por vertical (BRL)
 VERTICAL_MONTHLY_CAP_BRL=535
+# Segredo para proteger rota de sincronização cron
+CRON_SECRET=
 ```
+
+## Inicialização do Supabase
+
+Antes da primeira execução, execute o script `docs/sql/meta_campaign_insights.sql` no painel SQL do seu projeto Supabase para criar as tabelas necessárias.
 
 ## Instalação e execução local
 
@@ -98,7 +111,13 @@ npm install
 npm run dev
 ```
 
-4. Abra:
+4. (Opcional) Dispare a sincronização inicial:
+
+```bash
+curl http://localhost:3000/api/cron/sync-meta
+```
+
+5. Abra:
 
 ```txt
 http://localhost:3000
@@ -135,8 +154,15 @@ Fluxo:
 
 - `GET /api/meta/campaigns`
 - `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
+- `GET /api/meta/adsets?campaignId=...`
+- `GET /api/meta/ads?adSetId=...`
+- `GET /api/meta/ad-preview?adId=...`
+- `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
+- `GET /api/meta/vertical-budget?verticalTag=...`
 - `POST /api/meta/cache/invalidate`
 - `GET /api/pdf?campaignId=...&rangeDays=...`
+- `GET /api/pdf?verticalTag=...&rangeDays=...`
+- `GET /api/cron/sync-meta` (protegido por `CRON_SECRET`)
 
 ## Regras aplicadas no código
 
