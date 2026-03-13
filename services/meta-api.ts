@@ -703,8 +703,9 @@ function normalizeInsightRow(item: MetaInsightResponseItem): NormalizedInsightRo
 
   for (const field of videoFields) {
     const fieldActions = parseActionMap(Reflect.get(item, field));
-    for (const [key, value] of Object.entries(fieldActions)) {
-      actions[key] = value;
+    const totalValue = Object.values(fieldActions).reduce((a, b) => a + b, 0);
+    if (totalValue > 0) {
+      actions[field] = totalValue;
     }
   }
 

@@ -52,13 +52,13 @@ export async function getAdAnalytics(params: {
     // If we have insights in the store, prefer this data (faster)
     if (insightRows.length > 0) {
       const normalizedRows = insightRows.map(toNormalizedInsightRow);
-      const campaign = await fetchCampaignById(campaignId); // Still need campaign for objective category
+      const campaign = await fetchCampaignById(campaignId);
 
       if (campaign) {
         const general = buildMetricSnapshot(normalizedRows, campaign.objectiveCategory);
         const video = processVideoMetrics(normalizedRows);
         
-        // Use synced demographics if available, otherwise empty
+        // Use synced demographics if available
         const syncedDemographics = ad?.demographics || { age: {}, gender: {} };
         const demographics = {
           age: processBreakdownMap(syncedDemographics.age, "age"),
@@ -76,13 +76,14 @@ export async function getAdAnalytics(params: {
     console.warn("Falha ao buscar dados do store para analytics, tentando Live API...", error);
   }
 
-  // 2. Fallback to Live API
+  // 2. Fallback to Live API (or fetch demographics live for accuracy)
   const [campaign, adInsights, ageRows, genderRows] = await Promise.all([
     fetchCampaignById(campaignId),
     fetchAdInsights({
       adId,
       since: range.since,
-      until: range.until
+      until: range.until,
+      timeIncrement: 1
     }),
     fetchAdBreakdowns({
       adId,
@@ -104,6 +105,7 @@ export async function getAdAnalytics(params: {
 
   const general = buildMetricSnapshot(adInsights, campaign.objectiveCategory);
   const video = processVideoMetrics(adInsights);
+  
   const demographics = {
     age: processBreakdownRows(ageRows, "age"),
     gender: processBreakdownRows(genderRows, "gender")
@@ -137,11 +139,12 @@ function processVideoMetrics(rows: NormalizedInsightRow[]): VideoMetrics | undef
 
   const aggregated = rows.reduce(
     (acc, row) => {
-      acc.plays += row.actions.video_play ?? 0;
-      acc.p25 += row.actions.video_p25_watched ?? 0;
-      acc.p100 += row.actions.video_p100_watched ?? 0;
-      acc.thruplay += row.actions.video_thruplay_watched ?? 0;
-      acc.sumAvgTime += row.actions.video_avg_time_watched ?? 0;
+      // Use the new unique keys from cron job and live API normalization
+      acc.plays += row.actions.video_play_actions ?? row.actions.video_play ?? 0;
+      acc.p25 += row.actions.video_p25_watched_actions ?? 0;
+      acc.p100 += row.actions.video_p100_watched_actions ?? 0;
+      acc.thruplay += row.actions.video_thruplay_watched_actions ?? 0;
+      acc.sumAvgTime += row.actions.video_avg_time_watched_actions ?? 0;
       return acc;
     },
     { plays: 0, p25: 0, p100: 0, thruplay: 0, sumAvgTime: 0 }
@@ -151,7 +154,7 @@ function processVideoMetrics(rows: NormalizedInsightRow[]): VideoMetrics | undef
 
   return {
     plays: aggregated.plays,
-    avgPlayTime: aggregated.sumAvgTime / rows.length, // Rough average
+    avgPlayTime: aggregated.sumAvgTime / rows.length, // Average of daily averages
     partialViewRate: (aggregated.p25 / aggregated.plays) * 100,
     fullViewRate: (aggregated.thruplay / aggregated.plays) * 100
   };

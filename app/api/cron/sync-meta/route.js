@@ -1239,8 +1239,11 @@ function normalizeInsightRowsForSupabase(
     for (const field of videoFields) {
       if (row?.[field]) {
         const fieldActions = parseActionMap(row[field]);
-        for (const [key, value] of Object.entries(fieldActions)) {
-          actions[key] = value;
+        // For specific video metric fields, we use the field name as the key
+        // to avoid collisions because action_type is often generic like 'video_view'
+        const totalValue = Object.values(fieldActions).reduce((a, b) => a + b, 0);
+        if (totalValue > 0) {
+          actions[field] = totalValue;
         }
       }
     }

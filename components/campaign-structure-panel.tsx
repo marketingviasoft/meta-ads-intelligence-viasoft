@@ -558,30 +558,30 @@ export function CampaignStructurePanel({
             {/* Modal Body (Two-Column) */}
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
               {/* Left Column: Preview */}
-              <div className="relative flex flex-1 flex-col overflow-y-auto border-r border-slate-100 bg-slate-50/50 p-6">
-                <div className="m-auto w-full max-w-[500px]">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden border-r border-slate-100 bg-slate-50/50 p-4">
+                <div className="w-full max-w-[650px]">
                   {activePreview?.iframeUrl ? (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                    <div className="overflow-hidden">
                       <iframe
                         src={activePreview.iframeUrl}
                         title="Meta Ad Preview"
                         className="w-full border-0"
-                        style={{ height: "700px" }}
+                        style={{ height: "850px" }}
                       />
                     </div>
                   ) : activePreviewLoading ? (
-                    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex w-full flex-col gap-4 p-6">
                       <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
                       <div className="h-40 animate-pulse rounded bg-slate-100" />
                       <div className="h-60 animate-pulse rounded bg-slate-100" />
                       <p className="text-center text-xs text-slate-400">Carregando visualização interativa...</p>
                     </div>
                   ) : (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-lg">
+                    <div className="overflow-hidden">
                       <img
                         src={selectedPreviewAd.creativePreviewUrl}
                         alt="Ad Preview"
-                        className="max-h-[700px] w-full object-contain"
+                        className="max-h-[850px] w-full object-contain"
                       />
                     </div>
                   )}
@@ -613,7 +613,7 @@ export function CampaignStructurePanel({
                   ) : adAnalyticsByAdId[selectedPreviewAd.id] ? (
                     <div className="space-y-8">
                       {/* Main Metrics Grid */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className={`grid gap-4 ${adAnalyticsByAdId[selectedPreviewAd.id].video ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
                         <MetricCard
                           label="Investimento"
                           value={formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.spend)}
@@ -625,6 +625,13 @@ export function CampaignStructurePanel({
                           subValue={adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult ? `${formatCurrency(adAnalyticsByAdId[selectedPreviewAd.id].general.costPerResult!)}/res` : undefined}
                           icon={<Megaphone size={14} className="text-purple-500" />}
                         />
+                        {adAnalyticsByAdId[selectedPreviewAd.id].video && (
+                          <MetricCard
+                            label="Reproduções"
+                            value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].video!.plays)}
+                            icon={<Video size={14} className="text-red-500" />}
+                          />
+                        )}
                         <MetricCard
                           label="Impressões"
                           value={formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].general.impressions)}
@@ -720,11 +727,11 @@ function MetricCard({
   return (
     <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
         {icon}
       </div>
-      <p className="text-xl font-bold text-slate-900">{value}</p>
-      {subValue && <p className="mt-0.5 text-[10px] font-medium text-slate-500">{subValue}</p>}
+      <p className="text-2xl font-bold text-slate-900">{value}</p>
+      {subValue && <p className="mt-0.5 text-xs font-medium text-slate-500">{subValue}</p>}
     </div>
   );
 }
@@ -746,11 +753,11 @@ function RetentionRow({ label, percent, color }: { label: string; percent: numbe
 function DemographicRow({ label, percent, color }: { label: string; percent: number; color: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-12 text-[10px] font-bold text-slate-500">{label}</span>
+      <span className="w-14 text-xs font-bold text-slate-500">{label}</span>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
         <div className={`h-full ${color} opacity-80`} style={{ width: `${percent}%` }} />
       </div>
-      <span className="w-8 text-right text-[10px] font-bold text-slate-700">{percent.toFixed(0)}%</span>
+      <span className="w-10 text-right text-xs font-bold text-slate-700">{percent.toFixed(0)}%</span>
     </div>
   );
 }
