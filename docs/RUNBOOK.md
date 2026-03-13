@@ -15,6 +15,9 @@ Este runbook descreve como subir, validar e operar o projeto localmente com base
 Base mínima:
 
 ```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
 META_ACCESS_TOKEN=SEU_TOKEN
 META_AD_ACCOUNT_ID=act_XXXXXXXXXXXX
 META_API_VERSION=v21.0
@@ -132,7 +135,7 @@ Pré-condições práticas:
 
 ## 8) Troubleshooting
 
-### 8.1 `META_ACCESS_TOKEN não configurado` / `META_AD_ACCOUNT_ID não configurado`
+### 8.1 `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` / `NEXT_PUBLIC_SUPABASE_URL` não configurado
 
 - revisar `.env.local`;
 - reiniciar o servidor após alterar env.

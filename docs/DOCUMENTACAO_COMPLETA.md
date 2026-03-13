@@ -1,4 +1,4 @@
-﻿# Documentação Completa da Aplicação
+# Documentação Completa da Aplicação
 
 Atualizado em: 2026-03-06
 
@@ -25,9 +25,9 @@ Problema que o projeto resolve:
 Arquitetura atual:
 
 - Frontend e API no mesmo app Next.js (App Router).
-- Sem banco de dados.
+- Banco de dados persistido via Supabase.
 - Sem autenticação (MVP local).
-- Cache em memória de processo.
+- Cache em memória de processo assistido por store do Supabase.
 
 ## 2. Objetivo funcional
 
@@ -35,7 +35,7 @@ A aplicação entrega leitura executiva para público não técnico, mantendo ra
 
 Princípios implementados no código:
 
-- Meta API é fonte de verdade.
+- O banco Supabase atua como fonte de verdade consolidada para as métricas.
 - Períodos de performance não incluem o dia atual.
 - Orçamento mensal da vertical inclui o dia atual (parcial no momento da consulta).
 - Comparativo sempre usa janela anterior equivalente.

@@ -8,8 +8,8 @@ Este arquivo registra decisões e mudanças relevantes para manter continuidade 
 
 - Produto executivo para leitura de Meta Ads.
 - Linguagem clara para público não especialista.
-- Meta API como fonte de verdade.
-- Sem banco e sem autenticação no MVP.
+- Persistência e Cache via Supabase (`meta_campaign_insights`).
+- Sem autenticação de usuário no MVP.
 - PDF obrigatório via backend.
 
 ## 1) Estrutura base estabilizada

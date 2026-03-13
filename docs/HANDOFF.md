@@ -13,7 +13,7 @@ Este documento é a memória operacional para continuidade entre ambientes.
 - Tailwind CSS
 - Recharts
 - Puppeteer (`puppeteer-core` + `@sparticuz/chromium`)
-- Sem banco de dados
+- Com banco de dados Supabase operando como cache
 - Sem autenticação (MVP)
 
 Objetivo atual:
@@ -75,7 +75,7 @@ O painel mostra:
 
 ## 3) Regras críticas implementadas
 
-- Fonte de verdade: Meta API.
+- Fonte de verdade: Supabase (`meta_campaign_insights`). Meta API atua para render em tempo real.
 - Dia atual excluído dos períodos de performance.
 - Orçamento mensal da vertical inclui dia atual (parcial).
 - Período baseado em timezone (`APP_TIMEZONE`).
@@ -86,8 +86,9 @@ O painel mostra:
 
 ## 4) Módulos centrais (atalho)
 
-- Orquestração e cache: `lib/meta-dashboard.ts`
-- Integração Meta API: `services/meta-api.ts`
+- Orquestração principal e cache Supabase: `lib/meta-insights-store.ts`
+- Lógica de Payload/View: `lib/meta-dashboard.ts`
+- Integração Meta API Direta (Previews): `services/meta-api.ts`
 - Tipos: `lib/types.ts`
 - Cálculo de métricas: `utils/metrics.ts`
 - Insights: `utils/insights-engine.ts`
@@ -109,6 +110,9 @@ O painel mostra:
 
 Obrigatórias:
 
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `META_ACCESS_TOKEN`
 - `META_AD_ACCOUNT_ID`
 

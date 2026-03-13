@@ -6,7 +6,8 @@ Este documento consolida as regras que devem ser preservadas no produto conforme
 
 ## 1) Fonte de verdade
 
-- A fonte de dados é a Meta API.
+- A fonte principal de dados (campanhas, adsets, ads e performance) é o Supabase (`meta_campaign_insights`).
+- Dados em tempo real como o preview do anúncio (iframe do Meta) vêm diretamente da Meta API.
 - Não inventar métricas.
 - Não substituir dados reais por estimativas sem justificativa clara.
 
@@ -116,7 +117,7 @@ Mapeamento aplicado no cálculo (`utils/metrics.ts`):
 
 - Não expor token em frontend.
 - Não versionar `.env.local`.
-- Sem banco de dados no MVP atual.
+- Banco de dados Supabase operando com `meta_campaign_insights` etc.
 - Sem autenticação no MVP atual.
 
 ## 13) PDF sem campanha ativa

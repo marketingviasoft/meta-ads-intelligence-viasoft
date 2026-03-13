@@ -19,7 +19,7 @@ Antes de continuar desenvolvimento em outro ambiente, leia:
 - Recharts
 - Node.js
 - Puppeteer
-- Sem banco de dados
+- Supabase (Banco de dados de métricas)
 - Sem autenticação (MVP local)
 
 ## O que o MVP entrega
@@ -61,6 +61,9 @@ Antes de continuar desenvolvimento em outro ambiente, leia:
 Copie `.env.example` para `.env.local` e preencha:
 
 ```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 META_ACCESS_TOKEN=
 META_AD_ACCOUNT_ID=act_1234567890
 META_API_VERSION=v21.0
@@ -137,7 +140,8 @@ Fluxo:
 
 ## Regras aplicadas no código
 
-- Fonte de verdade: Meta API
+- Fonte de verdade: Dados consolidados no Supabase (`meta_campaign_insights`, `meta_adsets`, `meta_ads`)
+- Preview de Ads consulta a Meta API diretamente.
 - Nenhum filtro inclui o dia atual
 - Sem métricas inventadas
 - Lógica separada em módulos (`services`, `utils`, `lib`)
