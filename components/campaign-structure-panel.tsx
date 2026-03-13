@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, BarChart3, Clock, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
-import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet } from "@/lib/types";
+import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet, RangeDays } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/utils/numbers";
 
 type CampaignStructurePanelProps = {
@@ -10,6 +10,7 @@ type CampaignStructurePanelProps = {
   selectedAdSetId: string;
   onSelectAdSet: (adSetId: string) => void;
   ads: MetaAd[];
+  rangeDays: RangeDays;
   selectedCompareAdSetIds: string[];
   onToggleCompareAdSet: (adSetId: string) => void;
   selectedCompareAdIds: string[];
@@ -75,6 +76,7 @@ export function CampaignStructurePanel({
   selectedAdSetId,
   onSelectAdSet,
   ads,
+  rangeDays,
   selectedCompareAdSetIds,
   onToggleCompareAdSet,
   selectedCompareAdIds,
@@ -105,6 +107,11 @@ export function CampaignStructurePanel({
   useEffect(() => {
     setSelectedPreviewAd(null);
   }, [selectedAdSetId]);
+
+  useEffect(() => {
+    // Reset loaded IDs when range changes to force refetch
+    loadedAdAnalyticsIdsRef.current.clear();
+  }, [rangeDays]);
 
   const loadAdPreview = useCallback(async (adId: string): Promise<void> => {
     if (!adId) {
@@ -170,7 +177,7 @@ export function CampaignStructurePanel({
 
     try {
       const response = await fetch(
-        `/api/meta/ad-analytics?adId=${encodeURIComponent(adId)}&campaignId=${encodeURIComponent(campaignId)}&rangeDays=7`,
+        `/api/meta/ad-analytics?adId=${encodeURIComponent(adId)}&campaignId=${encodeURIComponent(campaignId)}&rangeDays=${rangeDays}`,
         { cache: "no-store" }
       );
       const payload = (await response.json()) as AdAnalyticsResponse;
@@ -588,7 +595,7 @@ export function CampaignStructurePanel({
                       <BarChart3 size={16} /> Performance Estimada
                     </h3>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
-                      Últimos 7 dias
+                      Últimos {rangeDays} dias
                     </span>
                   </header>
 

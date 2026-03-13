@@ -1078,6 +1078,7 @@ export function DashboardClient() {
             selectedAdSetId={selectedAdSetId}
             onSelectAdSet={setSelectedAdSetId}
             ads={ads}
+            rangeDays={rangeDays}
             selectedCompareAdSetIds={selectedCompareAdSetIds}
             onToggleCompareAdSet={toggleAdSetComparisonSelection}
             selectedCompareAdIds={selectedCompareAdIds}

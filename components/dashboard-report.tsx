@@ -120,7 +120,7 @@ function getResultsCardCopy(category: DashboardPayload["campaign"]["objectiveCat
     case "ENGAGEMENT":
       return {
         title: "Interações com o anúncio",
-        description: "Curtidas, comentários ou compartilhamentos"
+        description: "Qualquer interação com a publicação"
       };
     case "CONVERSIONS":
       return {

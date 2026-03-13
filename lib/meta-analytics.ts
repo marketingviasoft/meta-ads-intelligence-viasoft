@@ -9,7 +9,8 @@ import { toNumber } from "@/utils/numbers";
 import {
   fetchStructureRowsByIds,
   fetchStructureInsightRowsByRange,
-  toNormalizedInsightRow
+  toNormalizedInsightRow,
+  MetaAdStoreRow
 } from "./meta-insights-store";
 import type {
   AdAnalytics,
@@ -46,7 +47,7 @@ export async function getAdAnalytics(params: {
       })
     ]);
 
-    const ad = adRows[0] as MetaAd | undefined;
+    const ad = adRows[0] as MetaAdStoreRow | undefined;
     
     // If we have insights in the store, prefer this data (faster)
     if (insightRows.length > 0) {

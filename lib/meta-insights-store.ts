@@ -72,14 +72,14 @@ type MetaCampaignInsightStoreRow = {
   updated_at?: string | null;
 };
 
-type MetaAdSetStoreRow = {
+export type MetaAdSetStoreRow = {
   id: string;
   campaign_id: string;
   name: string;
   status: string | null;
 };
 
-type MetaAdStoreRow = {
+export type MetaAdStoreRow = {
   id: string;
   adset_id: string;
   campaign_id: string;
