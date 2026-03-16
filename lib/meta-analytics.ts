@@ -140,23 +140,42 @@ function processVideoMetrics(rows: NormalizedInsightRow[]): VideoMetrics | undef
   const aggregated = rows.reduce(
     (acc, row) => {
       // Use the new unique keys from cron job and live API normalization
-      acc.plays += row.actions.video_play_actions ?? row.actions.video_play ?? 0;
+      const plays = row.actions.video_play_actions ?? row.actions.video_play ?? 0;
+      const dailyAvgTime = row.actions.video_avg_time_watched_actions ?? 0;
+
+      acc.plays += plays;
+      // video_view action type in Meta represents 3-second views
+      acc.p3s += row.actions.video_view ?? 0;
+      acc.p30s += row.actions.video_30_sec_watched_actions ?? 0;
       acc.p25 += row.actions.video_p25_watched_actions ?? 0;
+      acc.p50 += row.actions.video_p50_watched_actions ?? 0;
+      acc.p75 += row.actions.video_p75_watched_actions ?? 0;
+      acc.p95 += row.actions.video_p95_watched_actions ?? 0;
       acc.p100 += row.actions.video_p100_watched_actions ?? 0;
       acc.thruplay += row.actions.video_thruplay_watched_actions ?? 0;
-      acc.sumAvgTime += row.actions.video_avg_time_watched_actions ?? 0;
+
+      // Aggregate total impressions as it's the standard denominator for summary rates in Meta UI
+      acc.impressions += row.impressions ?? 0;
+
+      // Weighted average calculation: Sum of (daily plays * daily avg time)
+      acc.sumTotalTime += dailyAvgTime * plays;
       return acc;
     },
-    { plays: 0, p25: 0, p100: 0, thruplay: 0, sumAvgTime: 0 }
+    { plays: 0, p3s: 0, p30s: 0, p25: 0, p50: 0, p75: 0, p95: 0, p100: 0, thruplay: 0, impressions: 0, sumTotalTime: 0 }
   );
 
   if (aggregated.plays === 0) return undefined;
 
+  // For the summary table in the Meta Ads UI (matching the 24% / 6% screenshot), 
+  // the denominator is consistently Impressions. 
+  // The documentation formula (thruplay/p3s) refers to a different internal metric.
+  const base = aggregated.impressions || aggregated.plays;
+
   return {
     plays: aggregated.plays,
-    avgPlayTime: aggregated.sumAvgTime / rows.length, // Average of daily averages
-    partialViewRate: (aggregated.p25 / aggregated.plays) * 100,
-    fullViewRate: (aggregated.thruplay / aggregated.plays) * 100
+    avgPlayTime: aggregated.sumTotalTime / aggregated.plays,
+    partialViewRate: (aggregated.p3s / base) * 100,
+    fullViewRate: (aggregated.thruplay / base) * 100
   };
 }
 

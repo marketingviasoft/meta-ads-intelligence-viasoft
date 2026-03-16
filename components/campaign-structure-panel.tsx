@@ -447,24 +447,6 @@ export function CampaignStructurePanel({
                             Criativo: {ad.creativeName}
                           </p>
 
-                          {ad.destinationUrl ? (
-                            <p className="mt-1 break-words text-[11px] text-slate-500 line-clamp-1">
-                              Destino:{" "}
-                              {isHttpUrl(ad.destinationUrl) ? (
-                                <a
-                                  href={ad.destinationUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className="text-viasoft hover:underline"
-                                  title={ad.destinationUrl}
-                                >
-                                  {formatDestinationLabel(ad.destinationUrl)}
-                                </a>
-                              ) : (
-                                <span>{ad.destinationUrl}</span>
-                              )}
-                            </p>
-                          ) : null}
                         </div>
 
                         <button
@@ -524,21 +506,8 @@ export function CampaignStructurePanel({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span className="flex items-center gap-1">
-                    <Megaphone size={12} /> {selectedPreviewAd.creativeName}
+                    <Megaphone size={12} /> <span className="font-medium text-slate-400">Criativo: </span> {selectedPreviewAd.creativeName}
                   </span>
-                  {selectedPreviewAd.destinationUrl && (
-                    <span className="flex items-center gap-1 truncate max-w-[400px]">
-                      <span className="font-medium text-slate-400">Destino:</span>
-                      <a
-                        href={selectedPreviewAd.destinationUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-viasoft hover:underline"
-                      >
-                        {formatDestinationLabel(selectedPreviewAd.destinationUrl)}
-                      </a>
-                    </span>
-                  )}
                 </div>
               </div>
               <button
@@ -553,33 +522,35 @@ export function CampaignStructurePanel({
             {/* Modal Body (Two-Column) */}
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
               {/* Left Column: Preview */}
-              <div className="relative flex flex-1 items-center justify-center overflow-hidden border-r border-slate-100 bg-slate-50/50 p-4">
-                <div className="w-full max-w-[650px]">
-                  {activePreview?.iframeUrl ? (
-                    <div className="overflow-hidden">
-                      <iframe
-                        src={activePreview.iframeUrl}
-                        title="Meta Ad Preview"
-                        className="w-full border-0"
-                        style={{ height: "850px" }}
-                      />
-                    </div>
-                  ) : activePreviewLoading ? (
-                    <div className="flex w-full flex-col gap-4 p-6">
-                      <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
-                      <div className="h-40 animate-pulse rounded bg-slate-100" />
-                      <div className="h-60 animate-pulse rounded bg-slate-100" />
-                      <p className="text-center text-xs text-slate-400">Carregando visualização interativa...</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-hidden">
-                      <img
-                        src={selectedPreviewAd.creativePreviewUrl}
-                        alt="Ad Preview"
-                        className="max-h-[850px] w-full object-contain"
-                      />
-                    </div>
-                  )}
+              <div className="relative flex-1 overflow-auto border-r border-slate-100 bg-[#f5f5f5]">
+                <div className="flex min-h-full w-full items-start justify-center p-4 sm:p-6 lg:p-10">
+                  <div className="w-full max-w-[540px] flex-shrink-0">
+                    {activePreview?.iframeUrl ? (
+                      <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                        <iframe
+                          src={activePreview.iframeUrl}
+                          title="Meta Ad Preview"
+                          className="w-full border-0"
+                          style={{ height: "850px", minHeight: "600px" }}
+                        />
+                      </div>
+                    ) : activePreviewLoading ? (
+                      <div className="mx-auto flex w-full max-w-[400px] flex-col gap-4 rounded-xl border border-slate-100 bg-white p-8 shadow-sm">
+                        <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
+                        <div className="h-40 animate-pulse rounded bg-slate-100" />
+                        <div className="h-60 animate-pulse rounded bg-slate-100" />
+                        <p className="text-center text-xs text-slate-400">Carregando visualização interativa...</p>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                        <img
+                          src={selectedPreviewAd.creativePreviewUrl}
+                          alt="Ad Preview"
+                          className="h-auto w-full rounded-lg object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -643,12 +614,12 @@ export function CampaignStructurePanel({
                               </span>
                             </div>
                             <RetentionRow
-                              label="25% do vídeo"
+                              label="Taxa de visualizações parciais (3s)"
                               percent={adAnalyticsByAdId[selectedPreviewAd.id].video!.partialViewRate}
                               color="bg-blue-400"
                             />
                             <RetentionRow
-                              label="Visualizações Completas (ThruPlay)"
+                              label="Taxa de visualizações completas"
                               percent={adAnalyticsByAdId[selectedPreviewAd.id].video!.fullViewRate}
                               color="bg-viasoft"
                             />

@@ -189,7 +189,15 @@ function normalizeCreativeName(value) {
     return "";
   }
 
-  return normalized.replace(AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN, "").trim();
+  const normalizedBody = normalized.replace(AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN, "").trim();
+
+  // If the name is just a template placeholder like {{product.name}}, treat it as empty
+  // so the fallback to Ad Name can kick in.
+  if (/^\{\{product\.[a-z_]+\}\}$|^Criativo não identificado$/i.test(normalizedBody)) {
+    return "";
+  }
+
+  return normalizedBody;
 }
 
 function parseRateLimitCode(payload) {
@@ -1230,9 +1238,12 @@ function normalizeInsightRowsForSupabase(
     const videoFields = [
       "video_play_actions",
       "video_avg_time_watched_actions",
+      "video_3_sec_watched_actions",
+      "video_30_sec_watched_actions",
       "video_p25_watched_actions",
       "video_p50_watched_actions",
       "video_p75_watched_actions",
+      "video_p95_watched_actions",
       "video_p100_watched_actions",
       "video_thruplay_watched_actions"
     ];
