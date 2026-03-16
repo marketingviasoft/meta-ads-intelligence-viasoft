@@ -68,7 +68,7 @@ const AD_METADATA_FIELD_CANDIDATES = [
     "effective_status",
     "status",
     "configured_status",
-    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},asset_feed_spec{link_urls}}"
   ].join(","),
   [
     "id",
@@ -121,7 +121,7 @@ const AD_CREATIVE_METADATA_FIELD_CANDIDATES = [
     "object_story_id",
     "effective_object_story_id",
     "instagram_permalink_url",
-    "object_story_spec{link_data{link,call_to_action{value{link}},child_attachments{link,call_to_action{value{link}}}},photo_data{link,url,call_to_action{value{link}}},template_data{link,call_to_action{value{link}}},video_data{link,call_to_action{value{link}}}}",
+    "object_story_spec{link_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}}",
     "asset_feed_spec{link_urls}"
   ].join(","),
   [
@@ -155,6 +155,134 @@ const AD_CREATIVE_METADATA_FIELD_CANDIDATES = [
 ];
 
 const AUTO_GENERATED_CREATIVE_SUFFIX_PATTERN = /\s+\d{4}-\d{2}-\d{2}-[a-f0-9]{16,}$/i;
+const URL_HINT_KEY_PATTERN = /link|url|target|uri|href|website|landing/i;
+const META_OWNED_DOMAIN_PATTERN = /(facebook\.com|instagram\.com|fb\.me|fb\.com|messenger\.com|fbcdn\.net|fbsbx\.com)$/i;
+const ASSET_EXTENSION_PATTERN = /\.(png|jpe?g|gif|webp|mp4|mov|m4v|pdf|zip)$/i;
+
+function isHttpUrl(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  return lower.startsWith("http://") || lower.startsWith("https://");
+}
+
+function isMetaOwnedUrl(value) {
+  const lower = String(value ?? "").toLowerCase();
+  if (!lower.startsWith("http")) return false;
+
+  // Broad patterns for Meta-owned tracking/asset domains
+  const metaPatterns = [
+    "facebook.com",
+    "instagram.com",
+    "fb.me",
+    "fb.com",
+    "messenger.com",
+    "fbcdn.net",
+    "fbsbx.com",
+    "fbwat.ch"
+  ];
+
+  try {
+    const url = new URL(lower);
+    const host = url.hostname;
+    return metaPatterns.some(pattern => host === pattern || host.endsWith("." + pattern));
+  } catch {
+    return metaPatterns.some(pattern => lower.includes(pattern));
+  }
+}
+
+function isLikelyAssetUrl(value) {
+  const normalized = String(value ?? "").trim().split(/[?#]/)[0];
+  return ASSET_EXTENSION_PATTERN.test(normalized);
+}
+
+function isWhatsAppUrl(value) {
+  const normalized = String(value ?? "").toLowerCase();
+  return (
+    normalized.includes("wa.me/") ||
+    normalized.includes("whatsapp.com/") ||
+    normalized.startsWith("whatsapp://")
+  );
+}
+
+function normalizeWhatsAppNumber(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.length >= 8 ? digits : "";
+}
+
+function extractWhatsAppNumberFromUrl(value) {
+  if (!value || !isWhatsAppUrl(value)) return "";
+  try {
+    const parsed = new URL(value);
+    const fromQuery =
+      parsed.searchParams.get("phone") ??
+      parsed.searchParams.get("phoneNumber") ??
+      parsed.searchParams.get("whatsapp") ??
+      "";
+    const normalizedFromQuery = normalizeWhatsAppNumber(fromQuery);
+    if (normalizedFromQuery) return normalizedFromQuery;
+
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    for (const segment of pathSegments.reverse()) {
+      const normalizedSegment = normalizeWhatsAppNumber(segment);
+      if (normalizedSegment) return normalizedSegment;
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+function extractWhatsAppNumberFromUnknown(value, depth = 0) {
+  if (depth > 4 || !value) return "";
+  if (typeof value === "string") return normalizeWhatsAppNumber(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const num = extractWhatsAppNumberFromUnknown(item, depth + 1);
+      if (num) return num;
+    }
+  }
+  if (typeof value === "object") {
+    for (const [key, val] of Object.entries(value)) {
+      const lowKey = key.toLowerCase();
+      if (lowKey.includes("whatsapp") || lowKey.includes("phone")) {
+        const num = extractWhatsAppNumberFromUnknown(val, depth + 1);
+        if (num) return num;
+      }
+    }
+  }
+  return "";
+}
+
+function extractDestinationHintsFromUnknown(value, result, depth = 0) {
+  if (depth > 6 || result.size >= 50 || !value) return;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (isHttpUrl(trimmed) && !isLikelyAssetUrl(trimmed)) {
+      result.add(trimmed);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) extractDestinationHintsFromUnknown(item, result, depth + 1);
+    return;
+  }
+  if (typeof value === "object") {
+    for (const [key, val] of Object.entries(value)) {
+      if (typeof val === "string") {
+        if (URL_HINT_KEY_PATTERN.test(key) && isHttpUrl(val)) result.add(val.trim());
+      } else if (typeof val === "object") {
+        if (URL_HINT_KEY_PATTERN.test(key) || depth <= 2) {
+          extractDestinationHintsFromUnknown(val, result, depth + 1);
+        }
+      }
+    }
+  }
+}
+
+function collectDestinationCandidates(candidates) {
+  return [...new Set(candidates.map((c) => String(c ?? "").trim()).filter(Boolean))];
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -785,7 +913,13 @@ function toNonEmptyString(value) {
 }
 
 function extractCallToActionLink(callToAction) {
-  return toNonEmptyString(callToAction?.value?.link);
+  const v = callToAction?.value;
+  return (
+    toNonEmptyString(v?.link) ||
+    toNonEmptyString(v?.url) ||
+    toNonEmptyString(v?.website_url) ||
+    toNonEmptyString(v?.web_link)
+  );
 }
 
 function extractLinkFromChildAttachments(childAttachments) {
@@ -824,36 +958,78 @@ function extractLinkFromAssetFeedSpec(assetFeedSpec) {
 }
 
 function resolveCreativeLink(params) {
-  const { creative, promotedObject } = params;
+  const { creative, promotedObject, adDestinationType } = params;
   const objectStorySpec = creative?.object_story_spec;
 
-  const storyLink =
-    toNonEmptyString(objectStorySpec?.link_data?.link) ||
-    extractCallToActionLink(objectStorySpec?.link_data?.call_to_action) ||
-    extractLinkFromChildAttachments(objectStorySpec?.link_data?.child_attachments) ||
-    toNonEmptyString(objectStorySpec?.photo_data?.link) ||
-    toNonEmptyString(objectStorySpec?.photo_data?.url) ||
-    extractCallToActionLink(objectStorySpec?.photo_data?.call_to_action) ||
-    toNonEmptyString(objectStorySpec?.template_data?.link) ||
-    extractCallToActionLink(objectStorySpec?.template_data?.call_to_action) ||
-    toNonEmptyString(objectStorySpec?.video_data?.link) ||
-    extractCallToActionLink(objectStorySpec?.video_data?.call_to_action);
+  // 1. Collect ALL possible candidates first
+  const hints = new Set();
+  extractDestinationHintsFromUnknown(creative, hints);
+  
+  const primaryCandidates = collectDestinationCandidates([
+    promotedObject?.website_url,
+    promotedObject?.link,
+    promotedObject?.custom_url,
+    promotedObject?.object_store_url,
+    creative?.link_url,
+    creative?.website_url,
+    creative?.template_url,
+    creative?.object_url
+  ]);
 
-  const feedLink = extractLinkFromAssetFeedSpec(creative?.asset_feed_spec);
+  const deepCandidates = collectDestinationCandidates([
+    ...Array.from(hints),
+    objectStorySpec?.link_data?.link,
+    objectStorySpec?.link_data?.display_url,
+    extractCallToActionLink(objectStorySpec?.link_data?.call_to_action),
+    extractLinkFromChildAttachments(objectStorySpec?.link_data?.child_attachments),
+    objectStorySpec?.photo_data?.link,
+    objectStorySpec?.photo_data?.display_url,
+    extractCallToActionLink(objectStorySpec?.photo_data?.call_to_action),
+    objectStorySpec?.template_data?.link,
+    objectStorySpec?.template_data?.display_url,
+    extractCallToActionLink(objectStorySpec?.template_data?.call_to_action),
+    objectStorySpec?.video_data?.link,
+    objectStorySpec?.video_data?.display_url,
+    extractCallToActionLink(objectStorySpec?.video_data?.call_to_action),
+    extractLinkFromAssetFeedSpec(creative?.asset_feed_spec)
+  ]);
 
-  return (
-    toNonEmptyString(promotedObject?.website_url) ||
-    toNonEmptyString(promotedObject?.link) ||
-    toNonEmptyString(promotedObject?.custom_url) ||
-    toNonEmptyString(promotedObject?.object_store_url) ||
-    toNonEmptyString(creative?.link_url) ||
-    toNonEmptyString(creative?.template_url) ||
-    toNonEmptyString(creative?.object_url) ||
-    toNonEmptyString(creative?.instagram_permalink_url) ||
-    storyLink ||
-    feedLink ||
-    null
-  );
+  const allCandidates = collectDestinationCandidates([...primaryCandidates, ...deepCandidates]);
+
+  // 2. High Priority: External (Non-Meta) Website Links
+  // We prioritize these even for WhatsApp ads if they exist, as they often represent the primary landing page
+  // We strictly filter out Meta-owned domains (FB/IG/CDN) and common asset extensions
+  const bestExternal = allCandidates.find(c => isHttpUrl(c) && !isMetaOwnedUrl(c) && !isLikelyAssetUrl(c));
+  if (bestExternal) return bestExternal;
+
+  // 3. Medium Priority: WhatsApp Links (If it's a messaging ad)
+  const isWhatsAppAd = [
+    adDestinationType,
+    creative?.call_to_action_type,
+    creative?.asset_feed_spec?.call_to_action_types?.[0],
+    promotedObject?.whatsapp_number,
+    promotedObject?.whatsapp_phone_number
+  ].some(sig => String(sig ?? "").toUpperCase().includes("WHATSAPP"));
+
+  if (isWhatsAppAd) {
+    const whatsappUrl = allCandidates.find(h => isWhatsAppUrl(h));
+    if (whatsappUrl) return whatsappUrl;
+
+    const waNumber = normalizeWhatsAppNumber(
+      promotedObject?.whatsapp_number ||
+      promotedObject?.whatsapp_phone_number ||
+      extractWhatsAppNumberFromUnknown(creative)
+    );
+    if (waNumber) return `https://wa.me/${waNumber}`;
+  }
+
+  // 4. Low Priority / Social Fallbacks (Meta owned links)
+  const socialFallback = collectDestinationCandidates([
+    ...allCandidates,
+    creative?.instagram_permalink_url
+  ]).find(c => isHttpUrl(c));
+
+  return socialFallback || null;
 }
 
 function mergeCreativeSources(creativeFromAd, creativeFromCatalog) {
@@ -904,14 +1080,19 @@ function resolveDestinationFallbackLabel(params) {
   ].join(" ");
 
   if (signal.includes("WHATSAPP")) {
-    return "WhatsApp";
+    const waNumber = normalizeWhatsAppNumber(
+      params?.promotedObject?.whatsapp_number ||
+      params?.promotedObject?.whatsapp_phone_number ||
+      extractWhatsAppNumberFromUnknown(params?.creative)
+    );
+    return waNumber ? `https://wa.me/${waNumber}` : "WhatsApp";
   }
 
   if (signal.includes("MESSENGER")) {
-    return "Messenger (destino não identificado)";
+    return "Messenger";
   }
 
-  return "Site configurado na Meta Ads (URL não exposta pela API)";
+  return "Clique para ver destino";
 }
 
 function extractBestExternalUrl(candidates) {
@@ -1110,7 +1291,8 @@ async function fetchAdMetadataMapByIds(adIds) {
       null;
     let creativeLink = resolveCreativeLink({
       creative,
-      promotedObject: item?.promoted_object
+      promotedObject: item?.promoted_object,
+      adDestinationType: item?.destination_type
     });
 
     if (!creativeLink && storyId) {
