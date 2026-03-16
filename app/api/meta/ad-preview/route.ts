@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdPreview } from "@/lib/meta-dashboard";
+import { getMetaConfig } from "@/services/meta-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       data: preview,
       meta: {
         adId,
-        refreshed: refresh
+        refreshed: refresh,
+        apiVersion: getMetaConfig().apiVersion
       }
     });
   } catch (error) {

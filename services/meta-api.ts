@@ -400,14 +400,14 @@ async function inspectMetaError(response: Response): Promise<{
   };
 }
 
-function getMetaConfig(): {
+export function getMetaConfig(): {
   accessToken: string;
   adAccountId: string;
   apiVersion: string;
 } {
   const accessToken = process.env.META_ACCESS_TOKEN;
   const rawAccountId = process.env.META_AD_ACCOUNT_ID;
-  const apiVersion = process.env.META_API_VERSION ?? "v21.0";
+  const apiVersion = process.env.META_API_VERSION ?? "v25.0";
 
   if (!accessToken) {
     throw new Error("META_ACCESS_TOKEN não configurado");

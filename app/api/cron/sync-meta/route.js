@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const GRAPH_API_BASE = "https://graph.facebook.com";
-const META_API_VERSION = process.env.META_API_VERSION ?? "v19.0";
+const META_API_VERSION = process.env.META_API_VERSION ?? "v25.0";
 
 const INSIGHTS_TABLE_NAME = "meta_campaign_insights";
 const ADSETS_TABLE_NAME = "meta_adsets";
