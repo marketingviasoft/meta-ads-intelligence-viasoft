@@ -240,7 +240,7 @@ A rota de PDF aceita:
 
 Observacao importante:
 - a pagina de `Informacoes da campanha` e a pagina de `Estrutura da campanha` nao fazem parte do fluxo padrao atual do PDF.
-- existe uma constante legada `PDF_TOTAL_PAGES = 5` em `pdf/layout-preset.ts`; ela nao representa sozinha toda a logica real de pagina, porque a pagina de comparativos e condicional.
+- a paginacao do PDF e calculada pelo proprio fluxo de renderizacao em `app/pdf/page.tsx`, inclusive quando a pagina de comparativos e condicional.
 
 ## Tipos e contratos principais
 Arquivo central:

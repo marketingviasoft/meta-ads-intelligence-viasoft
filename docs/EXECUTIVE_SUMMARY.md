@@ -111,7 +111,7 @@ Também existe fluxo compacto de PDF apenas para vertical quando a requisição 
 - Documentação de handoff, regras e runbook já está consistente com a arquitetura atual.
 
 ### Pontos de atenção
-- O PDF ainda possui uma constante legada `PDF_TOTAL_PAGES` em `pdf/layout-preset.ts`, mas a paginação real já é dinâmica/condicional em `app/pdf/page.tsx`.
+- A paginação do PDF é dinâmica e depende do fluxo real de renderização em `app/pdf/page.tsx`.
 - Fluxos de preview de anúncio e enriquecimento ainda dependem da disponibilidade e permissões da Meta.
 - Sempre que houver mudanças em regras de status, budget ou PDF, a pasta `docs` precisa ser revisada para não perder alinhamento.
 
@@ -121,7 +121,7 @@ Também existe fluxo compacto de PDF apenas para vertical quando a requisição 
 - Drift entre cron, schema SQL e leitura do `meta-insights-store.ts` se o modelo de dados mudar sem atualização coordenada.
 
 ## Próximos passos prioritários
-1. Remover ou neutralizar o uso conceitual de `PDF_TOTAL_PAGES` para eliminar a última ambiguidade entre código e documentação.
+1. Manter a paginação do PDF sempre derivada do fluxo real de renderização, principalmente quando houver páginas condicionais.
 2. Manter a validação de paridade entre dashboard e PDF sempre que novos blocos forem adicionados.
 3. Revisar periodicamente os fluxos de preview e enriquecimento de criativo/destino, porque são os pontos ainda mais sensíveis à Meta.
 

@@ -25,7 +25,7 @@ import {
   getStructureComparisonPayloadFromStore,
   getVerticalBudgetSummaryFromStore
 } from "@/lib/meta-insights-store";
-import { PDF_BRAND_SIGNATURE, PDF_TOTAL_PAGES } from "@/pdf/layout-preset";
+import { PDF_BRAND_SIGNATURE } from "@/pdf/layout-preset";
 import type {
   DailyMetricPoint,
   DashboardPayload,
@@ -392,12 +392,12 @@ function PdfComparisonSection({
 function PdfPageFooter({
   pageNumber,
   generatedAtLabel,
-  totalPages = PDF_TOTAL_PAGES,
+  totalPages,
   dockBottom = true
 }: {
   pageNumber: number;
   generatedAtLabel: string;
-  totalPages?: number;
+  totalPages: number;
   dockBottom?: boolean;
 }) {
   return (

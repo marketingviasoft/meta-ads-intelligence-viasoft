@@ -43,7 +43,7 @@ Este arquivo registra o estado real do projeto depois da migracao para Supabase-
 ## Limitacoes conhecidas mantidas em memoria
 - Preview de anuncio ainda pode falhar por permissao da Meta.
 - Nome do criativo e destino dependem do nivel de enriquecimento salvo localmente.
-- `PDF_TOTAL_PAGES` e constante legada; a paginacao real precisa ser lida do fluxo do `app/pdf/page.tsx`.
+- A paginacao real do PDF precisa ser lida do fluxo do `app/pdf/page.tsx`, porque a quantidade de paginas pode variar conforme o conteudo exportado.
 
 ## Quando houver nova alteracao, lembrar de sincronizar
 - `docs/DOCUMENTACAO_COMPLETA.md`

@@ -44,7 +44,7 @@
     "notes": [
       "campaign-info e campaign-structure nao fazem parte do PDF padrao atual",
       "o fluxo por vertical gera PDF compacto sem campaignId",
-      "a paginacao real e dinamica; PDF_TOTAL_PAGES em layout-preset e apenas constante legada"
+      "a paginacao real e dinamica e deve ser derivada do fluxo de renderizacao do PDF"
     ]
   }
 }

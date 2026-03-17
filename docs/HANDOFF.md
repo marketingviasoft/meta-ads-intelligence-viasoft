@@ -49,7 +49,7 @@ Fluxo especial:
 ## Limitacoes conhecidas
 - preview de anuncio ainda pode falhar por permissao/Meta;
 - nome de criativo e destino dependem da qualidade do enriquecimento salvo no Supabase;
-- `PDF_TOTAL_PAGES` ainda e uma constante legada e nao substitui a leitura do fluxo real em `app/pdf/page.tsx`.
+- A paginacao do PDF deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a pagina de comparativos existir ou nao.
 
 ## Arquivos de maior impacto
 - `lib/meta-insights-store.ts`
