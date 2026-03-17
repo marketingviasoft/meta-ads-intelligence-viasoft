@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, BarChart3, Clock, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
+import { ArrowLeftRight, BarChart3, Clock, ImageOff, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
 import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet, RangeDays } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/utils/numbers";
 
@@ -56,6 +56,7 @@ export function CampaignStructurePanel({
   const [adPreviewByAdId, setAdPreviewByAdId] = useState<Record<string, MetaAdPreview>>({});
   const [adPreviewLoadingByAdId, setAdPreviewLoadingByAdId] = useState<Record<string, boolean>>({});
   const [adPreviewErrorByAdId, setAdPreviewErrorByAdId] = useState<Record<string, string>>({});
+  const [brokenCreativePreviewByAdId, setBrokenCreativePreviewByAdId] = useState<Record<string, boolean>>({});
 
   const [adAnalyticsByAdId, setAdAnalyticsByAdId] = useState<Record<string, AdAnalytics>>({});
   const [adAnalyticsLoadingByAdId, setAdAnalyticsLoadingByAdId] = useState<Record<string, boolean>>({});
@@ -204,6 +205,19 @@ export function CampaignStructurePanel({
   const activePreview = selectedPreviewAd ? adPreviewByAdId[selectedPreviewAd.id] : undefined;
   const activePreviewLoading = selectedPreviewAd ? adPreviewLoadingByAdId[selectedPreviewAd.id] : false;
   const activePreviewError = selectedPreviewAd ? adPreviewErrorByAdId[selectedPreviewAd.id] : "";
+
+  const markCreativePreviewAsBroken = useCallback((adId: string): void => {
+    setBrokenCreativePreviewByAdId((previous) => {
+      if (previous[adId]) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [adId]: true
+      };
+    });
+  }, []);
 
   return (
     <section data-dashboard-block="campaign-structure" className="surface-panel p-4 sm:p-5">
@@ -366,6 +380,9 @@ export function CampaignStructurePanel({
                 {ads.map((ad) => {
                   const compareChecked = selectedCompareAdIds.includes(ad.id);
                   const compareDisabled = !compareChecked && adSelectionLimitReached;
+                  const showCreativePreview = Boolean(
+                    ad.creativePreviewUrl && !brokenCreativePreviewByAdId[ad.id]
+                  );
 
                   return (
                     <li
@@ -383,17 +400,19 @@ export function CampaignStructurePanel({
                           aria-label={`Abrir preview avançado do anúncio ${ad.name}`}
                           title="Abrir preview avançado"
                         >
-                          {ad.creativePreviewUrl ? (
+                          {showCreativePreview ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={ad.creativePreviewUrl}
                               alt={`Criativo do anúncio ${ad.name}`}
                               className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               loading="lazy"
+                              onError={() => markCreativePreviewAsBroken(ad.id)}
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
-                              Sem arte
+                            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-50 px-2 text-center text-[10px] font-medium text-slate-400">
+                              <ImageOff size={18} className="text-slate-300" />
+                              <span>Sem miniatura</span>
                             </div>
                           )}
                           <span
@@ -511,11 +530,22 @@ export function CampaignStructurePanel({
                       </div>
                     ) : (
                       <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                        <img
-                          src={selectedPreviewAd.creativePreviewUrl}
-                          alt="Ad Preview"
-                          className="h-auto w-full rounded-lg object-contain"
-                        />
+                        {selectedPreviewAd.creativePreviewUrl && !brokenCreativePreviewByAdId[selectedPreviewAd.id] ? (
+                          <img
+                            src={selectedPreviewAd.creativePreviewUrl}
+                            alt="Ad Preview"
+                            className="h-auto w-full rounded-lg object-contain"
+                            onError={() => markCreativePreviewAsBroken(selectedPreviewAd.id)}
+                          />
+                        ) : (
+                          <div className="flex min-h-[320px] w-full flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 px-6 text-center text-sm text-slate-500">
+                            <ImageOff size={28} className="text-slate-300" />
+                            <p className="font-medium text-slate-600">Miniatura indisponível</p>
+                            <p className="max-w-sm text-xs text-slate-400">
+                              Este anúncio não retornou uma imagem válida para visualização estática.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
