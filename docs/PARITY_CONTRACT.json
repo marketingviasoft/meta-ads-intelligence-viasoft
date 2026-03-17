@@ -1,36 +1,50 @@
 {
+  "product": "Meta Ads Intelligence | VIASOFT",
   "dashboardBlocks": [
     "header",
     "filters",
     "vertical-budget",
     "campaign-info",
     "campaign-structure",
+    "adset-comparison (conditional)",
+    "ad-comparison (conditional)",
     "metrics",
     "trend",
     "daily-performance",
     "insights",
     "recommendations"
   ],
-  "pdfPages": [
-    {
-      "page": 1,
-      "blocks": ["header", "filters", "vertical-budget"]
-    },
-    {
-      "page": 2,
-      "blocks": ["campaign-info", "campaign-structure"]
-    },
-    {
-      "page": 3,
-      "blocks": ["metrics"]
-    },
-    {
-      "page": 4,
-      "blocks": ["trend", "daily-performance"]
-    },
-    {
-      "page": 5,
-      "blocks": ["insights-recommendations"]
-    }
-  ]
+  "pdf": {
+    "defaultMode": "campaign",
+    "alternateMode": "vertical-budget-only",
+    "pages": [
+      {
+        "page": 1,
+        "blocks": ["header", "filters", "vertical-budget"]
+      },
+      {
+        "page": 2,
+        "conditional": true,
+        "rendersWhen": "ha exatamente 2 grupos de anuncios selecionados e/ou exatamente 2 anuncios selecionados",
+        "blocks": ["adset-comparison", "ad-comparison"]
+      },
+      {
+        "page": 3,
+        "blocks": ["metrics"]
+      },
+      {
+        "page": 4,
+        "blocks": ["trend", "daily-performance"]
+      },
+      {
+        "page": 5,
+        "blocks": ["insights", "recommendations"]
+      }
+    ],
+    "notes": [
+      "campaign-info e campaign-structure nao fazem parte do PDF padrao atual",
+      "o fluxo por vertical gera PDF compacto sem campaignId",
+      "a paginacao real e dinamica; PDF_TOTAL_PAGES em layout-preset e apenas constante legada"
+    ]
+  }
 }

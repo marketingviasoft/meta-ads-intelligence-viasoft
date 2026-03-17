@@ -1,8 +1,9 @@
 -- Recomendado executar no SQL Editor do Supabase.
--- Dependência para UUID aleatório.
+-- Dependencia para UUID aleatorio.
 create extension if not exists pgcrypto;
 
--- Histórico diário por campanha, usado como camada de leitura do dashboard.
+-- Fato diario de performance no nivel mais granular disponivel para o produto:
+-- campanha + grupo de anuncios + anuncio.
 create table if not exists public.meta_campaign_insights (
   id uuid primary key default gen_random_uuid(),
   date date not null,
@@ -44,7 +45,7 @@ create table if not exists public.meta_campaign_insights (
   updated_at timestamptz not null default now()
 );
 
--- Migração incremental para tabelas já existentes (backward-compatible).
+-- Migracao incremental para tabelas ja existentes (backward-compatible).
 alter table public.meta_campaign_insights add column if not exists objective text;
 alter table public.meta_campaign_insights add column if not exists date_stop date;
 alter table public.meta_campaign_insights add column if not exists adset_id text default '';
@@ -79,7 +80,7 @@ update public.meta_campaign_insights set ad_id = '' where ad_id is null;
 alter table public.meta_campaign_insights alter column adset_id set not null;
 alter table public.meta_campaign_insights alter column ad_id set not null;
 
--- Evita duplicação no upsert do cron.
+-- Evita duplicacao no upsert do cron.
 do $$
 begin
   if not exists (
@@ -111,7 +112,7 @@ create index if not exists idx_meta_campaign_insights_adset_date
 create index if not exists idx_meta_campaign_insights_ad_date
   on public.meta_campaign_insights (ad_id, date desc);
 
--- Estrutura de grupos de anúncios (dimensão).
+-- Dimensao de grupos de anuncios.
 create table if not exists public.meta_adsets (
   id text primary key,
   campaign_id text not null,
@@ -124,7 +125,7 @@ create table if not exists public.meta_adsets (
 create index if not exists idx_meta_adsets_campaign_id
   on public.meta_adsets (campaign_id);
 
--- Estrutura de anúncios (dimensão).
+-- Dimensao de anuncios.
 create table if not exists public.meta_ads (
   id text primary key,
   adset_id text not null references public.meta_adsets(id) on delete cascade,
@@ -152,117 +153,119 @@ create index if not exists idx_meta_ads_adset_id
 create index if not exists idx_meta_ads_campaign_id
   on public.meta_ads (campaign_id);
 
--- Comentários para governança de dados (BI/analytics).
+-- Comentarios para governanca de dados.
 comment on table public.meta_campaign_insights is
-  'Histórico diário de métricas da Meta Ads no nível de campanha, sincronizado via cron assíncrono.';
+  'Historico diario de performance da Meta Ads no nivel de anuncio, com chaves de campanha, grupo e anuncio.';
 
 comment on column public.meta_campaign_insights.date is
-  'Data do insight diário (date_start da Meta).';
+  'Data do insight diario (date_start da Meta).';
 comment on column public.meta_campaign_insights.date_stop is
-  'Data final do insight (date_stop da Meta). Em time_increment=1 normalmente igual a date.';
+  'Data final do insight (date_stop da Meta). Em time_increment=1 normalmente coincide com a data.';
 comment on column public.meta_campaign_insights.campaign_id is
-  'ID único da campanha na Meta Ads.';
+  'ID unico da campanha na Meta Ads.';
 comment on column public.meta_campaign_insights.campaign_name is
   'Nome da campanha na data da coleta.';
 comment on column public.meta_campaign_insights.adset_id is
-  'ID do grupo de anúncios (adset) da linha de performance.';
+  'ID do grupo de anuncios associado a linha de performance.';
 comment on column public.meta_campaign_insights.adset_name is
-  'Nome do grupo de anúncios na data da coleta.';
+  'Nome do grupo de anuncios na data da coleta.';
 comment on column public.meta_campaign_insights.ad_id is
-  'ID do anúncio da linha de performance.';
+  'ID do anuncio associado a linha de performance.';
 comment on column public.meta_campaign_insights.ad_name is
-  'Nome do anúncio na data da coleta.';
+  'Nome do anuncio na data da coleta.';
 comment on column public.meta_campaign_insights.objective is
-  'Objetivo da campanha (quando disponível na coleta).';
+  'Objetivo da campanha quando informado pela Meta.';
 comment on column public.meta_campaign_insights.effective_status is
-  'Status efetivo retornado pela Meta para a campanha.';
+  'Status efetivo retornado pela Meta.';
 comment on column public.meta_campaign_insights.configured_status is
   'Status configurado da campanha na Meta.';
 comment on column public.meta_campaign_insights.delivery_status is
-  'Classificação de entrega normalizada no backend.';
+  'Classificacao de entrega normalizada pelo backend.';
 comment on column public.meta_campaign_insights.spend is
-  'Valor gasto no dia para a campanha (BRL).';
+  'Valor investido no dia.';
 comment on column public.meta_campaign_insights.impressions is
-  'Total de impressões no dia.';
+  'Impressoes do dia.';
 comment on column public.meta_campaign_insights.clicks is
-  'Total de cliques no dia.';
+  'Cliques do dia.';
 comment on column public.meta_campaign_insights.reach is
-  'Total de pessoas únicas alcançadas no dia.';
+  'Pessoas unicas alcancadas no dia.';
 comment on column public.meta_campaign_insights.frequency is
-  'Frequência média de exposição (impressions / reach).';
+  'Frequencia media de exposicao (impressions / reach).';
 comment on column public.meta_campaign_insights.ctr is
-  'Click-through rate percentual do dia.';
+  'Taxa de cliques percentual do dia.';
 comment on column public.meta_campaign_insights.cpc is
-  'Custo por clique médio do dia.';
+  'Custo medio por clique.';
 comment on column public.meta_campaign_insights.cpm is
-  'Custo por mil impressões do dia.';
+  'Custo por mil impressoes.';
 comment on column public.meta_campaign_insights.cpp is
-  'Custo por mil pessoas alcançadas (quando disponível).';
+  'Custo por mil pessoas alcancadas.';
 comment on column public.meta_campaign_insights.unique_clicks is
-  'Cliques únicos no dia.';
+  'Cliques unicos do dia.';
 comment on column public.meta_campaign_insights.inline_link_clicks is
-  'Cliques em links inline (extraído de actions).';
+  'Cliques inline extraidos de actions.';
 comment on column public.meta_campaign_insights.outbound_clicks is
-  'Cliques de saída (extraído de actions).';
+  'Cliques de saida extraidos de actions.';
 comment on column public.meta_campaign_insights.conversions is
-  'Conversões agregadas retornadas pela Meta.';
+  'Conversoes agregadas retornadas pela Meta.';
 comment on column public.meta_campaign_insights.purchases is
   'Compras identificadas em actions.';
 comment on column public.meta_campaign_insights.leads is
   'Leads identificados em actions.';
 comment on column public.meta_campaign_insights.link_clicks is
-  'Resultado de tráfego (action link_click) usado nas métricas do dashboard.';
+  'Resultado de trafego usado pelo dashboard.';
 comment on column public.meta_campaign_insights.post_engagement is
-  'Resultado de engajamento (action post_engagement) usado nas métricas do dashboard.';
+  'Resultado de engajamento usado pelo dashboard.';
 comment on column public.meta_campaign_insights.cost_per_result is
-  'Custo por resultado principal calculado no cron.';
+  'Custo por resultado principal calculado no backend.';
 comment on column public.meta_campaign_insights.quality_ranking is
-  'Ranking de qualidade do anúncio quando disponível na Meta.';
+  'Ranking de qualidade do anuncio.';
 comment on column public.meta_campaign_insights.engagement_rate_ranking is
-  'Ranking de taxa de engajamento quando disponível na Meta.';
+  'Ranking de taxa de engajamento do anuncio.';
 comment on column public.meta_campaign_insights.conversion_rate_ranking is
-  'Ranking de taxa de conversão quando disponível na Meta.';
+  'Ranking de taxa de conversao do anuncio.';
 comment on column public.meta_campaign_insights.actions is
   'Mapa bruto action_type -> value retornado pela Meta.';
 comment on column public.meta_campaign_insights.cost_per_action_type is
   'Mapa bruto action_type -> cost retornado pela Meta.';
 comment on column public.meta_campaign_insights.created_at is
-  'Timestamp de criação da linha no warehouse.';
+  'Timestamp de criacao da linha no warehouse.';
 comment on column public.meta_campaign_insights.updated_at is
-  'Timestamp de atualização da linha no warehouse.';
+  'Timestamp de ultima atualizacao da linha no warehouse.';
 
 comment on table public.meta_adsets is
-  'Dimensão de grupos de anúncios sincronizada do Meta Ads para navegação e filtros locais.';
+  'Dimensao local de grupos de anuncios sincronizada para filtros, estrutura e comparativos.';
 
 comment on column public.meta_adsets.id is
-  'ID único do grupo de anúncios (adset) na Meta.';
+  'ID unico do grupo de anuncios.';
 comment on column public.meta_adsets.campaign_id is
-  'ID da campanha pai do grupo de anúncios.';
+  'Campanha pai do grupo de anuncios.';
 comment on column public.meta_adsets.name is
-  'Nome do grupo de anúncios.';
+  'Nome do grupo de anuncios.';
 comment on column public.meta_adsets.status is
-  'Status normalizado do grupo de anúncios.';
+  'Status normalizado do grupo de anuncios.';
 comment on column public.meta_adsets.updated_at is
-  'Data/hora da última sincronização do grupo de anúncios.';
+  'Data/hora da ultima sincronizacao do grupo.';
 
 comment on table public.meta_ads is
-  'Dimensão de anúncios sincronizada do Meta Ads para navegação, estrutura e comparação local.';
+  'Dimensao local de anuncios sincronizada para estrutura, preview e comparativos.';
 
 comment on column public.meta_ads.id is
-  'ID único do anúncio na Meta.';
+  'ID unico do anuncio.';
 comment on column public.meta_ads.adset_id is
-  'ID do grupo de anúncios pai.';
+  'Grupo de anuncios pai.';
 comment on column public.meta_ads.campaign_id is
-  'ID da campanha pai.';
+  'Campanha pai do anuncio.';
 comment on column public.meta_ads.name is
-  'Nome do anúncio.';
+  'Nome do anuncio.';
 comment on column public.meta_ads.status is
-  'Status normalizado do anúncio.';
+  'Status normalizado do anuncio.';
 comment on column public.meta_ads.creative_name is
-  'Nome do criativo associado ao anúncio quando disponível.';
+  'Nome do criativo associado quando disponivel.';
 comment on column public.meta_ads.creative_thumb is
-  'URL de miniatura do criativo quando disponível.';
+  'URL da miniatura do criativo quando disponivel.';
 comment on column public.meta_ads.creative_link is
-  'URL de destino principal do criativo quando disponível.';
+  'URL de destino principal do criativo quando disponivel.';
+comment on column public.meta_ads.demographics is
+  'Resumo opcional de demografia/perfil quando enriquecido.';
 comment on column public.meta_ads.updated_at is
-  'Data/hora da última sincronização do anúncio.';
+  'Data/hora da ultima sincronizacao do anuncio.';

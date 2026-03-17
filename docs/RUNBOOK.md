@@ -1,230 +1,159 @@
-# Runbook Operacional
+# Runbook operacional
 
-Última atualização: 2026-03-13
+## 1. Preparacao local
+### Requisitos
+- Node.js instalado e funcional
+- `.env.local` configurado
+- Supabase acessivel pelas variaveis do projeto
+- Meta token configurado server-side
 
-Este runbook descreve como subir, validar e operar o projeto localmente com base no comportamento atual do código.
-
-## 1) Pré-requisitos
-
-- Node.js 20+ (LTS recomendado)
-- npm funcional no terminal
-- Arquivo `.env.local` preenchido
-- Projeto Supabase criado com tabelas inicializadas (ver passo 3)
-
-## 2) Configuração de ambiente
-
-Base mínima:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-META_ACCESS_TOKEN=SEU_TOKEN
-META_AD_ACCOUNT_ID=act_XXXXXXXXXXXX
-META_API_VERSION=v21.0
-APP_BASE_URL=http://localhost:3000
-APP_TIMEZONE=America/Sao_Paulo
-VERTICAL_MONTHLY_CAP_BRL=535
-```
-
-Variáveis opcionais:
-
-```env
-META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON=
-META_WHATSAPP_NUMBER_BY_ADSET_ID_JSON=
-INSIGHTS_MIN_IMPRESSIONS=1000
-INSIGHTS_MIN_CLICKS=30
-INSIGHTS_MIN_RESULTS=5
-INSIGHTS_BASELINE_ACCOUNT_JSON=
-INSIGHTS_BASELINE_BY_VERTICAL_JSON=
-META_DESTINATION_DIAGNOSTIC_LOG=0
-META_DESTINATION_PREVIEW_FALLBACK=0
-CHROME_EXECUTABLE_PATH=
-CRON_SECRET=segredo_para_proteger_rota_de_sync
-```
-
-## 3) Inicialização do banco de dados
-
-Antes de rodar a aplicação, as tabelas do Supabase precisam existir. Sem elas o dashboard retornará erro 500.
-
-1. Acesse o painel SQL do seu projeto no Supabase.
-2. Execute integralmente o script `docs/sql/meta_campaign_insights.sql`.
-3. Este script cria as tabelas `meta_campaign_insights`, `meta_adsets` e `meta_ads`, índices e constraints de unicidade.
-
-## 4) Instalação e execução
-
+### Comandos uteis
 ```bash
 npm install
 npm run dev
-```
-
-Aplicação:
-
-- `http://localhost:3000`
-
-Comandos úteis:
-
-```bash
 npm run typecheck
 npm run lint
-npm run check:rules
-npm run check:parity
-npm run check:quality
-npm run build
 ```
 
-## 5) Endpoints internos
+## 2. Fluxo de validacao local
+### Dashboard
+1. Subir `npm run dev`
+2. Abrir `http://localhost:3000`
+3. Validar:
+   - header e branding
+   - seletores
+   - budget mensal
+   - campanha
+   - estrutura
+   - comparativos (se houver selecao)
+   - metricas
+   - tendencia
+   - grafico
+   - insights/recomendacoes
 
-- `GET /api/meta/campaigns`
-- `GET /api/meta/vertical-budget?verticalTag=...`
-- `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
-- `GET /api/meta/adsets?campaignId=...`
-- `GET /api/meta/ads?adSetId=...`
-- `GET /api/meta/ad-preview?adId=...`
-- `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
-- `POST /api/meta/cache/invalidate`
-- `GET /api/pdf?campaignId=...&rangeDays=...`
-- `GET /api/pdf?verticalTag=...&rangeDays=...`
-- `GET /api/cron/sync-meta` (job de sincronização Meta → Supabase, protegido por `CRON_SECRET`)
+### PDF
+1. Selecionar campanha ou vertical
+2. Acionar `Gerar PDF`
+3. Validar se a ordem das paginas bate com o contrato atual
+4. Validar se o PDF respeita a mesma leitura do dashboard
 
-## 6) Fluxo de validação rápida (aceite)
-
-1. Abrir a home.
-2. Confirmar carregamento de campanhas ativas com veiculação.
-3. Selecionar campanha e período.
-4. Clicar em `Atualizar Dados`.
-5. Validar:
-- cards com valores e deltas;
-- estrutura (ad sets / ads);
-- preview avançado em pelo menos 2 anúncios;
-- card de orçamento da vertical (investimento + imposto).
-6. Selecionar uma vertical sem campanhas ativas e validar:
-- card de orçamento continua visível e atualizado;
-- aviso de ausência de campanhas ativas aparece abaixo dos filtros.
-7. Gerar PDF e validar:
-- paginação;
-- gráfico e legenda;
-- rodapé em todas as páginas;
-- ausência de páginas em branco.
-
-## 7) Refresh, cache e invalidação
-
-Comportamento atual do botão `Atualizar Dados`:
-
-- força nova leitura das rotas de campanhas, orçamento da vertical, performance, ad sets e ads usando `refresh=1`;
-- não chama automaticamente `POST /api/meta/cache/invalidate`.
-
-Endpoint de invalidação (uso manual):
-
-```json
-{ "scope": "all" }
+## 3. Sync manual da Meta -> Supabase
+### Localhost
+```bash
+curl.exe -X GET "http://localhost:3000/api/cron/sync-meta" -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
-```json
-{ "scope": "campaigns" }
+### Vercel
+```bash
+curl.exe -X GET "https://SEU-DOMINIO/api/cron/sync-meta" -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
+### Resposta esperada
+Exemplo de sucesso:
 ```json
 {
-  "scope": "performance",
-  "campaignId": "123",
-  "rangeDays": 7
+  "success": true,
+  "syncVersion": "sync-meta-v3-fallback-safe",
+  "fetchedRows": 327,
+  "syncedInsights": 327,
+  "syncedAdSets": 29,
+  "syncedAds": 69,
+  "jobsExecuted": 1,
+  "range": {
+    "since": "2026-02-11",
+    "until": "2026-03-12"
+  }
 }
 ```
 
-## 8) PDF local e serverless
+## 4. Cron na Vercel
+Arquivo:
+- `vercel.json`
 
-Regras de execução:
+Expressao atual:
+- `0 3 * * *`
 
-- rota de PDF usa runtime Node (`app/api/pdf/route.ts`);
-- local: usa Chrome local (auto-detect) ou `CHROME_EXECUTABLE_PATH`;
-- serverless (Vercel/AWS): usa `@sparticuz/chromium` + `puppeteer-core`.
+Importante:
+- a Vercel interpreta cron em UTC;
+- plano Hobby tem limitacoes e precisa respeitar a documentacao oficial da Vercel;
+- quando houver duvida, validar a rota manualmente com `curl`.
 
-Pré-condições práticas:
+## 5. Validacao dos filtros
+Ao testar os seletores, sempre verificar:
+- Vertical filtra catalogo e budget
+- Veiculacao filtra a lista de campanhas
+- Campanha muda estrutura, metricas e comparativos
+- Periodo muda dashboard, comparativos e PDF
 
-- `APP_BASE_URL` configurado corretamente para o ambiente;
-- dependências instaladas sem remoção de `puppeteer-core` e `@sparticuz/chromium`.
+## 6. Validacao do budget mensal
+Checklist:
+- Se vertical = `Todas as verticais`, mostrar mensagem pedindo selecao especifica
+- Se vertical especifica, mostrar:
+  - total do ciclo com imposto
+  - saldo disponivel
+  - valor aplicado em campanhas
+  - imposto
+  - barra de progresso
+- Garantir que o periodo exibido use ciclo 24 -> 23
+- Garantir que o dashboard inclua o dia atual como parcial no budget
 
-## 9) Sincronização automática (Cron)
+## 7. Validacao dos comparativos
+### Grupos de anuncios
+- selecionar exatamente 2 grupos
+- conferir surgimento da secao `Comparativo entre grupos de anuncios`
+- validar metricas exibidas
 
-- Rota: `GET /api/cron/sync-meta`
-- Configuração Vercel em `vercel.json`: executa diariamente às 03:00 UTC (`0 3 * * *`).
-- Fluxo: busca insights assíncronos dos últimos 30 dias na Meta API → normaliza → faz upsert no Supabase.
-- Usa lógica de "Adaptive Splitting": se a Meta API rejeitar a janela por volume de dados, divide recursivamente a janela temporal.
-- Protegido por `CRON_SECRET` (header `x-cron-secret` ou `Authorization: Bearer`).
-- Sem `CRON_SECRET` definido, a rota permite qualquer requisição (atenção em ambiente público).
-- Após execução, retorna: `fetchedRows`, `syncedInsights`, `syncedAdSets`, `syncedAds`, `jobsExecuted`.
+### Anuncios
+- selecionar exatamente 2 anuncios
+- conferir surgimento da secao `Comparativo entre anuncios`
+- validar metricas exibidas
 
-## 10) Troubleshooting
+## 8. Problemas conhecidos e leitura rapida
+### Preview de anuncio falha
+Causa comum:
+- permissao da Meta
+- preview indisponivel
+- asset restrito
 
-### 10.1 `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` / `NEXT_PUBLIC_SUPABASE_URL` não configurado
+Acao:
+- validar se o anuncio existe no Supabase
+- validar se o preview depende de rota Meta-direct
+- tratar como limitacao esperada quando a Meta negar acesso
 
-- revisar `.env.local`;
-- reiniciar o servidor após alterar env.
+### Nome de criativo ou destino ausente
+Causa comum:
+- enriquecimento nao sincronizado completamente
+- campo nao exposto pela Meta naquele criativo
+- fallback seguro aplicado no backend
 
-### 10.2 Sem campanhas no seletor
+Acao:
+- rodar sync manual
+- revisar logs do cron
+- revisar valores em `meta_ads`
 
-- confirmar campanhas com `effective_status = ACTIVE`;
-- confirmar veiculação ativa (delivery calculado por ad sets);
-- revisar permissões do token (`ads_read`).
+### PDF desalinhado
+Acao:
+- revisar `app/pdf/page.tsx`
+- revisar `lib/pdf-generator.ts`
+- revisar `docs/PARITY_CONTRACT.json`
+- validar se a pagina de comparativos deveria ou nao existir
 
-### 10.3 Alerta de contingência (snapshot stale)
+## 9. Arquivos para revisar primeiro em caso de incidente
+- `app/api/cron/sync-meta/route.js`
+- `lib/meta-insights-store.ts`
+- `app/api/meta/campaigns/route.ts`
+- `app/api/meta/performance/route.ts`
+- `app/api/meta/compare/route.ts`
+- `app/api/meta/ad-preview/route.ts`
+- `app/api/pdf/route.ts`
+- `app/pdf/page.tsx`
+- `lib/pdf-generator.ts`
 
-- significa falha na leitura mais recente da Meta API;
-- o dashboard exibiu cache stale dentro da janela de contingência;
-- tentar novo refresh e validar conectividade/permissões.
-
-### 10.4 PDF falhando por browser local
-
-- definir `CHROME_EXECUTABLE_PATH`;
-- validar se o Chrome instalado está acessível pelo usuário atual.
-
-### 10.5 Destino de anúncio sem URL identificada
-
-- alguns criativos não expõem URL final no payload da Meta;
-- revisar `services/meta-api.ts` (resolução de `destinationUrl`);
-- para diagnóstico, habilitar `META_DESTINATION_DIAGNOSTIC_LOG=1`.
-
-### 10.6 Divergência de investimento entre dashboard e Ads Manager
-
-- o card de orçamento da vertical acumula até a data atual (dia atual parcial);
-- valide no Ads Manager com a mesma janela (`since` do ciclo até hoje);
-- o card exibe "Dados acumulados até DD/MM/AAAA" para facilitar a conferência.
-
-### 10.7 Supabase retornando tabelas vazias
-
-- confirmar que o script `docs/sql/meta_campaign_insights.sql` foi executado no seu projeto;
-- confirmar que o cron de sincronização (`/api/cron/sync-meta`) executou ao menos uma vez com sucesso;
-- conferir logs do Supabase para erros de permissão (RLS policies).
-
-### 10.8 Cron de sincronização falhando
-
-- verificar se `META_ACCESS_TOKEN` é válido e possui permissão `ads_read`;
-- verificar se `CRON_SECRET` está configurado corretamente no Vercel;
-- checar logs do deploy para erro de timeout (contas grandes podem exceder 60s no plano Hobby).
-
-## 11) Retomada rápida de ambiente
-
-```bash
-git pull
-npm install
-npm run typecheck
-npm run dev
-```
-
-## 12) Continuidade de documentação
-
-Antes de encerrar sessão de trabalho, atualizar:
-
-- `docs/HANDOFF.md`
-- `docs/SESSION_MEMORY.md`
-
-Para visão técnica completa, usar também:
-
-- `docs/DOCUMENTACAO_COMPLETA.md`
-
-## 13) Exportação de PDF sem campanha ativa
-
-- Fluxo suportado: quando não houver campanha ativa na vertical, usar `GET /api/pdf?verticalTag=...&rangeDays=...`.
-- O PDF gerado nesse modo contém o bloco de investimento mensal da vertical e sinalização de ausência de campanhas ativas.
-- Fluxo tradicional continua disponível: `GET /api/pdf?campaignId=...&rangeDays=...`.
+## 10. Regras que nunca devem ser esquecidas
+- performance sem dia atual
+- budget com dia atual parcial
+- ciclo 24 -> 23
+- imposto de 12,15%
+- VIASOFT com teto total de R$ 1.000,00
+- Supabase-first para leitura do dashboard
+- PDF e dashboard devem contar a mesma historia
