@@ -87,7 +87,6 @@ export type MetaAdStoreRow = {
   status: string | null;
   creative_name: string | null;
   creative_thumb: string | null;
-  creative_link: string | null;
   demographics: Record<string, any> | null;
 };
 
@@ -347,7 +346,7 @@ async function fetchAdRowsByAdSetId(adSetId: string): Promise<MetaAdStoreRow[]> 
   while (true) {
     const { data, error } = await supabase
       .from(ADS_TABLE_NAME)
-      .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link,demographics")
+      .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,demographics")
       .eq("adset_id", adSetId)
       .order("name", { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -398,7 +397,7 @@ export async function fetchStructureRowsByIds(params: {
 
   const { data, error } = await supabase
     .from(ADS_TABLE_NAME)
-    .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,creative_link,demographics")
+    .select("id,adset_id,campaign_id,name,status,creative_name,creative_thumb,demographics")
     .in("id", entityIds)
     .range(0, entityIds.length - 1);
 
@@ -1247,8 +1246,6 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
   const rows = await fetchAdRowsByAdSetId(adSetId);
   const ads: MetaAd[] = rows.map((row) => {
     const status = String(row.status ?? "").trim().toUpperCase() || "UNKNOWN";
-    const destinationUrl =
-      String(row.creative_link ?? "").trim() || "Site configurado na Meta Ads (URL não exposta pela API)";
     const creativeName =
       String(row.creative_name ?? "").trim() ||
       String(row.name ?? "").trim() ||
@@ -1264,7 +1261,6 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
       creativeId: row.id,
       creativeName,
       creativePreviewUrl: row.creative_thumb ?? "",
-      destinationUrl,
       demographics: (row.demographics as any) ?? {}
     };
   });

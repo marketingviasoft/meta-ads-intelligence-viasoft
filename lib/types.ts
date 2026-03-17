@@ -57,7 +57,6 @@ export interface MetaAd {
   creativeId: string;
   creativeName: string;
   creativePreviewUrl: string;
-  destinationUrl: string;
   demographics?: {
     age: Record<string, number>;
     gender: Record<string, number>;

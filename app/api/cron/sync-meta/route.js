@@ -17,7 +17,14 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 90;
 const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 1200;
-const SYNC_VERSION = "sync-meta-v3-fallback-safe";
+const SYNC_VERSION = "sync-meta-v4-shared-resolution";
+const AD_PREVIEW_FORMAT_CANDIDATES = [
+  "DESKTOP_FEED_STANDARD",
+  "MOBILE_FEED_STANDARD",
+  "INSTAGRAM_STANDARD",
+  "FACEBOOK_STORY_MOBILE",
+  "INSTAGRAM_STORY"
+];
 
 const INSIGHT_FIELDS = [
   "campaign_id",
@@ -1273,7 +1280,6 @@ async function fetchAdMetadataMapByIds(adIds) {
   }
 
   const byAdId = new Map();
-  const storyDestinationById = new Map();
   for (const item of items) {
     const adId = String(item?.id ?? "").trim();
     if (!adId) {
@@ -1285,29 +1291,6 @@ async function fetchAdMetadataMapByIds(adIds) {
       item?.creative ?? null,
       creativeId ? adCreativeMetadataById.get(creativeId) ?? null : null
     );
-    const storyId =
-      String(creative?.effective_object_story_id ?? "").trim() ||
-      String(creative?.object_story_id ?? "").trim() ||
-      null;
-    let creativeLink = resolveCreativeLink({
-      creative,
-      promotedObject: item?.promoted_object,
-      adDestinationType: item?.destination_type
-    });
-
-    if (!creativeLink && storyId) {
-      let storyLink = null;
-      if (storyDestinationById.has(storyId)) {
-        storyLink = storyDestinationById.get(storyId) ?? null;
-      } else {
-        storyLink = await fetchStoryDestinationLink(storyId);
-        storyDestinationById.set(storyId, storyLink ?? null);
-      }
-
-      if (storyLink) {
-        creativeLink = storyLink;
-      }
-    }
 
     byAdId.set(adId, {
       campaignId: String(item?.campaign_id ?? "").trim(),
@@ -1319,15 +1302,7 @@ async function fetchAdMetadataMapByIds(adIds) {
         adName: item?.name,
         adId
       }),
-      creativeThumb: resolveCreativeThumb(creative),
-      creativeLink:
-        creativeLink ||
-        resolveDestinationFallbackLabel({
-          creative,
-          adCallToActionType: item?.call_to_action_type,
-          adDestinationType: item?.destination_type,
-          promotedObject: item?.promoted_object
-        })
+      creativeThumb: resolveCreativeThumb(creative)
     });
   }
 
@@ -1523,15 +1498,14 @@ function normalizeInsightRowsForSupabase(
           adset_id: resolvedAdSetId,
           campaign_id: campaignId || adMetadata?.campaignId || "",
           name: adName || `Ad ${adId}`,
-          status: adMetadata?.status ?? "UNKNOWN",
-          creative_name:
-            adMetadata?.creativeName ||
-            adName ||
-            `Criativo ${adId}`,
-          creative_thumb: adMetadata?.creativeThumb ?? null,
-          creative_link: adMetadata?.creativeLink ?? null,
-          demographics: demographicsByAdId.get(adId) ?? {},
-          updated_at: nowIso
+        status: adMetadata?.status ?? "UNKNOWN",
+        creative_name:
+          adMetadata?.creativeName ||
+          adName ||
+          `Criativo ${adId}`,
+        creative_thumb: adMetadata?.creativeThumb ?? null,
+        demographics: demographicsByAdId.get(adId) ?? {},
+        updated_at: nowIso
         });
       }
     }
@@ -1562,7 +1536,6 @@ function normalizeInsightRowsForSupabase(
           adMetadata.name ||
           `Criativo ${adId}`,
         creative_thumb: adMetadata.creativeThumb ?? null,
-        creative_link: adMetadata.creativeLink ?? null,
         demographics: demographicsByAdId.get(adId) ?? {},
         updated_at: nowIso
       });

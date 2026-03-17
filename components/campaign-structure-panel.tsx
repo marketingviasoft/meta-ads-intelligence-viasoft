@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, BarChart3, Clock, Globe, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
+import { ArrowLeftRight, BarChart3, Clock, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
 import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet, RangeDays } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/utils/numbers";
 
@@ -36,39 +36,6 @@ function listCountLabel(count: number, singular: string, plural: string): string
   }
 
   return `${count} ${plural}`;
-}
-
-function formatDestinationLabel(url: string): string {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase();
-    const pathDigits = parsed.pathname.replace(/\D/g, "");
-    const queryPhoneDigits = parsed.searchParams.get("phone")?.replace(/\D/g, "") ?? "";
-
-    if (host === "wa.me" || host.endsWith(".wa.me")) {
-      const digits = pathDigits;
-      return digits ? `WhatsApp +${digits}` : "WhatsApp";
-    }
-
-    if (host.includes("whatsapp.com")) {
-      const digits = queryPhoneDigits || pathDigits;
-      return digits ? `WhatsApp +${digits}` : "WhatsApp";
-    }
-
-    const path = parsed.pathname === "/" ? "" : parsed.pathname;
-    return `${parsed.hostname}${path}`;
-  } catch {
-    return url;
-  }
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 export function CampaignStructurePanel({
@@ -446,25 +413,6 @@ export function CampaignStructurePanel({
                           <p className="mt-1 break-words text-[11px] text-slate-500 line-clamp-1">
                             Criativo: {ad.creativeName}
                           </p>
-                          {ad.destinationUrl && (
-                            <p className="mt-1 flex items-center gap-1 break-words text-[11px] text-slate-500 line-clamp-1">
-                              <Globe size={10} className="shrink-0 text-slate-400" />
-                              {isHttpUrl(ad.destinationUrl) ? (
-                                <a
-                                  href={ad.destinationUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="truncate text-viasoft hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {formatDestinationLabel(ad.destinationUrl)}
-                                </a>
-                              ) : (
-                                <span className="truncate">{ad.destinationUrl}</span>
-                              )}
-                            </p>
-                          )}
-
                         </div>
 
                         <button
@@ -528,24 +476,6 @@ export function CampaignStructurePanel({
                     <span className="font-medium text-slate-400">Criativo: </span> 
                     <span className="font-semibold text-slate-700">{selectedPreviewAd.creativeName}</span>
                   </div>
-                  {selectedPreviewAd.destinationUrl && (
-                    <div className="flex items-center gap-1">
-                      <Globe size={12} className="text-slate-400" />
-                      <span className="font-medium text-slate-400">Destino: </span>
-                      {isHttpUrl(selectedPreviewAd.destinationUrl) ? (
-                        <a 
-                          href={selectedPreviewAd.destinationUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="font-semibold text-viasoft hover:underline"
-                        >
-                          {formatDestinationLabel(selectedPreviewAd.destinationUrl)}
-                        </a>
-                      ) : (
-                        <span className="font-semibold text-slate-700">{selectedPreviewAd.destinationUrl}</span>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
               <button

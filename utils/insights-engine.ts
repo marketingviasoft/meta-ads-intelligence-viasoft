@@ -44,6 +44,21 @@ type BaselineResolution = {
   sourceLabel: string;
 };
 
+function getObjectiveLabel(category: ObjectiveCategory): string {
+  switch (category) {
+    case "TRAFFIC":
+      return "tráfego";
+    case "ENGAGEMENT":
+      return "engajamento";
+    case "RECOGNITION":
+      return "reconhecimento";
+    case "CONVERSIONS":
+      return "conversão";
+    default:
+      return "objetivo atual";
+  }
+}
+
 function normalizeKey(value: string): string {
   return value
     .normalize("NFD")
@@ -247,20 +262,20 @@ function buildObjectiveRecommendations(
       pushRecommendation(
         recommendations,
         "Estratégia criativa para cliques",
-        "Priorize três variações criativas com CTA explícito no início da peça para ampliar link_clicks sem expansão imediata de orçamento."
+        "Priorize três variações criativas com chamada clara para ação logo no início da peça, buscando ampliar cliques qualificados sem expansão imediata de orçamento."
       );
       if (flags.highCpc) {
         pushRecommendation(
           recommendations,
-          "Otimização de CPC",
-          "Reavalie segmentações de maior custo e reduza sobreposição de audiência para elevar a eficiência de clique."
+          "Otimização do custo por clique",
+          "Reavalie segmentações de maior custo e reduza sobreposição de audiência para elevar a eficiência dos cliques."
         );
       }
       if (flags.dropResults) {
         pushRecommendation(
           recommendations,
           "Recuperação de volume qualificado",
-          "Realoque investimento para conjuntos com melhor histórico de CTR e interrompa variações de baixo desempenho por 48h."
+          "Realoque investimento para conjuntos com melhor histórico de taxa de cliques e interrompa variações de baixo desempenho por 48h."
         );
       }
       if (flags.highCostPerResult) {
@@ -276,7 +291,7 @@ function buildObjectiveRecommendations(
       pushRecommendation(
         recommendations,
         "Qualificação do engajamento",
-        "Priorize criativos com prova social e chamada objetiva para ampliar post_engagement com eficiência de custo."
+        "Priorize criativos com prova social e mensagem objetiva para ampliar as interações com o anúncio com eficiência de custo."
       );
       if (flags.lowCtr) {
         pushRecommendation(
@@ -311,7 +326,7 @@ function buildObjectiveRecommendations(
         pushRecommendation(
           recommendations,
           "Eficiência de compra de mídia",
-          "Concentre investimento em posicionamentos com CPM mais competitivo e criativos com alto índice de conclusão visual."
+          "Concentre investimento em posicionamentos com custo mais competitivo por mil impressões e criativos com alto índice de conclusão visual."
         );
       }
       if (flags.dropResults) {
@@ -340,7 +355,7 @@ function buildObjectiveRecommendations(
         pushRecommendation(
           recommendations,
           "Otimização pré-clique",
-          "Reestruture título e CTA com benefício objetivo e urgência para ampliar taxa de clique qualificado."
+          "Reestruture título e chamada para ação com benefício objetivo e urgência para ampliar a taxa de cliques qualificados."
         );
       }
       if (flags.highCpc || flags.dropResults) {
@@ -377,6 +392,7 @@ export function generateInsights(params: {
   const { category, comparison, verticalTag } = params;
   const { current, previous, deltas, trend } = comparison;
   const baseline = resolveBaseline({ category, verticalTag });
+  const objectiveLabel = getObjectiveLabel(category);
 
   const minImpressions = readMinThreshold("INSIGHTS_MIN_IMPRESSIONS", DEFAULT_MIN_IMPRESSIONS);
   const minClicks = readMinThreshold("INSIGHTS_MIN_CLICKS", DEFAULT_MIN_CLICKS);
@@ -421,16 +437,16 @@ export function generateInsights(params: {
   if (lowCtr) {
     insights.push({
       type: "alert",
-      title: "CTR abaixo da referência esperada",
-      message: `CTR atual em ${formatPercentBR(current.ctr)}. Referência para ${category.toLowerCase()} em ${formatPercentBR(baseline.ctrBaseline)}${baselineSuffix}.`
+      title: "Taxa de cliques abaixo da referência esperada",
+      message: `Taxa de cliques atual em ${formatPercentBR(current.ctr)}. Referência para ${objectiveLabel} em ${formatPercentBR(baseline.ctrBaseline)}${baselineSuffix}.`
     });
   }
 
   if (highCpc) {
     insights.push({
       type: "alert",
-      title: "CPC acima da faixa de eficiência",
-      message: `CPC atual em ${formatCurrencyBRL(current.cpc)}. Faixa de referência para ${category.toLowerCase()} em ${formatCurrencyBRL(baseline.cpcLimit)}${baselineSuffix}.`
+      title: "Custo por clique acima da faixa de eficiência",
+      message: `Custo por clique atual em ${formatCurrencyBRL(current.cpc)}. Faixa de referência para ${objectiveLabel} em ${formatCurrencyBRL(baseline.cpcLimit)}${baselineSuffix}.`
     });
   }
 

@@ -134,7 +134,6 @@ create table if not exists public.meta_ads (
   status text not null default 'UNKNOWN',
   creative_name text,
   creative_thumb text,
-  creative_link text,
   demographics jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -263,8 +262,6 @@ comment on column public.meta_ads.creative_name is
   'Nome do criativo associado quando disponivel.';
 comment on column public.meta_ads.creative_thumb is
   'URL da miniatura do criativo quando disponivel.';
-comment on column public.meta_ads.creative_link is
-  'URL de destino principal do criativo quando disponivel.';
 comment on column public.meta_ads.demographics is
   'Resumo opcional de demografia/perfil quando enriquecido.';
 comment on column public.meta_ads.updated_at is
