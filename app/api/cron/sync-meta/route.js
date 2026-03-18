@@ -75,7 +75,7 @@ const AD_METADATA_FIELD_CANDIDATES = [
     "effective_status",
     "status",
     "configured_status",
-    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},asset_feed_spec{link_urls}}"
+    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{link,picture,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,picture,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{image_url,link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},asset_feed_spec{link_urls}}"
   ].join(","),
   [
     "id",
@@ -88,7 +88,7 @@ const AD_METADATA_FIELD_CANDIDATES = [
     "effective_status",
     "status",
     "configured_status",
-    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{call_to_action{value{link}},child_attachments{call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},template_data{call_to_action{value{link}}},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
+    "creative{id,name,call_to_action_type,thumbnail_url,image_url,link_url,object_url,template_url,object_story_id,effective_object_story_id,instagram_permalink_url,object_story_spec{link_data{picture,call_to_action{value{link}},child_attachments{picture,call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},template_data{call_to_action{value{link}}},video_data{image_url,call_to_action{value{link}}}},asset_feed_spec{link_urls}}"
   ].join(","),
   [
     "id",
@@ -128,7 +128,7 @@ const AD_CREATIVE_METADATA_FIELD_CANDIDATES = [
     "object_story_id",
     "effective_object_story_id",
     "instagram_permalink_url",
-    "object_story_spec{link_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}}",
+    "object_story_spec{link_data{link,picture,caption,display_url,call_to_action{value{link,url,website_url,web_link}},child_attachments{link,picture,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}},photo_data{link,url,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},template_data{link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}},video_data{image_url,link,caption,display_url,call_to_action{value{link,url,website_url,web_link}}}}",
     "asset_feed_spec{link_urls}"
   ].join(","),
   [
@@ -143,7 +143,7 @@ const AD_CREATIVE_METADATA_FIELD_CANDIDATES = [
     "object_story_id",
     "effective_object_story_id",
     "instagram_permalink_url",
-    "object_story_spec{link_data{call_to_action{value{link}},child_attachments{call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},video_data{call_to_action{value{link}}}}",
+    "object_story_spec{link_data{picture,call_to_action{value{link}},child_attachments{picture,call_to_action{value{link}}}},photo_data{url,call_to_action{value{link}}},video_data{image_url,call_to_action{value{link}}}}",
     "asset_feed_spec{link_urls}"
   ].join(","),
   [
@@ -882,11 +882,29 @@ function resolveCostPerResult(params) {
 }
 
 function resolveCreativeThumb(creative) {
-  return (
-    String(creative?.thumbnail_url ?? "").trim() ||
-    String(creative?.image_url ?? "").trim() ||
-    null
-  );
+  const objectStorySpec = creative?.object_story_spec;
+  const linkData = objectStorySpec?.link_data;
+  const firstChildAttachment = Array.isArray(linkData?.child_attachments)
+    ? linkData.child_attachments[0]
+    : null;
+
+  const candidates = [
+    creative?.image_url,
+    objectStorySpec?.video_data?.image_url,
+    linkData?.picture,
+    firstChildAttachment?.picture,
+    objectStorySpec?.photo_data?.url,
+    creative?.thumbnail_url
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = String(candidate ?? "").trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
 }
 
 function resolveCreativeName(params) {
