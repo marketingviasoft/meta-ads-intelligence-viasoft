@@ -65,3 +65,13 @@ export function structureComparisonCacheKey(
   const normalizedIds = [...new Set(entityIds)].sort().join(",");
   return `compare:${STRUCTURE_COMPARISON_CACHE_VERSION}:${entityType}:${campaignId}:${rangeDays}:${rangeUntil}:${normalizedIds}`;
 }
+
+export function executiveCacheKey(
+  verticalTag: string,
+  deliveryGroup: string,
+  rangeDays: RangeDays,
+  rangeUntil: string
+): string {
+  const normalizedVertical = encodeURIComponent((verticalTag || "all").trim().toLowerCase());
+  return `executive:${normalizedVertical}:${deliveryGroup}:${rangeDays}:${rangeUntil}`;
+}

@@ -229,3 +229,54 @@ export interface DashboardPayload {
   recommendations: Recommendation[];
   generatedAt: string;
 }
+
+export interface ExecutiveGlobalMetrics {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  results: number;
+  costPerResult: number | null;
+  roas: number | null;
+}
+
+export interface ExecutiveMetricDeltas {
+  spend: MetricDelta;
+  impressions: MetricDelta;
+  clicks: MetricDelta;
+  ctr: MetricDelta;
+  cpc: MetricDelta;
+  results: MetricDelta;
+  costPerResult: MetricDelta;
+  roas: MetricDelta;
+}
+
+export interface ExecutiveMetricComparison {
+  current: ExecutiveGlobalMetrics;
+  previous: ExecutiveGlobalMetrics;
+  deltas: ExecutiveMetricDeltas;
+  trend: TrendSummary;
+}
+
+export interface DashboardCampaignSummary {
+  campaign: MetaCampaign;
+  metrics: MetricSnapshot;
+  roas: number | null;
+}
+
+export interface ExecutivePayload {
+  range: DateRangeSelection;
+  globalMetrics: ExecutiveGlobalMetrics;
+  comparison: ExecutiveMetricComparison;
+  chart: DailyMetricPoint[];
+  campaigns: DashboardCampaignSummary[];
+  objectiveDistribution: { 
+    objectiveCategory: ObjectiveCategory; 
+    spend: number; 
+    results: number; 
+    percent: number 
+  }[];
+  insights: InsightMessage[];
+  generatedAt: string;
+}

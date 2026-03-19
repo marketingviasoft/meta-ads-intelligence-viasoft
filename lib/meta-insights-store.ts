@@ -5,7 +5,8 @@ import {
   campaignsCatalogCacheKey,
   performanceCacheKey,
   structureComparisonCacheKey,
-  verticalBudgetCacheKey
+  verticalBudgetCacheKey,
+  executiveCacheKey
 } from "@/lib/cache-keys";
 import type {
   CampaignDeliveryGroup,
@@ -22,7 +23,14 @@ import type {
   StructureComparisonEntityType,
   StructureComparisonItem,
   StructureComparisonPayload,
-  VerticalBudgetSummary
+  VerticalBudgetSummary,
+  ExecutivePayload,
+  ExecutiveGlobalMetrics,
+  ExecutiveMetricDeltas,
+  ExecutiveMetricComparison,
+  DashboardCampaignSummary,
+  DailyMetricPoint,
+  MetricDelta
 } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient.js";
 import { extractVerticalTagFromCampaignName, FALLBACK_VERTICAL_TAG } from "@/utils/campaign-tags";
@@ -31,6 +39,12 @@ import { generateInsights } from "@/utils/insights-engine";
 import { buildMetricComparison, buildMetricSnapshot, buildDailyMetricPoints } from "@/utils/metrics";
 import { buildCurrentMonthToCurrentDateRange } from "@/utils/month-range";
 import { toNumber } from "@/utils/numbers";
+import {
+  ALL_VERTICALS_VALUE,
+  CAMPAIGN_STATUS_FILTER_ALL,
+  type CampaignStatusFilterValue
+} from "@/lib/dashboard-query";
+import { resolveSupportedVertical } from "@/lib/verticals";
 
 type MetaCampaignInsightStoreRow = {
   date: string;
@@ -1375,6 +1389,225 @@ export async function getStructureComparisonPayloadFromStore(params: {
     generatedAt: new Date().toISOString(),
     isContingencySnapshot: false,
     contingencyReason: undefined
+  };
+
+  cache.set(cacheKey, payload, CACHE_TTL_MS);
+  return payload;
+}
+
+export async function getExecutivePayloadFromStore(params: {
+  verticalTag: string | null;
+  deliveryGroup: CampaignStatusFilterValue;
+  rangeDays: RangeDays;
+  forceRefresh?: boolean;
+}): Promise<ExecutivePayload> {
+  const { verticalTag, deliveryGroup, rangeDays, forceRefresh = false } = params;
+
+  if (!isValidRangeDays(rangeDays)) {
+    throw new Error("Período inválido. Use 7, 14, 28 ou 30 dias.");
+  }
+
+  const range = buildDateRange(rangeDays);
+  const cacheKey = `${executiveCacheKey(
+    verticalTag ?? "all",
+    deliveryGroup,
+    rangeDays,
+    range.until
+  )}:supabase`;
+  
+  const cached = cache.get<ExecutivePayload>(cacheKey);
+  if (cached && !forceRefresh) {
+    return cached;
+  }
+
+  // 1. Get all campaigns matching the filters
+  const allCampaigns = await getCampaignCatalogFromStore(rangeDays, forceRefresh);
+  const selectedVerticalSupported = resolveSupportedVertical(verticalTag ?? "");
+  
+  let targetCampaigns = allCampaigns;
+  if (verticalTag && verticalTag !== ALL_VERTICALS_VALUE) {
+    targetCampaigns = targetCampaigns.filter(
+      (c) => resolveSupportedVertical(c.verticalTag) === selectedVerticalSupported
+    );
+  }
+  if (deliveryGroup !== CAMPAIGN_STATUS_FILTER_ALL) {
+    targetCampaigns = targetCampaigns.filter((c) => c.deliveryGroup === deliveryGroup);
+  }
+
+  const targetCampaignIds = new Set(targetCampaigns.map(c => c.id));
+
+  // 2. Fetch rows for these campaigns
+  // We need current and previous period rows to build the chart and delta comparison
+  const [currentRowsRaw, previousRowsRaw] = await Promise.all([
+    fetchRowsByDateRange({ since: range.since, until: range.until }),
+    fetchRowsByDateRange({ since: range.previousSince, until: range.previousUntil })
+  ]);
+
+  const currentFilteredRaw = currentRowsRaw.filter(r => targetCampaignIds.has(r.campaign_id));
+  const previousFilteredRaw = previousRowsRaw.filter(r => targetCampaignIds.has(r.campaign_id));
+
+  // 3. Aggregate campaign by campaign
+  const campaignSummaries: DashboardCampaignSummary[] = [];
+
+  for (const campaign of targetCampaigns) {
+    const campRowsRaw = currentFilteredRaw.filter(r => r.campaign_id === campaign.id);
+    const normalizedRows = aggregateRowsByDate(campRowsRaw).map(toNormalizedInsightRow);
+    const metrics = buildMetricSnapshot(normalizedRows, campaign.objectiveCategory);
+    
+    // ROAS logic (keeping it optional and strictly reliable, currently no purchase values in normalized rows)
+    const roas = null;
+
+    campaignSummaries.push({
+      campaign,
+      metrics,
+      roas
+    });
+  }
+
+  // 4. Global Metrics Calculation
+  const buildGlobalMetrics = (
+    rows: MetaCampaignInsightStoreRow[], 
+    campaigns: MetaCampaign[]
+  ): ExecutiveGlobalMetrics => {
+    let spend = 0;
+    let impressions = 0;
+    let clicks = 0;
+    let results = 0;
+    // We compute results campaign by campaign mapped by objective
+    const rowsByCampaign = new Map<string, MetaCampaignInsightStoreRow[]>();
+    for (const r of rows) {
+      if (!targetCampaignIds.has(r.campaign_id)) continue;
+      if (!rowsByCampaign.has(r.campaign_id)) rowsByCampaign.set(r.campaign_id, []);
+      rowsByCampaign.get(r.campaign_id)!.push(r);
+    }
+
+    for (const campaign of campaigns) {
+      if (!rowsByCampaign.has(campaign.id)) continue;
+      const campRows = aggregateRowsByDate(rowsByCampaign.get(campaign.id)!).map(toNormalizedInsightRow);
+      const campMetrics = buildMetricSnapshot(campRows, campaign.objectiveCategory);
+      spend += campMetrics.spend;
+      impressions += campMetrics.impressions;
+      clicks += campMetrics.clicks;
+      results += campMetrics.results;
+    }
+
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? spend / clicks : 0;
+    const costPerResult = results > 0 ? spend / results : null;
+    
+    return {
+      spend,
+      impressions,
+      clicks,
+      ctr,
+      cpc,
+      results,
+      costPerResult,
+      roas: null // Optional ROAS
+    };
+  };
+
+  const currentGlobal = buildGlobalMetrics(currentFilteredRaw, targetCampaigns);
+  const previousGlobal = buildGlobalMetrics(previousFilteredRaw, targetCampaigns);
+
+  // Helper to calc MetricDelta
+  const calcDelta = (current: number | null, previous: number | null): MetricDelta => {
+    if (current === null || previous === null) return { absolute: 0, percent: null };
+    const absolute = current - previous;
+    const percent = previous > 0 ? (absolute / previous) * 100 : null;
+    return { absolute, percent };
+  };
+
+  const globalDeltas: ExecutiveMetricDeltas = {
+    spend: calcDelta(currentGlobal.spend, previousGlobal.spend),
+    impressions: calcDelta(currentGlobal.impressions, previousGlobal.impressions),
+    clicks: calcDelta(currentGlobal.clicks, previousGlobal.clicks),
+    ctr: calcDelta(currentGlobal.ctr, previousGlobal.ctr),
+    cpc: calcDelta(currentGlobal.cpc, previousGlobal.cpc),
+    results: calcDelta(currentGlobal.results, previousGlobal.results),
+    costPerResult: calcDelta(currentGlobal.costPerResult, previousGlobal.costPerResult),
+    roas: calcDelta(currentGlobal.roas, previousGlobal.roas)
+  };
+
+  let trendScore = 0;
+  if (globalDeltas.costPerResult.percent !== null) {
+    if (globalDeltas.costPerResult.percent < 0) trendScore += 1;
+    else if (globalDeltas.costPerResult.percent > 0) trendScore -= 1;
+  }
+  if (globalDeltas.results.percent !== null) {
+    if (globalDeltas.results.percent > 0) trendScore += 1;
+    else if (globalDeltas.results.percent < 0) trendScore -= 1;
+  }
+
+  const comparison: ExecutiveMetricComparison = {
+    current: currentGlobal,
+    previous: previousGlobal,
+    deltas: globalDeltas,
+    trend: {
+      direction: trendScore > 0 ? "positive" : trendScore < 0 ? "negative" : "neutral",
+      score: trendScore,
+      message: trendScore > 0 ? "Evolução positiva no consolidado" : trendScore < 0 ? "Retração no consolidado" : "Desempenho estável"
+    }
+  };
+
+  // 5. Chart 
+  // We create daily metric points by summing up campaign metric points correctly
+  const chartMap = new Map<string, DailyMetricPoint>();
+  // Let's build daily points properly:
+  // For each date, we sum up.
+  for (const r of currentFilteredRaw) {
+    if (!r.date) continue;
+    const cat = targetCampaigns.find(c => c.id === r.campaign_id)?.objectiveCategory || "CONVERSIONS";
+    const norm = toNormalizedInsightRow(r);
+    const metrics = buildMetricSnapshot([norm], cat);
+    
+    if (!chartMap.has(r.date)) {
+      chartMap.set(r.date, {
+        date: r.date,
+        spend: 0, impressions: 0, clicks: 0, ctr: 0, cpc: 0, results: 0, costPerResult: null
+      });
+    }
+    const pt = chartMap.get(r.date)!;
+    pt.spend += metrics.spend;
+    pt.impressions += metrics.impressions;
+    pt.clicks += metrics.clicks;
+    pt.results += metrics.results;
+  }
+  
+  const chart: DailyMetricPoint[] = Array.from(chartMap.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(pt => ({
+      ...pt,
+      ctr: pt.impressions > 0 ? (pt.clicks / pt.impressions) * 100 : 0,
+      cpc: pt.clicks > 0 ? pt.spend / pt.clicks : 0,
+      costPerResult: pt.results > 0 ? pt.spend / pt.results : null
+    }));
+
+  // 6. Objective Distribution
+  const distMap = new Map<ObjectiveCategory, { spend: number, results: number }>();
+  for (const sum of campaignSummaries) {
+    const cat = sum.campaign.objectiveCategory;
+    if (!distMap.has(cat)) distMap.set(cat, { spend: 0, results: 0 });
+    const d = distMap.get(cat)!;
+    d.spend += sum.metrics.spend;
+    d.results += sum.metrics.results;
+  }
+  const objectiveDistribution = Array.from(distMap.entries()).map(([cat, vals]) => ({
+    objectiveCategory: cat,
+    spend: vals.spend,
+    results: vals.results,
+    percent: currentGlobal.spend > 0 ? (vals.spend / currentGlobal.spend) * 100 : 0
+  })).sort((a, b) => b.spend - a.spend);
+
+  const payload: ExecutivePayload = {
+    range,
+    globalMetrics: currentGlobal,
+    comparison,
+    chart,
+    campaigns: campaignSummaries,
+    objectiveDistribution,
+    insights: [], // Future: Implement global insights engine if needed
+    generatedAt: new Date().toISOString()
   };
 
   cache.set(cacheKey, payload, CACHE_TTL_MS);
