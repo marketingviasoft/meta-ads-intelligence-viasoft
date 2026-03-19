@@ -4,7 +4,6 @@ import type {
   ExecutiveMetricComparison, 
   InsightMessage 
 } from "@/lib/types";
-import { formatCurrency, formatNumber } from "@/utils/numbers";
 
 interface ExecutiveInsightsParams {
   campaigns: DashboardCampaignSummary[];

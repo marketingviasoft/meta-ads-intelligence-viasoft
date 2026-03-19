@@ -1,7 +1,9 @@
+"use client";
+
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, BarChart, ExternalLink, Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowRight, BarChart, Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
 import { VerticalSelector } from "@/components/vertical-selector";
@@ -43,7 +45,7 @@ export function ExecutiveDashboardClient({
 
   const updateUrl = useCallback((newVertical: string, newDelivery: string, newRange: number) => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (newVertical && newVertical !== ALL_VERTICALS_VALUE) {
       params.set("verticalTag", newVertical);
     } else {
@@ -78,10 +80,10 @@ export function ExecutiveDashboardClient({
 
   const loadData = useCallback(async (refresh = false) => {
     try {
-      const isRefreshing = refresh || !loading; 
+      const isRefreshing = refresh || !loading;
       if (!isRefreshing) setLoading(true);
       if (refresh) setRefreshing(true);
-      
+
       const params = new URLSearchParams({
         verticalTag: verticalTag === ALL_VERTICALS_VALUE ? "" : verticalTag,
         deliveryGroup: deliveryGroup,
@@ -140,7 +142,7 @@ export function ExecutiveDashboardClient({
 
   return (
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8 space-y-6">
-      
+
       {/* 1. Header Executivo */}
       <header className="surface-panel enter-fade p-6 flex flex-col gap-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -159,7 +161,7 @@ export function ExecutiveDashboardClient({
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <button 
+            <button
               disabled={refreshing || loading}
               onClick={() => void loadData(true)}
               className="hover-lift flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
@@ -237,7 +239,7 @@ export function ExecutiveDashboardClient({
             <BarChart size={18} /> Alocações do Portfólio
           </h3>
           <div className="grid sm:grid-cols-3 gap-6">
-            
+
             {/* Por Objetivo */}
             <div>
               <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">Por Objetivo</h4>
@@ -318,7 +320,7 @@ export function ExecutiveDashboardClient({
 
         <article className="surface-panel p-6 md:col-span-4">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
-            <Sparkles size={18} /> Top 3 Eficiências 
+            <Sparkles size={18} /> Top 3 Eficiências
           </h3>
           <p className="text-xs text-slate-500 mb-4 -mt-3">Campanhas com o menor custo por resultado válido.</p>
           <div className="space-y-3">
@@ -342,7 +344,7 @@ export function ExecutiveDashboardClient({
                     <p className="text-xs text-slate-500">{formatNumber(camp.metrics.results)} resultados</p>
                   </div>
                 </div>
-            ))}
+              ))}
             {(!payload?.campaigns || payload.campaigns.filter(c => c.metrics.results > 0).length === 0) && (
               <p className="text-sm text-slate-500">Métricas de eficiência não consolidadas para as campanhas filtradas.</p>
             )}

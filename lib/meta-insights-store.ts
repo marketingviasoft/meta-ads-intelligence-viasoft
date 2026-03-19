@@ -1629,9 +1629,9 @@ export async function getExecutivePayloadFromStore(params: {
     }).sort((a, b) => b.spend - a.spend);
   };
 
-  const objectiveDistribution = mapToDistArray(distObjMap, "objectiveCategory") as any[];
-  const statusDistribution = mapToDistArray(distStatusMap, "deliveryGroup") as any[];
-  const verticalDistribution = mapToDistArray(distVerticalMap, "verticalTag") as any[];
+  const objectiveDistribution = mapToDistArray(distObjMap, "objectiveCategory") as ExecutivePayload["objectiveDistribution"];
+  const statusDistribution = mapToDistArray(distStatusMap, "deliveryGroup") as ExecutivePayload["statusDistribution"];
+  const verticalDistribution = mapToDistArray(distVerticalMap, "verticalTag") as ExecutivePayload["verticalDistribution"];
 
   const payload: ExecutivePayload = {
     range,

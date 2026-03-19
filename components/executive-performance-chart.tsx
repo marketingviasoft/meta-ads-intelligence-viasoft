@@ -131,7 +131,7 @@ export function ExecutivePerformanceChart({
       <div className="mb-3 flex flex-wrap gap-2">
         <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
-            Ações Consolidadas (Misto)
+            Ações Consolidadas (Multi-objetivo)
           </p>
           <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
         </div>
@@ -226,7 +226,7 @@ export function ExecutivePerformanceChart({
           <Line
             yAxisId="left"
             dataKey="results"
-            name="Ações (Misturas)"
+            name="Ações (Multi-objetivo)"
             type="monotone"
             stroke="#003A4D"
             strokeWidth={3}
