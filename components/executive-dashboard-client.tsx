@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, BarChart, Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, BarChart, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
+import { MetricCard } from "@/components/metric-card";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { OptionSelector } from "@/components/option-selector";
 import { PeriodSelector } from "@/components/period-selector";
@@ -24,6 +25,22 @@ type ExecutiveDashboardClientProps = {
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const formatNumber = (value: number) => new Intl.NumberFormat("pt-BR").format(value);
 const formatPercent = (value: number | null) => value === null ? "-" : new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 1 }).format(value / 100);
+
+function getInsightTone(type: string): string {
+  switch (type) {
+    case "alert": return "border border-rose-200 bg-rose-50 text-rose-900";
+    case "opportunity": return "border border-emerald-200 bg-emerald-50 text-emerald-900";
+    case "info": default: return "border border-slate-200 bg-slate-50 text-slate-900";
+  }
+}
+
+function getInsightIcon(type: string) {
+  switch (type) {
+    case "alert": return <AlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-700" />;
+    case "opportunity": return <Sparkles size={14} className="mt-0.5 shrink-0 text-emerald-700" />;
+    case "info": default: return <Info size={14} className="mt-0.5 shrink-0 text-slate-600" />;
+  }
+}
 
 export function ExecutiveDashboardClient({
   initialVerticalTag,
@@ -144,7 +161,7 @@ export function ExecutiveDashboardClient({
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8 space-y-6">
 
       {/* 1. Header Executivo */}
-      <header className="surface-panel enter-fade p-6 flex flex-col gap-5">
+      <header className="surface-panel bg-gradient-to-br from-viasoft/10 via-white to-white enter-fade p-6 flex flex-col gap-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
@@ -203,38 +220,56 @@ export function ExecutiveDashboardClient({
       </header>
 
       {/* 3. Cards KPI Consolidados */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Investimento Total</span>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{formatCurrency(payload?.globalMetrics.spend || 0)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ações no Objetivo</span>
-          </div>
-          <div className="mt-2">
-            <span className="text-2xl font-bold text-slate-900">{formatNumber(payload?.globalMetrics.results || 0)}</span>
-            <p className="text-[10px] font-medium text-slate-400 mt-1 leading-tight">Soma multi-objetivo</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo per Ação (Méd)</span>
-          </div>
-          <div className="mt-2">
-            <span className="text-2xl font-bold text-slate-900">{payload?.globalMetrics.costPerResult ? formatCurrency(payload.globalMetrics.costPerResult) : '-'}</span>
-            <p className="text-[10px] font-medium text-slate-400 mt-1 leading-tight">Média do portfólio</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Impressões Entregues</span>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{formatNumber(payload?.globalMetrics.impressions || 0)}</div>
-        </div>
+      <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
+        <MetricCard
+          metricKey="spend"
+          title="Investimento Total"
+          value={formatCurrency(payload?.globalMetrics.spend || 0)}
+          icon={<Wallet size={16} />}
+          previousValue={payload?.comparison?.previous?.spend ? formatCurrency(payload.comparison.previous.spend) : undefined}
+          deltaAbsolute={payload?.comparison?.deltas?.spend?.absolute ?? null}
+          deltaPercent={payload?.comparison?.deltas?.spend?.percent ?? null}
+          noPrevData={!payload?.comparison}
+        />
+        <MetricCard
+          metricKey="results"
+          title="Ações no Objetivo"
+          note="Soma multi-objetivo"
+          value={formatNumber(payload?.globalMetrics.results || 0)}
+          icon={<Target size={16} />}
+          previousValue={payload?.comparison?.previous?.results ? formatNumber(payload.comparison.previous.results) : undefined}
+          deltaAbsolute={payload?.comparison?.deltas?.results?.absolute ?? null}
+          deltaPercent={payload?.comparison?.deltas?.results?.percent ?? null}
+          noPrevData={!payload?.comparison}
+          highlighted
+        />
+        <MetricCard
+          metricKey="cpc"
+          title="Custo per Ação (Méd)"
+          note="Média do portfólio"
+          value={payload?.globalMetrics.costPerResult ? formatCurrency(payload.globalMetrics.costPerResult) : '-'}
+          icon={<Coins size={16} />}
+          previousValue={payload?.comparison?.previous?.costPerResult ? formatCurrency(payload.comparison.previous.costPerResult) : undefined}
+          deltaAbsolute={payload?.comparison?.deltas?.costPerResult?.absolute ?? null}
+          deltaPercent={payload?.comparison?.deltas?.costPerResult?.percent ?? null}
+          noPrevData={!payload?.comparison}
+          inverse
+        />
+        <MetricCard
+          metricKey="impressions"
+          title="Impressões Entregues"
+          value={formatNumber(payload?.globalMetrics.impressions || 0)}
+          icon={<Eye size={16} />}
+          previousValue={payload?.comparison?.previous?.impressions ? formatNumber(payload.comparison.previous.impressions) : undefined}
+          deltaAbsolute={payload?.comparison?.deltas?.impressions?.absolute ?? null}
+          deltaPercent={payload?.comparison?.deltas?.impressions?.percent ?? null}
+          noPrevData={!payload?.comparison}
+        />
       </section>
 
       {/* 6. Distribuições de Verba e 5. Rankings */}
-      <section className="grid md:grid-cols-12 gap-6 enter-fade" style={{ animationDelay: '100ms' }}>
-        <article className="surface-panel p-6 md:col-span-8">
+      <section className="grid md:grid-cols-12 gap-5 enter-fade" style={{ animationDelay: '100ms' }}>
+        <article className="surface-panel border border-viasoft/15 bg-white p-6 md:col-span-8 overflow-hidden relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
             <BarChart size={18} /> Alocações do Portfólio
           </h3>
@@ -318,7 +353,7 @@ export function ExecutiveDashboardClient({
           </div>
         </article>
 
-        <article className="surface-panel p-6 md:col-span-4">
+        <article className="surface-panel border border-viasoft/15 bg-white p-6 md:col-span-4 overflow-hidden relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
             <Sparkles size={18} /> Top 3 Eficiências
           </h3>
@@ -354,7 +389,7 @@ export function ExecutiveDashboardClient({
 
       {/* 4. Gráfico Temporal Consolidado */}
       {payload?.chart && payload.chart.length > 0 && (
-        <section className="surface-panel p-6 enter-fade" style={{ animationDelay: '120ms' }}>
+        <section className="surface-panel border border-viasoft/15 bg-white p-6 enter-fade" style={{ animationDelay: '120ms' }}>
           <h3 className="text-base font-semibold text-viasoft mb-6">Evolução Consolidada</h3>
           <ExecutivePerformanceChart data={payload.chart} />
         </section>
@@ -362,21 +397,32 @@ export function ExecutiveDashboardClient({
 
       {/* 8. Insights Gerenciais */}
       {payload?.insights && payload.insights.length > 0 && (
-        <section className="surface-panel p-6 enter-fade" style={{ animationDelay: '130ms' }}>
-          <h3 className="text-base font-semibold text-viasoft mb-4">Insights de Carteira</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <section className="surface-panel border border-viasoft/15 bg-white p-6 enter-fade" style={{ animationDelay: '130ms' }}>
+          <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft mb-4">
+            <Lightbulb size={17} className="text-viasoft" />
+            Insights de Carteira
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {payload.insights.map((insight, idx) => (
-              <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                <p className="text-sm font-semibold text-slate-900">{insight.title}</p>
-                <p className="mt-1 text-xs text-slate-600">{insight.message}</p>
-              </div>
+              <article
+                key={`${insight.type}-${idx}`}
+                className={`rounded-xl px-4 py-3 ${getInsightTone(insight.type)} shadow-sm`}
+              >
+                <div className="flex items-start gap-2">
+                  {getInsightIcon(insight.type)}
+                  <div>
+                    <p className="text-sm font-semibold mb-1 leading-snug">{insight.title}</p>
+                    <p className="text-sm max-w-sm">{insight.message}</p>
+                  </div>
+                </div>
+              </article>
             ))}
           </div>
         </section>
       )}
 
       {/* 7. Tabela Dashboard Analítico Links */}
-      <section className="surface-panel p-6 enter-fade" style={{ animationDelay: '150ms' }}>
+      <section className="surface-panel border border-viasoft/15 bg-white p-6 enter-fade" style={{ animationDelay: '150ms' }}>
         <h3 className="text-base font-semibold text-viasoft mb-6">Listagem e Detalhamento</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
