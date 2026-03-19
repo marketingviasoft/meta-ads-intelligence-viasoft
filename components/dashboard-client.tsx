@@ -12,6 +12,12 @@ import { PeriodSelector } from "@/components/period-selector";
 import { StructureComparisonSection } from "@/components/structure-comparison-section";
 import { VerticalSelector } from "@/components/vertical-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
+import {
+  ALL_VERTICALS_VALUE,
+  CAMPAIGN_STATUS_FILTER_ALL,
+  type CampaignStatusFilterValue,
+  DELIVERY_STATUS_FILTERS
+} from "@/lib/dashboard-query";
 import type {
   DashboardPayload,
   MetaAd,
@@ -55,27 +61,13 @@ type StructureComparisonResponse = {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const CAMPAIGN_STATUS_FILTER_ALL = "ALL" as const;
-const ALL_VERTICALS_VALUE = "__ALL_VERTICALS__" as const;
-type CampaignStatusFilterValue =
-  | typeof CAMPAIGN_STATUS_FILTER_ALL
-  | "ACTIVE"
-  | "PAUSED"
-  | "WITH_ISSUES"
-  | "PENDING_REVIEW"
-  | "ARCHIVED";
 
-const DELIVERY_STATUS_FILTERS: Array<{
-  value: CampaignStatusFilterValue;
-  label: string;
-}> = [
-  { value: CAMPAIGN_STATUS_FILTER_ALL, label: "Todos os status" },
-  { value: "ACTIVE", label: "Ativas" },
-  { value: "PAUSED", label: "Pausadas" },
-  { value: "WITH_ISSUES", label: "Com problemas" },
-  { value: "PENDING_REVIEW", label: "Em análise" },
-  { value: "ARCHIVED", label: "Arquivadas" }
-];
+type DashboardClientProps = {
+  initialRangeDays?: RangeDays;
+  initialVerticalTag?: string | null;
+  initialDeliveryGroup?: CampaignStatusFilterValue;
+  initialCampaignId?: string | null;
+};
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
@@ -133,16 +125,23 @@ function extractRetryAfterSecondsFromMessage(message: string): number | null {
   return null;
 }
 
-export function DashboardClient() {
+export function DashboardClient({
+  initialRangeDays = 7,
+  initialVerticalTag = null,
+  initialDeliveryGroup = CAMPAIGN_STATUS_FILTER_ALL,
+  initialCampaignId = null
+}: DashboardClientProps = {}) {
   const campaignRefreshRequestedRef = useRef<string | null>(null);
   const adSetRefreshRequestedRef = useRef<boolean>(false);
   const previousCampaignIdRef = useRef<string>("");
 
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
-  const [selectedVertical, setSelectedVertical] = useState<string>(ALL_VERTICALS_VALUE);
+  const [selectedVertical, setSelectedVertical] = useState<string>(
+    initialVerticalTag ?? ALL_VERTICALS_VALUE
+  );
   const [campaignStatusFilter, setCampaignStatusFilter] =
-    useState<CampaignStatusFilterValue>(CAMPAIGN_STATUS_FILTER_ALL);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+    useState<CampaignStatusFilterValue>(initialDeliveryGroup);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(initialCampaignId ?? "");
   const [adSets, setAdSets] = useState<MetaAdSet[]>([]);
   const [selectedAdSetId, setSelectedAdSetId] = useState<string>("");
   const [ads, setAds] = useState<MetaAd[]>([]);
@@ -151,7 +150,7 @@ export function DashboardClient() {
   const [adSetComparison, setAdSetComparison] = useState<StructureComparisonPayload | null>(null);
   const [adComparison, setAdComparison] = useState<StructureComparisonPayload | null>(null);
   const [verticalBudget, setVerticalBudget] = useState<VerticalBudgetSummary | null>(null);
-  const [rangeDays, setRangeDays] = useState<RangeDays>(7);
+  const [rangeDays, setRangeDays] = useState<RangeDays>(initialRangeDays);
   const [reportData, setReportData] = useState<DashboardPayload | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState<boolean>(true);
   const [loadingAdSets, setLoadingAdSets] = useState<boolean>(false);

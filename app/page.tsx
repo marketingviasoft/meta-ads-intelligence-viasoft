@@ -1,7 +1,7 @@
-import { DashboardClient } from "@/components/dashboard-client";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  return <DashboardClient />;
+  redirect("/dashboard/executivo");
 }
