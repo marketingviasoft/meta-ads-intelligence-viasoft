@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowRight, BarChart, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart2, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
 import { MetricCard } from "@/components/metric-card";
@@ -418,7 +418,7 @@ export function ExecutiveDashboardClient({
             <thead>
               <tr className="border-b border-slate-200 text-slate-500 font-medium pb-2">
                 <th className="pb-3 px-2 text-left">Campanha</th>
-                <th className="pb-3 flex justify-center text-center">Objetivo</th>
+                <th className="pb-3 px-2 text-left">Objetivo</th>
                 <th className="pb-3 px-2 text-right">Investimento</th>
                 <th className="pb-3 px-2 text-right">Ações (Res.)</th>
                 <th className="pb-3 px-2 text-right">Custo / Ação</th>
@@ -428,12 +428,12 @@ export function ExecutiveDashboardClient({
             <tbody className="divide-y divide-slate-100">
               {payload?.campaigns.map((row) => (
                 <tr key={row.campaign.id} className="hover:bg-slate-50/75 transition-colors group">
-                  <td className="py-3 px-2 cursor-default flex flex-col gap-0.5 max-w-[280px]">
+                  <td className="py-3 px-2 cursor-default flex flex-col gap-0.5 max-w-[420px]">
                     <span className="font-semibold text-slate-800 truncate" title={row.campaign.name}>{row.campaign.name}</span>
                     <span className="text-xs text-slate-400">ID: {row.campaign.id}</span>
                   </td>
-                  <td className="py-3 px-2 text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
+                  <td className="py-3 px-2 text-left">
+                    <span className="-ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
                       {getObjectiveLabel(row.campaign.objectiveCategory as any)}
                     </span>
                   </td>
@@ -442,9 +442,17 @@ export function ExecutiveDashboardClient({
                   <td className="py-3 px-2 text-right font-medium text-slate-900">{row.metrics.costPerResult ? formatCurrency(row.metrics.costPerResult) : '-'}</td>
                   <td className="py-3 pl-2 pr-0 text-right">
                     <Link
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-viasoft opacity-0 group-hover:opacity-100 transition focus:opacity-100 px-3 py-1.5 rounded-lg hover:bg-viasoft/10"
+                      href={buildDashboardHref({
+                        pathname: "/dashboard/campanhas",
+                        verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
+                        deliveryGroup,
+                        rangeDays,
+                        campaignId: row.campaign.id
+                      })}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all duration-200 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                      title="Analisar Campanha"
                     >
-                      Analítico <ArrowRight size={14} />
+                      <BarChart2 size={15} />
                     </Link>
                   </td>
                 </tr>
