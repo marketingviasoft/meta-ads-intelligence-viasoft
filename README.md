@@ -1,41 +1,79 @@
-# Meta Ads Intelligence | VIASOFT (MVP Local)
+# Meta Ads Intelligence | VIASOFT
 
-Publicação executiva para campanhas Meta Ads com comparativo de período e exportação em PDF via Puppeteer.
+Dashboard corporativo para leitura executiva e analítica de campanhas Meta Ads, com arquitetura Supabase-first, comparativos estruturais e exportação em PDF.
 
 ## Leitura obrigatória para continuidade
 
 Antes de continuar desenvolvimento em outro ambiente, leia:
 
+- `docs/DOCUMENTACAO_COMPLETA.md`
 - `docs/HANDOFF.md`
 - `docs/BUSINESS_RULES.md`
-- `docs/SESSION_MEMORY.md`
 - `docs/RUNBOOK.md`
+- `docs/PARITY_CONTRACT.json`
+
+## Estado atual do produto
+
+A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje ela opera como uma camada de BI leve:
+
+- sincroniza Meta -> Supabase;
+- lê Supabase -> dashboard e PDF;
+- usa a Meta Graph API apenas na sincronização e em endpoints pontuais de preview/enriquecimento;
+- suporta campanhas fora do estado estritamente ativo;
+- possui budget mensal por vertical com ciclo Meta e imposto;
+- possui comparativos entre grupos de anúncios e anúncios;
+- possui duas visões no dashboard:
+  - `Resumo Executivo` em `/dashboard/executivo`
+  - `Análise por Campanha` em `/dashboard/campanhas`
 
 ## Stack
 
-- Next.js (App Router)
+- Next.js 16.1.6 (App Router)
+- React 19
 - TypeScript
-- TailwindCSS
+- Tailwind CSS
 - Recharts
 - Node.js
-- Puppeteer
-- Supabase (Banco de dados de métricas)
-- Sem autenticação (MVP local)
+- Supabase (camada principal de leitura analítica)
+- Puppeteer Core + @sparticuz/chromium
+- Meta Graph API (sincronização via cron + preview pontual)
 
-## O que o MVP entrega
+## O que a aplicação entrega hoje
 
-- Lista campanhas com delivery `ACTIVE`
-- Seleção de campanha
-- Períodos: 7, 14, 28 e 30 dias
-- Dia atual sempre excluído
-- Comparativo automático com período anterior equivalente
-- KPIs: investimento, impressões, cliques, CTR, CPC e resultado principal por objetivo
-- Tendência consolidada
-- Insights automáticos (CTR, CPC, custo por resultado, queda vs anterior)
-- Recomendações por objetivo (traffic, engagement, recognition, conversions)
-- Cache em memória por campanha + período (TTL 5 min)
-- Botão `Atualizar Dados` com invalidação manual de cache
-- PDF gerado em backend via Puppeteer pela rota `/pdf` (paisagem, sem html2canvas/jsPDF)
+- visão executiva estruturada para leitura macro do portfólio de campanhas;
+- visão analítica por campanha com filtros de vertical, veiculação, campanha e período;
+- budget mensal por vertical;
+- comparativo automático com período anterior equivalente;
+- comparativos entre grupos de anúncios e anúncios;
+- KPIs de investimento, impressões, cliques, CTR, CPC e resultado principal por objetivo;
+- tendência consolidada e performance diária;
+- insights automáticos e recomendações por objetivo;
+- cache em memória para consultas do dashboard;
+- botão `Atualizar Dados` com invalidação manual de cache;
+- PDF gerado em backend pela rota `/api/pdf`.
+
+## Navegação atual do dashboard
+
+A área principal do produto fica em `/dashboard` e possui duas visões irmãs:
+
+### 1. Resumo Executivo
+- rota: `/dashboard/executivo`
+- leitura macro/gerencial
+- usa filtros globais compartilhados pela URL:
+  - `verticalTag`
+  - `deliveryGroup`
+  - `rangeDays`
+
+### 2. Análise por Campanha
+- rota: `/dashboard/campanhas`
+- leitura profunda de campanha, grupos de anúncios e anúncios
+- pode receber `campaignId` pela URL para drill-down
+
+### Parâmetros canônicos da URL
+- `verticalTag` -> vertical selecionada
+- `deliveryGroup` -> grupo de veiculação/status
+- `rangeDays` -> janela de performance
+- `campaignId` -> campanha selecionada na visão analítica
 
 ## Estrutura de pastas
 
@@ -53,6 +91,9 @@ Antes de continuar desenvolvimento em outro ambiente, leia:
       /cache/invalidate
       /vertical-budget
     /pdf
+  /dashboard
+    /executivo
+    /campanhas
   /pdf
 /components
 /lib
@@ -74,27 +115,21 @@ SUPABASE_SERVICE_ROLE_KEY=
 META_ACCESS_TOKEN=
 META_AD_ACCOUNT_ID=act_1234567890
 META_API_VERSION=v21.0
-# Opcional: fallback de numero WhatsApp por page_id (JSON)
 META_WHATSAPP_NUMBER_BY_PAGE_ID_JSON=
 APP_BASE_URL=http://localhost:3000
 APP_TIMEZONE=America/Sao_Paulo
-# Guardas minimos para evitar alertas com baixa amostra
 INSIGHTS_MIN_IMPRESSIONS=1000
 INSIGHTS_MIN_CLICKS=30
 INSIGHTS_MIN_RESULTS=5
-# Baseline da conta por objetivo (JSON)
 INSIGHTS_BASELINE_ACCOUNT_JSON=
-# Baseline por vertical e objetivo (JSON)
 INSIGHTS_BASELINE_BY_VERTICAL_JSON=
-# Teto mensal por vertical (BRL)
 VERTICAL_MONTHLY_CAP_BRL=535
-# Segredo para proteger rota de sincronização cron
 CRON_SECRET=
 ```
 
 ## Inicialização do Supabase
 
-Antes da primeira execução, execute o script `docs/sql/meta_campaign_insights.sql` no painel SQL do seu projeto Supabase para criar as tabelas necessárias.
+Antes da primeira execução, rode o script `docs/sql/meta_campaign_insights.sql` no painel SQL do Supabase para criar as tabelas necessárias.
 
 ## Instalação e execução local
 
@@ -111,13 +146,13 @@ npm install
 npm run dev
 ```
 
-4. (Opcional) Dispare a sincronização inicial:
+4. Opcionalmente, dispare uma sincronização inicial:
 
 ```bash
-curl http://localhost:3000/api/cron/sync-meta
+curl -X GET "http://localhost:3000/api/cron/sync-meta" -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
-5. Abra:
+5. Abra a aplicação:
 
 ```txt
 http://localhost:3000
@@ -133,42 +168,26 @@ npm run lint
 npm run typecheck
 ```
 
-## Objetivo -> métrica principal
+## Rotas principais
 
-- TRAFFIC -> `link_clicks`
-- ENGAGEMENT -> `post_engagement`
-- RECOGNITION -> `impressions`
-- CONVERSIONS -> `conversions`
-
-## PDF
-
-Fluxo:
-
-1. Clique em `Gerar PDF`
-2. Backend abre `GET /api/pdf`
-3. Puppeteer renderiza a rota interna `/pdf?campaignId=...&rangeDays=...`
-4. Gera A4 paisagem com `printBackground`
-5. Retorna download automático
-
-## API routes
-
-- `GET /api/meta/campaigns`
-- `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
-- `GET /api/meta/adsets?campaignId=...`
-- `GET /api/meta/ads?adSetId=...`
-- `GET /api/meta/ad-preview?adId=...`
-- `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
-- `GET /api/meta/vertical-budget?verticalTag=...`
-- `POST /api/meta/cache/invalidate`
-- `GET /api/pdf?campaignId=...&rangeDays=...`
-- `GET /api/pdf?verticalTag=...&rangeDays=...`
-- `GET /api/cron/sync-meta` (protegido por `CRON_SECRET`)
+* `GET /api/meta/campaigns`
+* `GET /api/meta/performance?campaignId=...&rangeDays=7|14|28|30`
+* `GET /api/meta/adsets?campaignId=...`
+* `GET /api/meta/ads?adSetId=...`
+* `GET /api/meta/ad-preview?adId=...`
+* `GET /api/meta/compare?campaignId=...&entityType=ADSET|AD&entityIds=id1,id2&rangeDays=...`
+* `GET /api/meta/vertical-budget?verticalTag=...`
+* `POST /api/meta/cache/invalidate`
+* `GET /api/pdf?campaignId=...&rangeDays=...`
+* `GET /api/pdf?verticalTag=...&rangeDays=...`
+* `GET /api/cron/sync-meta`
 
 ## Regras aplicadas no código
 
-- Fonte de verdade: Dados consolidados no Supabase (`meta_campaign_insights`, `meta_adsets`, `meta_ads`)
-- Preview de Ads consulta a Meta API diretamente.
-- Nenhum filtro inclui o dia atual
-- Sem métricas inventadas
-- Lógica separada em módulos (`services`, `utils`, `lib`)
-- Engine de insights isolada em `utils/insights-engine.ts`
+* fonte de verdade: Supabase (`meta_campaign_insights`, `meta_adsets`, `meta_ads`);
+* performance do dashboard não inclui o dia atual;
+* budget mensal da vertical inclui o dia atual como parcial;
+* preview de anúncios continua Meta-direct;
+* sem métricas inventadas;
+* insights em `utils/insights-engine.ts`;
+* navegação executiva/analítica preserva filtros globais via query string.

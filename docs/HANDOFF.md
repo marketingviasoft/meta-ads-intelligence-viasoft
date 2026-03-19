@@ -1,68 +1,112 @@
 # Handoff
 
 ## Estado atual
-O projeto esta operacional em arquitetura Supabase-first. O dashboard principal le dados locais do Supabase para campanhas, performance, estrutura, comparativos e budget mensal por vertical. A Meta Graph API ficou concentrada na sincronizacao (`app/api/cron/sync-meta/route.js`) e em endpoints pontuais de preview/enriquecimento.
+O projeto está operacional em arquitetura Supabase-first. O dashboard principal lê dados locais do Supabase para campanhas, performance, estrutura, comparativos e budget mensal por vertical. A Meta Graph API ficou concentrada na sincronização (`app/api/cron/sync-meta/route.js`) e em endpoints pontuais de preview/enriquecimento.
 
-## O que mudou em relacao ao estado antigo
+A navegação principal da aplicação também foi reorganizada em duas visões:
+- `Resumo Executivo` em `/dashboard/executivo`
+- `Análise por Campanha` em `/dashboard/campanhas`
+
+A home (`/`) redireciona para `/dashboard/executivo`.
+
+## O que mudou em relação ao estado antigo
 - campanhas deixaram de ser "somente ativas";
-- existe opcao padrao `Todas as verticais`;
-- o filtro principal agora e `Veiculacao`, com grupos simplificados;
+- existe opção padrão `Todas as verticais`;
+- o filtro principal agora é `Veiculação`, com grupos simplificados;
 - o budget mensal por vertical considera ciclo 24 -> 23 e imposto de 12,15%;
-- VIASOFT possui teto total mensal de R$ 1.000,00 ja considerando imposto;
-- comparativos entre grupos de anuncios e anuncios passaram a ser parte do produto;
-- PDF passou a ter pagina condicional de comparativos;
-- Supabase virou a camada central de leitura.
+- VIASOFT possui teto total mensal de R$ 1.000,00 já considerando imposto;
+- comparativos entre grupos de anúncios e anúncios passaram a ser parte do produto;
+- PDF passou a ter página condicional de comparativos;
+- Supabase virou a camada central de leitura;
+- o dashboard passou a operar com duas visões irmãs, preservando filtros globais por query string.
 
-## Pontos criticos para nao quebrar
-1. Nao incluir o dia atual nas metricas de performance.
+## Pontos críticos para não quebrar
+1. Não incluir o dia atual nas métricas de performance.
 2. Incluir o dia atual (parcial) no card de budget mensal da vertical.
 3. Manter ciclo de faturamento Meta em 24 -> 23.
 4. Manter imposto Meta em 12,15%.
-5. Manter excecao de budget da vertical VIASOFT.
-6. Nao remover `utils/insights-engine.ts`.
+5. Manter exceção de budget da vertical VIASOFT.
+6. Não remover `utils/insights-engine.ts`.
 7. Preservar a leitura do dashboard e a paridade do PDF.
-8. Nao voltar a fazer chamadas sincronao-pesadas para Meta no carregamento do usuario.
+8. Não voltar a fazer chamadas síncronas/pesadas para Meta no carregamento do usuário.
+9. Preservar o contrato de navegação entre visão executiva e visão analítica.
 
 ## Fluxo principal do dashboard
-1. Selecionar vertical.
-2. Selecionar veiculacao/status.
-3. Selecionar campanha.
-4. Selecionar periodo.
+
+### Visão executiva
+Fluxo esperado:
+1. aplicar filtros globais;
+2. ler panorama consolidado da carteira;
+3. navegar para a análise detalhada por `campaignId` quando necessário.
+
+### Visão analítica
+Fluxo atual:
+1. selecionar vertical;
+2. selecionar veiculação/status;
+3. selecionar campanha;
+4. selecionar período.
+
+## Contrato de navegação entre visões
+
+### Rotas
+- `/dashboard/executivo`
+- `/dashboard/campanhas`
+
+### Parâmetros canônicos
+- `verticalTag`
+- `deliveryGroup`
+- `rangeDays`
+- `campaignId`
+
+### Regras
+- `verticalTag`, `deliveryGroup` e `rangeDays` são filtros globais preservados entre visões;
+- `campaignId` é usado para drill-down na visão analítica;
+- a visão executiva não deve depender de `campaignId` para renderizar;
+- a visão analítica pode receber `campaignId` pela URL e fazer fallback seguro se ele não existir dentro da lista filtrada;
+- a URL funciona como estado inicial das visões e como mecanismo de preservação dos filtros globais entre executivo e analítico.
 
 ## Fluxo da estrutura e comparativos
-- A secao de estrutura mostra grupos e anuncios.
-- O usuario pode marcar ate 2 grupos e ate 2 anuncios para comparar.
-- As secoes de comparativo aparecem somente quando existem 2 itens selecionados.
-- As comparacoes usam a mesma familia de metricas da campanha.
+- A seção de estrutura mostra grupos e anúncios.
+- O usuário pode marcar até 2 grupos e até 2 anúncios para comparar.
+- As seções de comparativo aparecem somente quando existem 2 itens selecionados.
+- As comparações usam a mesma família de métricas da campanha.
 
 ## PDF atual
 Fluxo atual do PDF por campanha:
 1. Header + seletores + budget mensal
 2. Comparativos (condicional)
-3. Cards de metricas
-4. Tendencia consolidada + performance diaria
-5. Insights + recomendacoes
+3. Cards de métricas
+4. Tendência consolidada + performance diária
+5. Insights + recomendações
 
 Fluxo especial:
 - se houver apenas `verticalTag`, o sistema gera PDF compacto de budget da vertical.
 
-## Limitacoes conhecidas
-- preview de anuncio ainda pode falhar por permissao/Meta;
-- nome de criativo e destino dependem da qualidade do enriquecimento salvo no Supabase;
-- A paginacao do PDF deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a pagina de comparativos existir ou nao.
+## Limitações conhecidas
+- preview de anúncio ainda pode falhar por permissão/Meta;
+- nome de criativo depende da qualidade do enriquecimento salvo no Supabase;
+- a paginação do PDF deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não;
+- a visão executiva e a visão analítica devem continuar desacopladas para não inflar o `DashboardClient`.
 
 ## Arquivos de maior impacto
 - `lib/meta-insights-store.ts`
+- `lib/dashboard-query.ts`
 - `app/api/cron/sync-meta/route.js`
 - `components/dashboard-client.tsx`
+- `components/executive-dashboard-client.tsx`
+- `components/dashboard-view-tabs.tsx`
 - `components/dashboard-report.tsx`
 - `components/campaign-structure-panel.tsx`
 - `components/structure-comparison-section.tsx`
+- `app/dashboard/layout.tsx`
+- `app/dashboard/executivo/page.tsx`
+- `app/dashboard/campanhas/page.tsx`
 - `app/pdf/page.tsx`
 - `lib/pdf-generator.ts`
 
-## Proximos cuidados em qualquer nova feature
-- sempre decidir primeiro se o dado sera lido do Supabase ou da Meta;
+## Próximos cuidados em qualquer nova feature
+- sempre decidir primeiro se o dado será lido do Supabase ou da Meta;
 - se impactar PDF, atualizar o contrato de paridade;
 - se impactar filtro, atualizar docs e runbook;
-- se impactar schema, atualizar SQL e cron juntos.
+- se impactar schema, atualizar SQL e cron juntos;
+- se impactar navegação entre visões, preservar os parâmetros canônicos e o fluxo macro -> drill-down.
