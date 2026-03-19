@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ArrowRight, BarChart, Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
@@ -12,7 +12,7 @@ import { PeriodSelector } from "@/components/period-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import { buildDashboardHref, type CampaignStatusFilterValue, ALL_VERTICALS_VALUE, CAMPAIGN_STATUS_FILTER_ALL, DELIVERY_STATUS_FILTERS } from "@/lib/dashboard-query";
 import { SUPPORTED_VERTICALS } from "@/lib/verticals";
-import type { RangeDays, ExecutivePayload, DashboardCampaignSummary } from "@/lib/types";
+import type { RangeDays, ExecutivePayload } from "@/lib/types";
 
 type ExecutiveDashboardClientProps = {
   initialVerticalTag: string | null;

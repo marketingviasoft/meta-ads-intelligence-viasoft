@@ -1,6 +1,6 @@
 "use client";
 
-import { Coins, Percent, Target, Wallet } from "lucide-react";
+import { Target, Wallet } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import {
   Area,
@@ -17,8 +17,7 @@ import {
   formatCurrencyBRL,
   formatDateLongBR,
   formatDateShortBR,
-  formatNumberBR,
-  formatPercentBR
+  formatNumberBR
 } from "@/utils/formatters";
 
 type ExecutivePerformanceChartProps = {
