@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart2, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart3, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
 import { MetricCard } from "@/components/metric-card";
@@ -452,7 +452,7 @@ export function ExecutiveDashboardClient({
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all duration-200 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
                       title="Analisar Campanha"
                     >
-                      <BarChart2 size={15} />
+                      <BarChart3 size={15} />
                     </Link>
                   </td>
                 </tr>

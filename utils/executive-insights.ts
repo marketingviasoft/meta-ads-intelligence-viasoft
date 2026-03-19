@@ -117,7 +117,7 @@ export function generateExecutiveInsights({
        insights.push({
          type: "info",
          title: "Destaque de Eficiência",
-         message: `A campanha "${bestEfficiency.campaign.name}" apresenta o menor custo por resultado (${formatAsBRL(bestEfficiency.metrics.costPerResult!)}) para o objetivo de ${bestEfficiency.campaign.objectiveCategory}.`
+         message: `A campanha "${bestEfficiency.campaign.name}" apresenta o menor custo por resultado (${formatAsBRL(bestEfficiency.metrics.costPerResult!)}) para o objetivo de ${getObjectiveLabel(bestEfficiency.campaign.objectiveCategory as any)}.`
        });
     }
 
