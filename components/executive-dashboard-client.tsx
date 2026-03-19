@@ -14,6 +14,7 @@ import { PUBLICATION_NAME } from "@/lib/branding";
 import { buildDashboardHref, type CampaignStatusFilterValue, ALL_VERTICALS_VALUE, CAMPAIGN_STATUS_FILTER_ALL, DELIVERY_STATUS_FILTERS } from "@/lib/dashboard-query";
 import { SUPPORTED_VERTICALS } from "@/lib/verticals";
 import type { RangeDays, ExecutivePayload } from "@/lib/types";
+import { getObjectiveLabel, getDeliveryStatusLabel } from "@/utils/labels";
 
 type ExecutiveDashboardClientProps = {
   initialVerticalTag: string | null;
@@ -161,7 +162,7 @@ export function ExecutiveDashboardClient({
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8 space-y-6">
 
       {/* 1. Header Executivo */}
-      <header className="surface-panel bg-gradient-to-br from-viasoft/10 via-white to-white enter-fade p-6 flex flex-col gap-5">
+      <header className="surface-panel relative z-20 bg-gradient-to-br from-viasoft/10 via-white to-white enter-fade p-6 flex flex-col gap-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
@@ -267,9 +268,42 @@ export function ExecutiveDashboardClient({
         />
       </section>
 
-      {/* 6. Distribuições de Verba e 5. Rankings */}
-      <section className="grid md:grid-cols-12 gap-5 enter-fade" style={{ animationDelay: '100ms' }}>
-        <article className="surface-panel border border-viasoft/15 bg-white p-6 md:col-span-8 overflow-hidden relative">
+      {/* 5. Rankings & Distribuições */}
+      <section className="space-y-5 enter-fade" style={{ animationDelay: '100ms' }}>
+        <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-hidden relative">
+          <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
+            <Sparkles size={18} /> Top 3 Eficiências
+          </h3>
+          <p className="text-xs text-slate-500 mb-4 -mt-3">Campanhas com o menor custo por resultado válido.</p>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {[...(payload?.campaigns || [])]
+              .filter(c => c.metrics.results > 0 && c.metrics.costPerResult !== null)
+              .sort((a, b) => (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
+              .slice(0, 3)
+              .map((camp, idx) => (
+                <div key={camp.campaign.id} className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 p-4 rounded-xl border border-slate-100 bg-slate-50/50 transition hover:bg-slate-50">
+                  <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
+                    <div className="flex-shrink-0 size-8 rounded-full bg-viasoft text-white flex items-center justify-center font-bold text-xs">
+                      #{idx + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate" title={camp.campaign.name}>{camp.campaign.name}</p>
+                      <p className="text-xs text-slate-500">{getObjectiveLabel(camp.campaign.objectiveCategory as any)}</p>
+                    </div>
+                  </div>
+                  <div className="text-left xl:text-right mt-1 xl:mt-0 w-full xl:w-auto">
+                    <p className="text-sm font-bold text-viasoft">{formatCurrency(camp.metrics.costPerResult!)}</p>
+                    <p className="text-[11px] text-slate-500">{formatNumber(camp.metrics.results)} resultados</p>
+                  </div>
+                </div>
+              ))}
+            {(!payload?.campaigns || payload.campaigns.filter(c => c.metrics.results > 0).length === 0) && (
+              <p className="text-sm text-slate-500 col-span-3">Métricas de eficiência não consolidadas para as campanhas filtradas.</p>
+            )}
+          </div>
+        </article>
+
+        <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-hidden relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
             <BarChart size={18} /> Alocações do Portfólio
           </h3>
@@ -282,7 +316,7 @@ export function ExecutiveDashboardClient({
                 {payload?.objectiveDistribution.map((dist) => (
                   <div key={dist.objectiveCategory}>
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="font-medium text-slate-800 truncate pr-2">{dist.objectiveCategory}</span>
+                      <span className="font-medium text-slate-800 truncate pr-2" title={getObjectiveLabel(dist.objectiveCategory as any)}>{getObjectiveLabel(dist.objectiveCategory as any)}</span>
                       <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -307,7 +341,7 @@ export function ExecutiveDashboardClient({
                 {payload?.statusDistribution.map((dist) => (
                   <div key={dist.deliveryGroup}>
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="font-medium text-slate-800 truncate pr-2">{dist.deliveryGroup}</span>
+                      <span className="font-medium text-slate-800 truncate pr-2" title={getDeliveryStatusLabel(dist.deliveryGroup)}>{getDeliveryStatusLabel(dist.deliveryGroup)}</span>
                       <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -332,7 +366,7 @@ export function ExecutiveDashboardClient({
                 {payload?.verticalDistribution.map((dist) => (
                   <div key={dist.verticalTag}>
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="font-medium text-slate-800 truncate pr-2">{dist.verticalTag || "sem-vertical"}</span>
+                      <span className="font-medium text-slate-800 truncate pr-2" title={dist.verticalTag || "sem-vertical"}>{dist.verticalTag || "sem-vertical"}</span>
                       <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -350,39 +384,6 @@ export function ExecutiveDashboardClient({
               </div>
             </div>
 
-          </div>
-        </article>
-
-        <article className="surface-panel border border-viasoft/15 bg-white p-6 md:col-span-4 overflow-hidden relative">
-          <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
-            <Sparkles size={18} /> Top 3 Eficiências
-          </h3>
-          <p className="text-xs text-slate-500 mb-4 -mt-3">Campanhas com o menor custo por resultado válido.</p>
-          <div className="space-y-3">
-            {[...(payload?.campaigns || [])]
-              .filter(c => c.metrics.results > 0 && c.metrics.costPerResult !== null)
-              .sort((a, b) => (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
-              .slice(0, 3)
-              .map((camp, idx) => (
-                <div key={camp.campaign.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50 transition hover:bg-slate-50">
-                  <div className="flex items-center gap-3 w-full sm:w-auto overflow-hidden">
-                    <div className="flex-shrink-0 size-8 rounded-full bg-viasoft text-white flex items-center justify-center font-bold text-xs">
-                      #{idx + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{camp.campaign.name}</p>
-                      <p className="text-xs text-slate-500">{camp.campaign.objectiveCategory}</p>
-                    </div>
-                  </div>
-                  <div className="text-right sm:min-w-[120px]">
-                    <p className="text-sm font-bold text-viasoft">{formatCurrency(camp.metrics.costPerResult!)}</p>
-                    <p className="text-xs text-slate-500">{formatNumber(camp.metrics.results)} resultados</p>
-                  </div>
-                </div>
-              ))}
-            {(!payload?.campaigns || payload.campaigns.filter(c => c.metrics.results > 0).length === 0) && (
-              <p className="text-sm text-slate-500">Métricas de eficiência não consolidadas para as campanhas filtradas.</p>
-            )}
           </div>
         </article>
       </section>
@@ -444,8 +445,8 @@ export function ExecutiveDashboardClient({
                     <span className="text-xs text-slate-400">ID: {row.campaign.id}</span>
                   </td>
                   <td className="py-3 px-2">
-                    <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                      {row.campaign.objectiveCategory}
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                      {getObjectiveLabel(row.campaign.objectiveCategory as any)}
                     </span>
                   </td>
                   <td className="py-3 px-2 text-right font-medium text-slate-900">{formatCurrency(row.metrics.spend)}</td>

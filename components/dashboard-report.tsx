@@ -23,6 +23,7 @@ import {
   formatNumberBR,
   formatPercentBR
 } from "@/utils/formatters";
+import { getObjectiveLabel, getDeliveryStatusLabel } from "@/utils/labels";
 
 type DashboardReportProps = {
   data: DashboardPayload;
@@ -50,37 +51,7 @@ type CampaignHeaderCardProps = {
   isPdf?: boolean;
 };
 
-function getObjectiveLabel(category: DashboardPayload["campaign"]["objectiveCategory"]): string {
-  switch (category) {
-    case "TRAFFIC":
-      return "Tráfego";
-    case "ENGAGEMENT":
-      return "Engajamento";
-    case "RECOGNITION":
-      return "Reconhecimento";
-    case "CONVERSIONS":
-      return "Conversão";
-    default:
-      return "Campanha";
-  }
-}
 
-function getDeliveryStatusLabel(status: DashboardPayload["campaign"]["deliveryGroup"]): string {
-  switch (status) {
-    case "ACTIVE":
-      return "Ativa";
-    case "PAUSED":
-      return "Pausada";
-    case "WITH_ISSUES":
-      return "Com problemas";
-    case "PENDING_REVIEW":
-      return "Em análise";
-    case "ARCHIVED":
-      return "Arquivada";
-    default:
-      return "Status não mapeado";
-  }
-}
 
 function getDeliveryStatusTone(status: DashboardPayload["campaign"]["deliveryGroup"]): string {
   switch (status) {
