@@ -275,7 +275,22 @@ export interface ExecutivePayload {
     objectiveCategory: ObjectiveCategory; 
     spend: number; 
     results: number; 
-    percent: number 
+    percent: number;
+    resultsPercent: number | null;
+  }[];
+  statusDistribution: {
+    deliveryGroup: string;
+    spend: number;
+    results: number;
+    percent: number;
+    resultsPercent: number | null;
+  }[];
+  verticalDistribution: {
+    verticalTag: string;
+    spend: number;
+    results: number;
+    percent: number;
+    resultsPercent: number | null;
   }[];
   insights: InsightMessage[];
   generatedAt: string;

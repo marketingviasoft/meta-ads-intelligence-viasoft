@@ -1,12 +1,15 @@
-"use client";
-
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ArrowRight, BarChart, ExternalLink, Loader2, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
-import { PerformanceChart } from "@/components/performance-chart";
+import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
+import { VerticalSelector } from "@/components/vertical-selector";
+import { OptionSelector } from "@/components/option-selector";
+import { PeriodSelector } from "@/components/period-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
-import { buildDashboardHref, type CampaignStatusFilterValue } from "@/lib/dashboard-query";
+import { buildDashboardHref, type CampaignStatusFilterValue, ALL_VERTICALS_VALUE, CAMPAIGN_STATUS_FILTER_ALL, DELIVERY_STATUS_FILTERS } from "@/lib/dashboard-query";
+import { SUPPORTED_VERTICALS } from "@/lib/verticals";
 import type { RangeDays, ExecutivePayload, DashboardCampaignSummary } from "@/lib/types";
 
 type ExecutiveDashboardClientProps = {
@@ -25,10 +28,53 @@ export function ExecutiveDashboardClient({
   initialDeliveryGroup,
   initialRangeDays
 }: ExecutiveDashboardClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [verticalTag, setVerticalTag] = useState<string>(initialVerticalTag ?? ALL_VERTICALS_VALUE);
+  const [deliveryGroup, setDeliveryGroup] = useState<CampaignStatusFilterValue>(initialDeliveryGroup);
+  const [rangeDays, setRangeDays] = useState<RangeDays>(initialRangeDays);
+
   const [payload, setPayload] = useState<ExecutivePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [refreshing, setRefreshing] = useState(false);
+
+  const updateUrl = useCallback((newVertical: string, newDelivery: string, newRange: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (newVertical && newVertical !== ALL_VERTICALS_VALUE) {
+      params.set("verticalTag", newVertical);
+    } else {
+      params.delete("verticalTag");
+    }
+
+    if (newDelivery !== CAMPAIGN_STATUS_FILTER_ALL) {
+      params.set("deliveryGroup", newDelivery);
+    } else {
+      params.delete("deliveryGroup");
+    }
+
+    params.set("rangeDays", String(newRange));
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const handleVerticalChange = (val: string) => {
+    setVerticalTag(val);
+    updateUrl(val, deliveryGroup, rangeDays);
+  };
+
+  const handleDeliveryChange = (val: string) => {
+    const nextVal = val as CampaignStatusFilterValue;
+    setDeliveryGroup(nextVal);
+    updateUrl(verticalTag, nextVal, rangeDays);
+  };
+
+  const handleRangeChange = (val: RangeDays) => {
+    setRangeDays(val);
+    updateUrl(verticalTag, deliveryGroup, val);
+  };
 
   const loadData = useCallback(async (refresh = false) => {
     try {
@@ -37,9 +83,9 @@ export function ExecutiveDashboardClient({
       if (refresh) setRefreshing(true);
       
       const params = new URLSearchParams({
-        verticalTag: initialVerticalTag ?? "",
-        deliveryGroup: initialDeliveryGroup,
-        rangeDays: String(initialRangeDays),
+        verticalTag: verticalTag === ALL_VERTICALS_VALUE ? "" : verticalTag,
+        deliveryGroup: deliveryGroup,
+        rangeDays: String(rangeDays),
       });
       if (refresh) params.set("refresh", "1");
 
@@ -58,7 +104,7 @@ export function ExecutiveDashboardClient({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [initialVerticalTag, initialDeliveryGroup, initialRangeDays]);
+  }, [verticalTag, deliveryGroup, rangeDays]);
 
   useEffect(() => {
     void loadData();
@@ -96,30 +142,61 @@ export function ExecutiveDashboardClient({
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8 space-y-6">
       
       {/* 1. Header Executivo */}
-      <header className="surface-panel enter-fade p-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
-            <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
-              <BrandMark variant="icon" size={13} />
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
-              {PUBLICATION_NAME}
-            </span>
+      <header className="surface-panel enter-fade p-6 flex flex-col gap-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
+              <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
+                <BrandMark variant="icon" size={13} />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                {PUBLICATION_NAME}
+              </span>
+            </div>
+            <h1 className="mt-1 text-3xl font-semibold text-viasoft">Panorama Gerencial da Carteira</h1>
+            <p className="mt-2 text-sm text-slate-600 max-w-2xl">
+              {payload?.campaigns.length} campanhas selecionadas neste escopo global. Os resultados são apresentados com base nos objetivos de cada campanha de modo isolado.
+            </p>
           </div>
-          <h1 className="mt-1 text-3xl font-semibold text-viasoft">Panorama Gerencial da Carteira</h1>
-          <p className="mt-2 text-sm text-slate-600 max-w-2xl">
-            {payload?.campaigns.length} campanhas selecionadas neste escopo global. Os resultados são apresentados com base nos objetivos de cada campanha de modo isolado.
-          </p>
+          <div className="flex items-center gap-3 shrink-0">
+            <button 
+              disabled={refreshing || loading}
+              onClick={() => void loadData(true)}
+              className="hover-lift flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              Atualizar
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
-            disabled={refreshing}
-            onClick={() => void loadData(true)}
-            className="hover-lift flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-            Atualizar
-          </button>
+
+        {/* Filtros Internos */}
+        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 mt-2">
+          <div className="w-full sm:w-auto sm:min-w-[200px]">
+            <VerticalSelector
+              verticals={[...SUPPORTED_VERTICALS]}
+              value={verticalTag}
+              onChange={handleVerticalChange}
+              allOptionValue={ALL_VERTICALS_VALUE}
+              disabled={loading || refreshing}
+            />
+          </div>
+          <div className="w-full sm:w-auto sm:min-w-[180px]">
+            <OptionSelector
+              label="Veiculação"
+              options={DELIVERY_STATUS_FILTERS}
+              value={deliveryGroup}
+              onChange={handleDeliveryChange}
+              disabled={loading || refreshing}
+            />
+          </div>
+          <div className="w-full sm:w-auto sm:min-w-[160px]">
+            <PeriodSelector
+              value={rangeDays}
+              onChange={handleRangeChange}
+              disabled={loading || refreshing}
+            />
+          </div>
         </div>
       </header>
 
@@ -130,12 +207,22 @@ export function ExecutiveDashboardClient({
           <div className="mt-2 text-2xl font-bold text-slate-900">{formatCurrency(payload?.globalMetrics.spend || 0)}</div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Resultados Totais</span>
-          <div className="mt-2 text-2xl font-bold text-viasoft">{formatNumber(payload?.globalMetrics.results || 0)}</div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ações no Objetivo</span>
+          </div>
+          <div className="mt-2">
+            <span className="text-2xl font-bold text-slate-900">{formatNumber(payload?.globalMetrics.results || 0)}</span>
+            <p className="text-[10px] font-medium text-slate-400 mt-1 leading-tight">Soma multi-objetivo</p>
+          </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo per Result (Méd)</span>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{payload?.globalMetrics.costPerResult ? formatCurrency(payload.globalMetrics.costPerResult) : '-'}</div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo per Ação (Méd)</span>
+          </div>
+          <div className="mt-2">
+            <span className="text-2xl font-bold text-slate-900">{payload?.globalMetrics.costPerResult ? formatCurrency(payload.globalMetrics.costPerResult) : '-'}</span>
+            <p className="text-[10px] font-medium text-slate-400 mt-1 leading-tight">Média do portfólio</p>
+          </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between min-h-[110px]">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Impressões Entregues</span>
@@ -145,33 +232,91 @@ export function ExecutiveDashboardClient({
 
       {/* 6. Distribuições de Verba e 5. Rankings */}
       <section className="grid md:grid-cols-12 gap-6 enter-fade" style={{ animationDelay: '100ms' }}>
-        <article className="surface-panel p-6 md:col-span-5">
+        <article className="surface-panel p-6 md:col-span-8">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
-            <BarChart size={18} /> Verba por Propósito
+            <BarChart size={18} /> Alocações do Portfólio
           </h3>
-          <div className="space-y-4">
-            {payload?.objectiveDistribution.map((dist) => (
-              <div key={dist.objectiveCategory}>
-                <div className="flex justify-between text-sm mb-1.5">
-                  <span className="font-medium text-slate-800">{dist.objectiveCategory}</span>
-                  <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
-                </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-viasoft rounded-full" style={{ width: `${dist.percent}%` }} />
-                </div>
-                <div className="mt-1 flex justify-between text-xs text-slate-500">
-                  <span>{formatPercent(dist.percent)} do total</span>
-                  <span>{formatNumber(dist.results)} res. gerados</span>
-                </div>
+          <div className="grid sm:grid-cols-3 gap-6">
+            
+            {/* Por Objetivo */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">Por Objetivo</h4>
+              <div className="space-y-4">
+                {payload?.objectiveDistribution.map((dist) => (
+                  <div key={dist.objectiveCategory}>
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="font-medium text-slate-800 truncate pr-2">{dist.objectiveCategory}</span>
+                      <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-viasoft rounded-full" style={{ width: `${dist.percent}%` }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                      <span>{formatPercent(dist.percent)} verba</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                    </div>
+                  </div>
+                ))}
+                {payload?.objectiveDistribution.length === 0 && (
+                  <p className="text-xs text-slate-500">Sem dados.</p>
+                )}
               </div>
-            ))}
-            {payload?.objectiveDistribution.length === 0 && (
-              <p className="text-sm text-slate-500">Sem atividades de investimento no período.</p>
-            )}
+            </div>
+
+            {/* Por Status */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">Por Status</h4>
+              <div className="space-y-4">
+                {payload?.statusDistribution.map((dist) => (
+                  <div key={dist.deliveryGroup}>
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="font-medium text-slate-800 truncate pr-2">{dist.deliveryGroup}</span>
+                      <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${dist.percent}%` }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                      <span>{formatPercent(dist.percent)} verba</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                    </div>
+                  </div>
+                ))}
+                {payload?.statusDistribution.length === 0 && (
+                  <p className="text-xs text-slate-500">Sem dados.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Por Vertical */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">Por Vertical</h4>
+              <div className="space-y-4">
+                {payload?.verticalDistribution.map((dist) => (
+                  <div key={dist.verticalTag}>
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="font-medium text-slate-800 truncate pr-2">{dist.verticalTag || "sem-vertical"}</span>
+                      <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full" style={{ width: `${dist.percent}%` }} />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                      <span>{formatPercent(dist.percent)} verba</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                    </div>
+                  </div>
+                ))}
+                {payload?.verticalDistribution.length === 0 && (
+                  <p className="text-xs text-slate-500">Sem dados.</p>
+                )}
+              </div>
+            </div>
+
           </div>
         </article>
 
-        <article className="surface-panel p-6 md:col-span-7">
+        <article className="surface-panel p-6 md:col-span-4">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
             <Sparkles size={18} /> Top 3 Eficiências 
           </h3>
@@ -209,8 +354,7 @@ export function ExecutiveDashboardClient({
       {payload?.chart && payload.chart.length > 0 && (
         <section className="surface-panel p-6 enter-fade" style={{ animationDelay: '120ms' }}>
           <h3 className="text-base font-semibold text-viasoft mb-6">Evolução Consolidada</h3>
-          {/* Defaulting to CONVERSIONS visually just to preserve the primary metric color mapping, since it's an aggregate */}
-          <PerformanceChart data={payload.chart} objectiveCategory="CONVERSIONS" isMetricComparison={false} />
+          <ExecutivePerformanceChart data={payload.chart} />
         </section>
       )}
 
@@ -238,9 +382,9 @@ export function ExecutiveDashboardClient({
               <tr className="border-b border-slate-200 text-slate-500 font-medium">
                 <th className="pb-3 px-2">Campanha</th>
                 <th className="pb-3 px-2">Objetivo</th>
-                <th className="pb-3 px-2 text-right">Custo</th>
-                <th className="pb-3 px-2 text-right">Resultados</th>
-                <th className="pb-3 px-2 text-right">CPR</th>
+                <th className="pb-3 px-2 text-right">Investimento</th>
+                <th className="pb-3 px-2 text-right">Ações (Res.)</th>
+                <th className="pb-3 px-2 text-right">Custo / Ação</th>
                 <th className="pb-3 px-2 w-[100px]"></th>
               </tr>
             </thead>
@@ -263,9 +407,9 @@ export function ExecutiveDashboardClient({
                     <Link
                       href={buildDashboardHref({
                         pathname: "/dashboard/campanhas",
-                        verticalTag: initialVerticalTag,
-                        deliveryGroup: initialDeliveryGroup,
-                        rangeDays: initialRangeDays,
+                        verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
+                        deliveryGroup: deliveryGroup,
+                        rangeDays: rangeDays,
                         campaignId: row.campaign.id
                       })}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-viasoft opacity-0 group-hover:opacity-100 transition focus:opacity-100 px-3 py-1.5 rounded-lg hover:bg-viasoft/10"

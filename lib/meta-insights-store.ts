@@ -36,6 +36,7 @@ import { supabase } from "@/lib/supabaseClient.js";
 import { extractVerticalTagFromCampaignName, FALLBACK_VERTICAL_TAG } from "@/utils/campaign-tags";
 import { buildDateRange, isValidRangeDays } from "@/utils/date-range";
 import { generateInsights } from "@/utils/insights-engine";
+import { generateExecutiveInsights } from "@/utils/executive-insights";
 import { buildMetricComparison, buildMetricSnapshot, buildDailyMetricPoints } from "@/utils/metrics";
 import { buildCurrentMonthToCurrentDateRange } from "@/utils/month-range";
 import { toNumber } from "@/utils/numbers";
@@ -1583,21 +1584,54 @@ export async function getExecutivePayloadFromStore(params: {
       costPerResult: pt.results > 0 ? pt.spend / pt.results : null
     }));
 
-  // 6. Objective Distribution
-  const distMap = new Map<ObjectiveCategory, { spend: number, results: number }>();
+  // 6. Distributions (Objective, Status, Vertical)
+  const distObjMap = new Map<string, { spend: number, results: number }>();
+  const distStatusMap = new Map<string, { spend: number, results: number }>();
+  const distVerticalMap = new Map<string, { spend: number, results: number }>();
+
   for (const sum of campaignSummaries) {
+    // Objective
     const cat = sum.campaign.objectiveCategory;
-    if (!distMap.has(cat)) distMap.set(cat, { spend: 0, results: 0 });
-    const d = distMap.get(cat)!;
-    d.spend += sum.metrics.spend;
-    d.results += sum.metrics.results;
+    if (!distObjMap.has(cat)) distObjMap.set(cat, { spend: 0, results: 0 });
+    const dObj = distObjMap.get(cat)!;
+    dObj.spend += sum.metrics.spend;
+    dObj.results += sum.metrics.results;
+
+    // Status (Delivery Group)
+    const status = sum.campaign.deliveryGroup;
+    if (!distStatusMap.has(status)) distStatusMap.set(status, { spend: 0, results: 0 });
+    const dStatus = distStatusMap.get(status)!;
+    dStatus.spend += sum.metrics.spend;
+    dStatus.results += sum.metrics.results;
+
+    // Vertical
+    const vertical = sum.campaign.verticalTag;
+    if (!distVerticalMap.has(vertical)) distVerticalMap.set(vertical, { spend: 0, results: 0 });
+    const dVert = distVerticalMap.get(vertical)!;
+    dVert.spend += sum.metrics.spend;
+    dVert.results += sum.metrics.results;
   }
-  const objectiveDistribution = Array.from(distMap.entries()).map(([cat, vals]) => ({
-    objectiveCategory: cat,
-    spend: vals.spend,
-    results: vals.results,
-    percent: currentGlobal.spend > 0 ? (vals.spend / currentGlobal.spend) * 100 : 0
-  })).sort((a, b) => b.spend - a.spend);
+
+  const mapToDistArray = <T extends string>(
+    map: Map<T, { spend: number, results: number }>,
+    keyName: string
+  ) => {
+    return Array.from(map.entries()).map(([key, vals]) => {
+      const percent = currentGlobal.spend > 0 ? (vals.spend / currentGlobal.spend) * 100 : 0;
+      const resultsPercent = currentGlobal.results > 0 ? (vals.results / currentGlobal.results) * 100 : null;
+      return {
+        [keyName]: key,
+        spend: vals.spend,
+        results: vals.results,
+        percent,
+        resultsPercent,
+      };
+    }).sort((a, b) => b.spend - a.spend);
+  };
+
+  const objectiveDistribution = mapToDistArray(distObjMap, "objectiveCategory") as any[];
+  const statusDistribution = mapToDistArray(distStatusMap, "deliveryGroup") as any[];
+  const verticalDistribution = mapToDistArray(distVerticalMap, "verticalTag") as any[];
 
   const payload: ExecutivePayload = {
     range,
@@ -1606,7 +1640,14 @@ export async function getExecutivePayloadFromStore(params: {
     chart,
     campaigns: campaignSummaries,
     objectiveDistribution,
-    insights: [], // Future: Implement global insights engine if needed
+    statusDistribution,
+    verticalDistribution,
+    insights: generateExecutiveInsights({
+      campaigns: campaignSummaries,
+      globalMetrics: currentGlobal,
+      comparison,
+      objectiveDistribution
+    }),
     generatedAt: new Date().toISOString()
   };
 
