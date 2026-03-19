@@ -22,9 +22,9 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 - suporta campanhas fora do estado estritamente ativo;
 - possui budget mensal por vertical com ciclo Meta e imposto;
 - possui comparativos entre grupos de anúncios e anúncios;
-- possui duas visões no dashboard:
-  - `Resumo Executivo` em `/dashboard/executivo`
-  - `Análise por Campanha` em `/dashboard/campanhas`
+- possui duas visões principais no dashboard:
+  - `Resumo Executivo` em `/dashboard/executivo` (dashboard gerencial consolidado com leitura macro e filtros interativos nativos)
+  - `Análise por Campanha` em `/dashboard/campanhas` (leitura operacional profunda com drill-down)
 
 ## Stack
 
@@ -40,7 +40,7 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 
 ## O que a aplicação entrega hoje
 
-- visão executiva estruturada para leitura macro do portfólio de campanhas;
+- visão executiva interativa para leitura macro consolidada, com distribuições, rankings e insights da carteira de campanhas;
 - visão analítica por campanha com filtros de vertical, veiculação, campanha e período;
 - budget mensal por vertical;
 - comparativo automático com período anterior equivalente;
@@ -58,8 +58,8 @@ A área principal do produto fica em `/dashboard` e possui duas visões irmãs:
 
 ### 1. Resumo Executivo
 - rota: `/dashboard/executivo`
-- leitura macro/gerencial
-- usa filtros globais compartilhados pela URL:
+- leitura macro consolidada e painel gerencial interativo;
+- usa controles visuais interativos na própria tela para os filtros globais que preservam estado via URL:
   - `verticalTag`
   - `deliveryGroup`
   - `rangeDays`
@@ -189,5 +189,5 @@ npm run typecheck
 * budget mensal da vertical inclui o dia atual como parcial;
 * preview de anúncios continua Meta-direct;
 * sem métricas inventadas;
-* insights em `utils/insights-engine.ts`;
+* insights consumidos via `utils/insights-engine.ts` (analítico) e `utils/executive-insights.ts` (executivo), utilizando padronização de labels via `utils/labels.ts`;
 * navegação executiva/analítica preserva filtros globais via query string.

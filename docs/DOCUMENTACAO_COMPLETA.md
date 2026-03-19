@@ -82,9 +82,10 @@ A área principal da aplicação foi organizada em duas visões irmãs, com nave
 
 ### 1. Resumo Executivo
 - rota: `/dashboard/executivo`
-- foco: leitura macro/gerencial
-- objetivo: consolidar KPIs, rankings, distribuições e visão geral da carteira de campanhas
-- não depende de `campaignId` para funcionar
+- foco: leitura macro e painel gerencial interativo
+- objetivo: consolidar KPIs globais, exibir gráfico de evolução neutro, distribuições (objetivo, vertical, status), listar rankings/alocações de eficiência, prover tabela analítica de drill-down interativa e gerar insights de carteira.
+- dispõe de controles interativos nativos na própria interface para mapeamento dos filtros globais.
+- não depende de `campaignId` para funcionar.
 
 ### 2. Análise por Campanha
 - rota: `/dashboard/campanhas`
@@ -260,14 +261,17 @@ A página analítica está organizada nesta ordem:
 12. Recomendações por objetivo
 
 ### Visão executiva
-A visão executiva foi criada para comportar leitura macro, desacoplada da campanha específica.
+A visão executiva foi refatorada para funcionar como um ambiente gerencial consolidado, robusto e totalmente interativo na própria tela.
 
 Responsabilidade dessa visão:
-- consolidar KPIs executivos;
-- mostrar evolução temporal consolidada;
-- priorizar rankings e distribuições;
-- permitir navegação para a análise detalhada por `campaignId`;
-- crescer sem inflar o `DashboardClient`.
+- consolidar KPIs executivos globais utilizando seletores na própria interface;
+- exibir gráfico de desempenho consolidado (independente de objetivos isolados);
+- mostrar painéis de distribuição da carteira por "Objetivo", "Vertical" e "Status";
+- listar os rankings macro, como "Top 3 Eficiências" e "Alocações do Portfólio";
+- prover uma tabela interativa de "Listagem e Detalhamento" com um botão dedicado de drill-down;
+- gerar leitura de "Insights de Carteira" amigáveis processados através do motor `utils/executive-insights.ts` via endpoint de dados executivos;
+- permitir navegação fluida para a análise detalhada por `campaignId` através da URL e preservar o estado;
+- manter um consumo limpo e contido sem inflar o `DashboardClient` analítico.
 
 ## PDF atual
 A exportação de PDF foi refatorada várias vezes e hoje está em fluxo dinâmico.

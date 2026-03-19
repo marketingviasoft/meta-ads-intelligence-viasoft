@@ -9,6 +9,7 @@ Hoje a aplicação está em arquitetura `Supabase-first`:
 - o objetivo operacional é reduzir latência, evitar 502/timeout e manter leitura estável para marketing e gestão.
 
 ## O que o produto faz hoje
+- Oferece Dashboard Gerencial consolidado (Visão Executiva) com leitura macro, filtros interativos na própria tela, rankings, distribuições e insights da carteira.
 - Lista campanhas por vertical com catálogo ampliado, não restrito a campanhas ativas.
 - Permite filtrar por:
   - `Vertical`

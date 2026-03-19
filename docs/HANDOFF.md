@@ -35,9 +35,9 @@ A home (`/`) redireciona para `/dashboard/executivo`.
 
 ### Visão executiva
 Fluxo esperado:
-1. aplicar filtros globais;
-2. ler panorama consolidado da carteira;
-3. navegar para a análise detalhada por `campaignId` quando necessário.
+1. aplicar filtros globais diretamente nos seletores interativos da tela;
+2. ler panorama consolidado da carteira (KPIs, gráfico neutro, distribuições, alocações e insights automáticos via `utils/executive-insights.ts`);
+3. navegar para a análise detalhada por `campaignId` usando o atalho de drill-down na tabela.
 
 ### Visão analítica
 Fluxo atual:

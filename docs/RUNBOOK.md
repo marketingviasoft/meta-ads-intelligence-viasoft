@@ -15,11 +15,18 @@ npm run typecheck
 npm run lint
 ```
 
-## 2. Fluxo de validacao local
 ### Dashboard
 1. Subir `npm run dev`
-2. Abrir `http://localhost:3000`
-3. Validar:
+2. Abrir `http://localhost:3000` (redirecionará para `/dashboard/executivo`)
+3. Validar Visão Executiva:
+   - seletores interativos
+   - cards de KPI consolidados
+   - gráfico de evolução da carteira
+   - painéis de distribuição (objetivo, vertical, status)
+   - rankings (top eficiências e alocações)
+   - insights de carteira
+   - tabela de listagem e botão de drill-down analítico
+4. Validar Visão Analítica (/dashboard/campanhas):
    - header e branding
    - seletores
    - budget mensal
@@ -30,8 +37,6 @@ npm run lint
    - tendencia
    - grafico
    - insights/recomendacoes
-
-### PDF
 1. Selecionar campanha ou vertical
 2. Acionar `Gerar PDF`
 3. Validar se a ordem das paginas bate com o contrato atual
