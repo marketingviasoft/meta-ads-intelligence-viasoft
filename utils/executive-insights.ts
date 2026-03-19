@@ -4,6 +4,7 @@ import type {
   ExecutiveMetricComparison, 
   InsightMessage 
 } from "@/lib/types";
+import { getObjectiveLabel } from "@/utils/labels";
 
 interface ExecutiveInsightsParams {
   campaigns: DashboardCampaignSummary[];
@@ -85,7 +86,7 @@ export function generateExecutiveInsights({
       insights.push({
         type: "info",
         title: "Estratégia Focada",
-        message: `Quase todo o orçamento (${topObjectiveSpend.percent.toFixed(1)}%) está direcionado para o objetivo de ${topObjectiveSpend.objectiveCategory}.`
+        message: `Quase todo o orçamento (${topObjectiveSpend.percent.toFixed(1)}%) está direcionado para o objetivo de ${getObjectiveLabel(topObjectiveSpend.objectiveCategory as any)}.`
       });
     }
 
@@ -94,7 +95,7 @@ export function generateExecutiveInsights({
       insights.push({
         type: "opportunity",
         title: "Oportunidade de Alocação",
-        message: `A maior parte da verba vai para ${topObjectiveSpend.objectiveCategory} (${formatAsBRL(topObjectiveSpend.spend)}), mas o volume primário de resultados vem de campanhas de ${topObjectiveResults.objectiveCategory}.`
+        message: `A maior parte da verba vai para ${getObjectiveLabel(topObjectiveSpend.objectiveCategory as any)} (${formatAsBRL(topObjectiveSpend.spend)}), mas o volume primário de resultados vem de campanhas de ${getObjectiveLabel(topObjectiveResults.objectiveCategory as any)}.`
       });
     }
   }

@@ -182,10 +182,10 @@ export function ExecutiveDashboardClient({
             <button
               disabled={refreshing || loading}
               onClick={() => void loadData(true)}
-              className="hover-lift flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+              className="hover-lift inline-flex h-11 w-full sm:w-[190px] items-center justify-center gap-2 rounded-xl bg-viasoft px-4 text-sm font-semibold text-white shadow-sm shadow-viasoft/25 transition hover:bg-viasoft-700 active:bg-viasoft-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/25 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-              Atualizar
+              {refreshing ? "Atualizando dados..." : "Atualizar Dados"}
             </button>
           </div>
         </div>
@@ -221,7 +221,7 @@ export function ExecutiveDashboardClient({
       </header>
 
       {/* 3. Cards KPI Consolidados */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
         <MetricCard
           metricKey="spend"
           title="Investimento Total"
@@ -243,18 +243,6 @@ export function ExecutiveDashboardClient({
           deltaPercent={payload?.comparison?.deltas?.results?.percent ?? null}
           noPrevData={!payload?.comparison}
           highlighted
-        />
-        <MetricCard
-          metricKey="cpc"
-          title="Custo per Ação (Méd)"
-          note="Média do portfólio"
-          value={payload?.globalMetrics.costPerResult ? formatCurrency(payload.globalMetrics.costPerResult) : '-'}
-          icon={<Coins size={16} />}
-          previousValue={payload?.comparison?.previous?.costPerResult ? formatCurrency(payload.comparison.previous.costPerResult) : undefined}
-          deltaAbsolute={payload?.comparison?.deltas?.costPerResult?.absolute ?? null}
-          deltaPercent={payload?.comparison?.deltas?.costPerResult?.percent ?? null}
-          noPrevData={!payload?.comparison}
-          inverse
         />
         <MetricCard
           metricKey="impressions"
@@ -428,13 +416,13 @@ export function ExecutiveDashboardClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500 font-medium">
-                <th className="pb-3 px-2">Campanha</th>
-                <th className="pb-3 px-2">Objetivo</th>
+              <tr className="border-b border-slate-200 text-slate-500 font-medium pb-2">
+                <th className="pb-3 px-2 text-left">Campanha</th>
+                <th className="pb-3 flex justify-center text-center">Objetivo</th>
                 <th className="pb-3 px-2 text-right">Investimento</th>
                 <th className="pb-3 px-2 text-right">Ações (Res.)</th>
                 <th className="pb-3 px-2 text-right">Custo / Ação</th>
-                <th className="pb-3 px-2 w-[100px]"></th>
+                <th className="pb-3 pl-2 pr-0 w-[48px]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -444,23 +432,16 @@ export function ExecutiveDashboardClient({
                     <span className="font-semibold text-slate-800 truncate" title={row.campaign.name}>{row.campaign.name}</span>
                     <span className="text-xs text-slate-400">ID: {row.campaign.id}</span>
                   </td>
-                  <td className="py-3 px-2">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                  <td className="py-3 px-2 text-center">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
                       {getObjectiveLabel(row.campaign.objectiveCategory as any)}
                     </span>
                   </td>
                   <td className="py-3 px-2 text-right font-medium text-slate-900">{formatCurrency(row.metrics.spend)}</td>
-                  <td className="py-3 px-2 text-right text-slate-700">{formatNumber(row.metrics.results)}</td>
-                  <td className="py-3 px-2 text-right text-slate-700">{row.metrics.costPerResult ? formatCurrency(row.metrics.costPerResult) : '-'}</td>
-                  <td className="py-3 px-2 text-right">
+                  <td className="py-3 px-2 text-right font-medium text-slate-900">{formatNumber(row.metrics.results)}</td>
+                  <td className="py-3 px-2 text-right font-medium text-slate-900">{row.metrics.costPerResult ? formatCurrency(row.metrics.costPerResult) : '-'}</td>
+                  <td className="py-3 pl-2 pr-0 text-right">
                     <Link
-                      href={buildDashboardHref({
-                        pathname: "/dashboard/campanhas",
-                        verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
-                        deliveryGroup: deliveryGroup,
-                        rangeDays: rangeDays,
-                        campaignId: row.campaign.id
-                      })}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-viasoft opacity-0 group-hover:opacity-100 transition focus:opacity-100 px-3 py-1.5 rounded-lg hover:bg-viasoft/10"
                     >
                       Analítico <ArrowRight size={14} />
