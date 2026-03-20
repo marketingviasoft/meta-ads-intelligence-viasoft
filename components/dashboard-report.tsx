@@ -24,6 +24,7 @@ import {
   formatPercentBR
 } from "@/utils/formatters";
 import { getObjectiveLabel, getDeliveryStatusLabel } from "@/utils/labels";
+import { META_INVESTMENT_TAX_RATE } from "@/lib/constants";
 
 type DashboardReportProps = {
   data: DashboardPayload;

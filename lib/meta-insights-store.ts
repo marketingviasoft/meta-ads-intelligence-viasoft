@@ -46,6 +46,17 @@ import {
   type CampaignStatusFilterValue
 } from "@/lib/dashboard-query";
 import { resolveSupportedVertical } from "@/lib/verticals";
+import {
+  inferObjectiveFromCampaignName,
+  inferObjectiveCategory,
+  normalizeString
+} from "@/lib/objective-helpers";
+import {
+  META_INVESTMENT_TAX_RATE,
+  DEFAULT_VERTICAL_MONTHLY_CAP,
+  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX,
+  CAMPAIGN_STATUS_LOOKBACK_DAYS
+} from "@/lib/constants";
 
 type MetaCampaignInsightStoreRow = {
   date: string;
@@ -83,6 +94,7 @@ type MetaCampaignInsightStoreRow = {
   conversion_rate_ranking?: string | null;
   actions?: Record<string, unknown> | string | null;
   cost_per_action_type?: Record<string, unknown> | string | null;
+  objective_category?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -144,57 +156,17 @@ const STORE_SELECT_FIELDS = [
   "conversion_rate_ranking",
   "actions",
   "cost_per_action_type",
+  "objective_category",
   "created_at",
   "updated_at"
 ].join(",");
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const DEFAULT_VERTICAL_MONTHLY_CAP = 535;
-const META_INVESTMENT_TAX_RATE = 0.1215;
-const VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX = 1000;
 const VIASOFT_VERTICAL_MONTHLY_CAP =
   VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
-const CAMPAIGN_STATUS_LOOKBACK_DAYS = 180;
 
-function normalizeString(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
 
-function inferObjectiveFromCampaignName(campaignName: string): string {
-  const match = campaignName.match(/^\s*\[[^\]]+\]\s*\[[^\]]+\]\s*\[([^\]]+)\]/u);
-  const rawObjective = match?.[1]?.trim();
+  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
 
-  if (!rawObjective) {
-    return "CONVERSIONS";
-  }
-
-  return rawObjective;
-}
-
-function inferObjectiveCategory(rawObjective: string): ObjectiveCategory {
-  const objective = normalizeString(rawObjective);
-
-  if (objective.includes("trafego") || objective.includes("traffic") || objective.includes("clique")) {
-    return "TRAFFIC";
-  }
-
-  if (objective.includes("engajamento") || objective.includes("engagement")) {
-    return "ENGAGEMENT";
-  }
-
-  if (
-    objective.includes("reconhecimento") ||
-    objective.includes("awareness") ||
-    objective.includes("reach")
-  ) {
-    return "RECOGNITION";
-  }
-
-  return "CONVERSIONS";
-}
 
 function resolveVerticalMonthlyCap(verticalTag: string): number {
   if (verticalTag.localeCompare("VIASOFT", "pt-BR", { sensitivity: "base" }) === 0) {
@@ -1167,7 +1139,7 @@ export async function getDashboardPayloadFromStore(params: {
     previousRowsRaw[0]?.campaign_name?.trim() ||
     `Campanha ${campaignId}`;
   const objective = latestRow?.objective?.trim() || inferObjectiveFromCampaignName(campaignName);
-  const objectiveCategory = inferObjectiveCategory(objective);
+  const objectiveCategory = (latestRow?.objective_category as ObjectiveCategory) || inferObjectiveCategory(objective);
   const campaignStatus = inferStatusFromRows(currentRowsRaw, range.until, latestRow);
   const campaignFromRows = buildMetaCampaignFromRows(campaignId, currentRowsRaw, range.until);
   const campaign = campaignFromRows

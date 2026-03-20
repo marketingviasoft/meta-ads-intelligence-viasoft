@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient.js";
+import { inferObjectiveFromCampaignName, inferObjectiveCategory } from "@/lib/objective-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -535,7 +536,16 @@ async function fetchMetaList(path, query) {
     }
 
     const payload = await fetchMetaJsonWithRetry(nextUrl);
-    rows.push(...(payload?.data ?? []));
+    const fetchedBatch = payload?.data ?? [];
+    rows.push(...fetchedBatch);
+    
+    console.log(JSON.stringify({
+      event: "SYNC_PAGE_FETCHED",
+      page: pageCount + 1,
+      records: fetchedBatch.length,
+      path: path.split("/").slice(-1)[0] || path
+    }));
+
     nextUrl = payload?.paging?.next ?? null;
     pageCount += 1;
   }
@@ -1469,6 +1479,9 @@ function normalizeInsightRowsForSupabase(
       ad_id: adId || "",
       ad_name: adName,
       objective: campaignMetadata?.objective ?? null,
+      objective_category: inferObjectiveCategory(
+        campaignMetadata?.objective ?? inferObjectiveFromCampaignName(campaignName)
+      ),
       effective_status: campaignMetadata?.effectiveStatus ?? "UNKNOWN",
       configured_status: campaignMetadata?.configuredStatus ?? "UNKNOWN",
       delivery_status: impressions > 0 || spend > 0 ? "ACTIVE" : "WITHOUT_DELIVERY",
@@ -1617,7 +1630,17 @@ function validateSupabaseEnv() {
 }
 
 export async function GET(request) {
+  const startTime = Date.now();
+  const isCron = request.headers.get("user-agent")?.toLowerCase().includes("vercel-cron") || !!request.headers.get("x-cron-secret");
+  
+  console.log(JSON.stringify({
+    event: "SYNC_START",
+    mode: isCron ? "cron" : "manual",
+    time: startTime
+  }));
+
   if (!isAuthorized(request)) {
+    console.warn(JSON.stringify({ event: "SYNC_UNAUTHORIZED", time: Date.now() }));
     return NextResponse.json({ error: "Não autorizado", syncVersion: SYNC_VERSION }, { status: 401 });
   }
 
@@ -1686,6 +1709,14 @@ export async function GET(request) {
       onConflict: "date,campaign_id,adset_id,ad_id"
     });
 
+    const durationMs = Date.now() - startTime;
+    console.log(JSON.stringify({
+      event: "SYNC_SUCCESS",
+      time: Date.now(),
+      durationMs,
+      totalRecords: syncedInsights + syncedAdSets + syncedAds
+    }));
+
     return NextResponse.json({
       success: true,
       syncVersion: SYNC_VERSION,
@@ -1697,7 +1728,18 @@ export async function GET(request) {
       range
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha ao sincronizar Meta -> Supabase";
+    const message = error instanceof Error ? error.message : String(error ?? "Falha ao sincronizar Meta -> Supabase");
+    const stack = error instanceof Error ? error.stack : undefined;
+    const isSupabaseError = message.toLowerCase().includes("supabase");
+    
+    console.error(JSON.stringify({
+      event: "SYNC_ERROR",
+      message,
+      stack,
+      source: isSupabaseError ? "Supabase" : "Meta",
+      time: Date.now()
+    }));
+
     return NextResponse.json(
       {
         success: false,
