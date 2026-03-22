@@ -37,6 +37,7 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 - Supabase (camada principal de leitura analítica)
 - Puppeteer Core + @sparticuz/chromium
 - Meta Graph API (sincronização via cron + preview pontual)
+- Vitest (Testes unitários)
 
 ## O que a aplicação entrega hoje
 
@@ -48,6 +49,8 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 - KPIs de investimento, impressões, cliques, CTR, CPC e resultado principal por objetivo;
 - tendência consolidada e performance diária;
 - insights automáticos e recomendações por objetivo;
+- labels amigáveis e utilitários semânticos compartilhados (via `utils/`);
+- infraestrutura básica de testes unitários para a lógica de metadados;
 - cache em memória para consultas do dashboard;
 - botão `Atualizar Dados` com invalidação manual de cache;
 - PDF gerado em backend pela rota `/api/pdf`.
@@ -95,10 +98,15 @@ A área principal do produto fica em `/dashboard` e possui duas visões irmãs:
     /executivo
     /campanhas
   /pdf
+/__tests__
 /components
 /lib
+  constants.ts
 /services
 /utils
+  executive-insights.ts
+  labels.ts
+  objective.ts
 /pdf
 /docs
   /sql
@@ -166,6 +174,7 @@ npm run build
 npm run start
 npm run lint
 npm run typecheck
+npm run test
 ```
 
 ## Rotas principais

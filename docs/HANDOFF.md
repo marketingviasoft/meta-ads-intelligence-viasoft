@@ -82,11 +82,15 @@ Fluxo atual do PDF por campanha:
 Fluxo especial:
 - se houver apenas `verticalTag`, o sistema gera PDF compacto de budget da vertical.
 
-## Limitações conhecidas
-- preview de anúncio ainda pode falhar por permissão/Meta;
-- nome de criativo depende da qualidade do enriquecimento salvo no Supabase;
-- a paginação do PDF deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não;
-- a visão executiva e a visão analítica devem continuar desacopladas para não inflar o `DashboardClient`.
+## Limitações conhecidas e Pendências Parciais
+1. **Preview de anúncio**: ainda pode falhar por permissão/Meta.
+2. **Nome de criativo**: depende da qualidade do enriquecimento salvo no Supabase.
+3. **Paginação do PDF**: deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não.
+4. **Acoplamento analítico/executivo**: as visões devem continuar desacopladas para não inflar o `DashboardClient`.
+5. **Persistência de `objective_category` (Parcial)**: A inferência de categoria semântica está ativa nos utilitários, mas o banco (`meta_campaign_insights`) arquiva apenas a chave original `objective`.
+6. **Logging do Cron (Parcial)**: O motor de sincronização depende estritamente de `console.log` para Vercel. Falta uma camada de logging estruturada nativa.
+7. **Centralização de Constantes (Parcial)**: Existe o hub de variáveis `lib/constants.ts`, mas scripts pesados como o do cron ainda declaram configurações limitadoras direto em seus escopos.
+8. **Cobertura de Testes (Parcial)**: Existe a infraestrutura básica inicial em `__tests__/`, mas não podemos declarar que a cobertura está fechada ou madura.
 
 ## Arquivos de maior impacto
 - `lib/meta-insights-store.ts`

@@ -17,6 +17,7 @@ O produto atende três objetivos principais:
 - Supabase (camada principal de leitura analítica)
 - Puppeteer Core + @sparticuz/chromium (geração de PDF na Vercel)
 - Meta Graph API (sincronização via cron + preview pontual)
+- Vitest (Infraestrutura inicial de testes/checks)
 
 ## Nome oficial e branding
 - Nome oficial da aplicação: `Meta Ads Intelligence | VIASOFT`
@@ -58,7 +59,10 @@ Ele concentra:
 - cálculo do orçamento mensal da vertical;
 - filtros por vertical, status e período.
 
-### 3. Rotas analíticas Supabase-first
+### 3. Utilitários e Semântica Compartilhada
+A aplicação abstrai regras brutas da Meta usando funções semânticas centralizadas na pasta `utils/` (ex: `objective.ts`, `labels.ts`). Isso garante que os nomes de objetivos, calls to action e tags de métricas ("Amigáveis") sejam compartilhados idênticos tanto pela visão executiva quanto pela analítica.
+
+### 4. Rotas analíticas Supabase-first
 As rotas abaixo leem do Supabase e não devem depender da Meta no carregamento normal da tela:
 - `app/api/meta/campaigns/route.ts`
 - `app/api/meta/performance/route.ts`
@@ -67,7 +71,7 @@ As rotas abaixo leem do Supabase e não devem depender da Meta no carregamento n
 - `app/api/meta/ads/route.ts`
 - `app/api/meta/compare/route.ts`
 
-### 4. Rotas ainda Meta-direct
+### 5. Rotas ainda Meta-direct
 Estas rotas continuam dependendo da Meta porque lidam com preview/enriquecimento de criativo:
 - `app/api/meta/ad-preview/route.ts`
 - `app/api/meta/ad-analytics/route.ts`
@@ -386,6 +390,10 @@ Vercel:
    - imposto de 12,15%;
    - exceção de teto da VIASOFT.
 6. Qualquer alteração na navegação entre visões deve preservar o contrato de query string entre executivo e analítico.
+7. **Testes parciais**: A suíte de testes unitários (`__tests__`) foi iniciada, mas a cobertura ainda é preliminar.
+8. **Persistência de `objective_category`**: A inferência de categorias existe nos utilitários, mas o banco de dados armazena apenas o texto bruto do `objective`.
+9. **Constantes espalhadas**: Embora exista `lib/constants.ts`, scripts como o cron ainda possuem configurações soltas em seu escopo.
+10. **Logging do cron**: O monitoramento das sincronizações na Vercel depende de `console.log` básicos, sem um sistema nativo de telemetria consolidada.
 
 ## Arquivos mais importantes para continuar o desenvolvimento
 - `components/dashboard-client.tsx`
