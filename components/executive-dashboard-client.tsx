@@ -302,7 +302,8 @@ export function ExecutiveDashboardClient({
                               verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
                               deliveryGroup,
                               rangeDays,
-                              campaignId: camp.campaign.id
+                              campaignId: camp.campaign.id,
+                              includeCampaignId: true
                             })}
                             className="group/card flex flex-col justify-between gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-viasoft/30 hover:shadow-sm hover:ring-1 hover:ring-viasoft/10 transition-all min-h-[84px] cursor-pointer"
                           >
@@ -489,7 +490,8 @@ export function ExecutiveDashboardClient({
                         verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
                         deliveryGroup,
                         rangeDays,
-                        campaignId: row.campaign.id
+                        campaignId: row.campaign.id,
+                        includeCampaignId: true
                       })}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all duration-200 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
                       title="Analisar Campanha"
