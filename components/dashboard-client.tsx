@@ -549,6 +549,10 @@ export function DashboardClient({
   }, [loadVerticalBudget, selectedVerticalSupported]);
 
   useEffect(() => {
+    if (loadingCampaigns) {
+      return;
+    }
+
     setSelectedCampaignId((previous) => {
       if (previous && filteredCampaigns.some((campaign) => campaign.id === previous)) {
         return previous;
@@ -569,7 +573,7 @@ export function DashboardClient({
       setAdSetComparisonRetryInSeconds(null);
       setAdComparisonRetryInSeconds(null);
     }
-  }, [filteredCampaigns]);
+  }, [filteredCampaigns, loadingCampaigns]);
 
   useEffect(() => {
     if (filteredCampaigns.length === 0 || !selectedCampaignId) {
