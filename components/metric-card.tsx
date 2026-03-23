@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleMinus, CircleX, Minus, ShieldCheck, TrendingDown, TrendingUp, TriangleAlert } from "lucide-react";
+import { CircleMinus, CircleX, Info, Minus, ShieldCheck, TrendingDown, TrendingUp, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatCurrencyBRL, formatNumberBR, formatSignedPercentBR } from "@/utils/formatters";
 import { getMetricStatus, type MetricStatus } from "@/utils/metric-health";
@@ -10,6 +10,7 @@ type MetricKey = "spend" | "impressions" | "clicks" | "ctr" | "cpc" | "results";
 type MetricCardProps = {
   metricKey: MetricKey;
   title: string;
+  tooltip?: string;
   description?: string;
   value: string;
   highlighted?: boolean;
@@ -151,7 +152,7 @@ function formatAbsoluteDelta(metricKey: MetricKey, deltaAbsolute: number): strin
 export function MetricCard({
   metricKey,
   title,
-  description,
+  tooltip,
   value,
   highlighted = false,
   icon,
@@ -159,17 +160,13 @@ export function MetricCard({
   deltaAbsolute,
   deltaPercent,
   noPrevData = false,
-  inverse = false,
-  note
+  inverse = false
 }: MetricCardProps) {
   const hasDelta =
     deltaPercent !== null && deltaPercent !== undefined && Number.isFinite(deltaPercent);
   const hasAbsoluteDelta =
     deltaAbsolute !== null && deltaAbsolute !== undefined && Number.isFinite(deltaAbsolute);
-  const showStatusBadge = metricKey !== "spend";
-  const status = showStatusBadge ? getMetricStatus(metricKey, deltaPercent, inverse, noPrevData) : null;
-  const statusValue: MetricStatus = status?.status ?? "na";
-  const statusTint = getStatusCardTint(statusValue, showStatusBadge);
+  
   const deltaTone = getDeltaTone(hasDelta ? deltaPercent : null, inverse, noPrevData);
   const showDeltaAccent = !noPrevData && hasDelta && deltaPercent !== 0;
   const deltaLabel = noPrevData
@@ -179,25 +176,26 @@ export function MetricCard({
       : "n/a em relação ao período anterior";
   const absoluteDeltaLabel =
     !noPrevData && hasAbsoluteDelta ? formatAbsoluteDelta(metricKey, deltaAbsolute) : null;
-  const helperLabel = note ?? (!noPrevData && previousValue
+  const helperLabel = (!noPrevData && previousValue
     ? `Período anterior: ${previousValue}${absoluteDeltaLabel ? ` ${absoluteDeltaLabel}` : ""}`
     : null);
-  const statusBadge = showStatusBadge && status ? (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${getStatusBadgeTone(status.status)}`}
-      style={getStatusBadgeStyle(status.status)}
-    >
-      {getStatusBadgeIcon(status.status)}
-      <span>{status.label}</span>
-    </span>
-  ) : null;
-
   return (
     <article
-      className={`metric-card enter-fade relative overflow-hidden rounded-xl bg-white shadow-sm p-4 ${
-        highlighted ? "ring-2 ring-viasoft/35 bg-viasoft/5" : statusTint
+      className={`metric-card enter-fade relative z-0 hover:z-50 focus-within:z-50 overflow-visible rounded-xl bg-white shadow-sm p-4 ${
+        highlighted ? "ring-2 ring-viasoft/35 bg-viasoft/5" : ""
       } ${highlighted ? "metric-card-highlighted" : ""}`}
     >
+      {tooltip ? (
+        <div className="group absolute right-3.5 top-3.5 z-50 flex cursor-help items-center justify-center">
+          <Info size={15} className="text-slate-300 transition-colors group-hover:text-viasoft" />
+          <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-48 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100">
+            <div className="rounded-lg border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5">
+              {tooltip}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex min-h-[20px] items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide leading-4 text-slate-600">
           {icon ? (
@@ -207,9 +205,7 @@ export function MetricCard({
           ) : null}
           <p>{title}</p>
         </div>
-        {statusBadge}
       </div>
-      {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
       <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>
       <p
         className={`mt-2 flex items-center gap-1.5 text-sm font-semibold ${

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart3, Coins, Eye, Info, Lightbulb, Loader2, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart3, Coins, Eye, Info, Lightbulb, Loader2, MousePointerClick, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
 import { MetricCard } from "@/components/metric-card";
@@ -225,6 +225,7 @@ export function ExecutiveDashboardClient({
         <MetricCard
           metricKey="spend"
           title="Investimento Total"
+          tooltip="valor investido no período"
           value={formatCurrency(payload?.globalMetrics.spend || 0)}
           icon={<Wallet size={16} />}
           previousValue={payload?.comparison?.previous?.spend ? formatCurrency(payload.comparison.previous.spend) : undefined}
@@ -233,25 +234,25 @@ export function ExecutiveDashboardClient({
           noPrevData={!payload?.comparison}
         />
         <MetricCard
-          metricKey="results"
-          title="Ações no Objetivo"
-          note="Soma multi-objetivo"
-          value={formatNumber(payload?.globalMetrics.results || 0)}
-          icon={<Target size={16} />}
-          previousValue={payload?.comparison?.previous?.results ? formatNumber(payload.comparison.previous.results) : undefined}
-          deltaAbsolute={payload?.comparison?.deltas?.results?.absolute ?? null}
-          deltaPercent={payload?.comparison?.deltas?.results?.percent ?? null}
-          noPrevData={!payload?.comparison}
-          highlighted
-        />
-        <MetricCard
           metricKey="impressions"
           title="Impressões Entregues"
+          tooltip="quantidade de vezes que os anúncios foram exibidos"
           value={formatNumber(payload?.globalMetrics.impressions || 0)}
           icon={<Eye size={16} />}
           previousValue={payload?.comparison?.previous?.impressions ? formatNumber(payload.comparison.previous.impressions) : undefined}
           deltaAbsolute={payload?.comparison?.deltas?.impressions?.absolute ?? null}
           deltaPercent={payload?.comparison?.deltas?.impressions?.percent ?? null}
+          noPrevData={!payload?.comparison}
+        />
+        <MetricCard
+          metricKey="clicks"
+          title="Cliques"
+          tooltip="quantidade total de cliques recebidos no período"
+          value={formatNumber(payload?.globalMetrics.clicks || 0)}
+          icon={<MousePointerClick size={16} />}
+          previousValue={payload?.comparison?.previous?.clicks ? formatNumber(payload.comparison.previous.clicks) : undefined}
+          deltaAbsolute={payload?.comparison?.deltas?.clicks?.absolute ?? null}
+          deltaPercent={payload?.comparison?.deltas?.clicks?.percent ?? null}
           noPrevData={!payload?.comparison}
         />
       </section>

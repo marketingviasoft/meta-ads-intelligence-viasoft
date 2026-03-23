@@ -193,8 +193,6 @@ function getBudgetProgressTone(utilizationPercent: number): string {
   return "text-emerald";
 }
 
-const META_INVESTMENT_TAX_RATE = 0.1215;
-
 type VerticalBudgetSummaryPanelProps = {
   verticalBudget: DashboardPayload["verticalBudget"];
   isPdf?: boolean;
@@ -245,9 +243,8 @@ export function VerticalBudgetSummaryPanel({ verticalBudget, isPdf = false }: Ve
         </div>
 
         <div
-          className={`flex h-full flex-col rounded-xl border p-3 ${
-            isOverBudget ? "border-rose-200 bg-rose-50/70" : "border-emerald-200 bg-emerald-50/60"
-          }`}
+          className={`flex h-full flex-col rounded-xl border p-3 ${isOverBudget ? "border-rose-200 bg-rose-50/70" : "border-emerald-200 bg-emerald-50/60"
+            }`}
         >
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
             {remainingLabel}
