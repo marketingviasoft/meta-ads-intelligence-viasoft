@@ -15,6 +15,8 @@ import { buildDashboardHref, type CampaignStatusFilterValue, ALL_VERTICALS_VALUE
 import { SUPPORTED_VERTICALS } from "@/lib/verticals";
 import type { RangeDays, ExecutivePayload } from "@/lib/types";
 import { getObjectiveLabel, getDeliveryStatusLabel } from "@/utils/labels";
+import { getPrimaryMetricDefinition } from "@/utils/objective";
+
 
 type ExecutiveDashboardClientProps = {
   initialVerticalTag: string | null;
@@ -261,39 +263,53 @@ export function ExecutiveDashboardClient({
       <section className="space-y-5 enter-fade" style={{ animationDelay: '100ms' }}>
         <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-hidden relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
-            <Sparkles size={18} /> Top 3 Eficiências por Objetivo
+            <Sparkles size={18} /> Top 3 Resultados por Objetivo
           </h3>
-          <p className="text-xs text-slate-500 mb-6 -mt-3">Campanhas com menor custo por resultado dentro de cada objetivo.</p>
+          <p className="text-xs text-slate-500 mb-6 -mt-3">Campanhas com maior volume de resultados gerados dentro de cada objetivo.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {["CONVERSIONS", "ENGAGEMENT", "TRAFFIC", "RECOGNITION"].map((cat) => {
               const campaignsInCategory = (payload?.campaigns || [])
-                .filter(c => c.campaign.objectiveCategory === cat && c.metrics.results > 0 && c.metrics.costPerResult !== null)
-                .sort((a, b) => (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
+                .filter(c => c.campaign.objectiveCategory === cat && c.metrics.results > 0)
+                .sort((a, b) => b.metrics.results - a.metrics.results || (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
                 .slice(0, 3);
-                
+
               return (
                 <div key={cat} className="flex flex-col">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">
+                  <h4 
+                    className="flex justify-between items-center text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2 cursor-help group"
+                    title={`Foco principal: ${getPrimaryMetricDefinition(cat as any).label}`}
+                  >
                     {getObjectiveLabel(cat as any)}
+                    <Info size={13} className="text-slate-300 group-hover:text-viasoft transition-colors" />
                   </h4>
                   <div className="flex flex-col gap-3">
                     {Array.from({ length: 3 }).map((_, idx) => {
                       const camp = campaignsInCategory[idx];
-                      
+
                       if (camp) {
                         return (
-                          <div key={camp.campaign.id} className="flex flex-col justify-between gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition min-h-[84px]">
-                             <div className="flex items-start gap-2">
-                               <span className="flex-shrink-0 mt-0.5 size-4 rounded-full bg-viasoft/10 text-viasoft flex items-center justify-center font-bold text-[9px]">
-                                 {idx + 1}
-                               </span>
-                               <p className="text-xs font-semibold text-slate-800 line-clamp-2" title={camp.campaign.name}>{camp.campaign.name}</p>
-                             </div>
-                             <div className="flex justify-between items-end pl-6">
-                               <span className="text-sm font-bold text-viasoft">{formatCurrency(camp.metrics.costPerResult!)}</span>
-                               <span className="text-[10px] text-slate-500">{formatNumber(camp.metrics.results)} res.</span>
-                             </div>
-                          </div>
+                          <Link 
+                            key={camp.campaign.id} 
+                            href={buildDashboardHref({
+                              pathname: "/dashboard/campanhas",
+                              verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
+                              deliveryGroup,
+                              rangeDays,
+                              campaignId: camp.campaign.id
+                            })}
+                            className="group/card flex flex-col justify-between gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-viasoft/30 hover:shadow-sm hover:ring-1 hover:ring-viasoft/10 transition-all min-h-[84px] cursor-pointer"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="flex-shrink-0 mt-0.5 size-4 rounded-full bg-viasoft/10 group-hover/card:bg-viasoft group-hover/card:text-white text-viasoft flex items-center justify-center font-bold text-[9px] transition-colors">
+                                {idx + 1}
+                              </span>
+                              <p className="text-xs font-semibold text-slate-800 line-clamp-2 group-hover/card:text-viasoft transition-colors" title={camp.campaign.name}>{camp.campaign.name}</p>
+                            </div>
+                            <div className="flex justify-between items-end pl-6">
+                              <span className="text-sm font-bold text-viasoft">{formatNumber(camp.metrics.results)} resultados</span>
+                              <span className="text-[10px] text-slate-500">{camp.metrics.costPerResult !== null ? formatCurrency(camp.metrics.costPerResult) : '-'}</span>
+                            </div>
+                          </Link>
                         );
                       }
 
@@ -331,7 +347,7 @@ export function ExecutiveDashboardClient({
                     </div>
                     <div className="mt-1 flex justify-between text-[11px] text-slate-500">
                       <span>{formatPercent(dist.percent)} verba</span>
-                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} resultados` : `${formatNumber(dist.results)} resultados`}</span>
                     </div>
                   </div>
                 ))}
@@ -356,7 +372,7 @@ export function ExecutiveDashboardClient({
                     </div>
                     <div className="mt-1 flex justify-between text-[11px] text-slate-500">
                       <span>{formatPercent(dist.percent)} verba</span>
-                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} resultados` : `${formatNumber(dist.results)} resultados`}</span>
                     </div>
                   </div>
                 ))}
@@ -381,7 +397,7 @@ export function ExecutiveDashboardClient({
                     </div>
                     <div className="mt-1 flex justify-between text-[11px] text-slate-500">
                       <span>{formatPercent(dist.percent)} verba</span>
-                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} res.` : `${formatNumber(dist.results)} res.`}</span>
+                      <span>{dist.resultsPercent !== null ? `${formatPercent(dist.resultsPercent)} resultados` : `${formatNumber(dist.results)} resultados`}</span>
                     </div>
                   </div>
                 ))}
@@ -439,7 +455,7 @@ export function ExecutiveDashboardClient({
                 <th className="pb-3 px-2 text-left">Campanha</th>
                 <th className="pb-3 px-2 text-left">Objetivo</th>
                 <th className="pb-3 px-2 text-right">Investimento</th>
-                <th className="pb-3 px-2 text-right">Ações (Res.)</th>
+                <th className="pb-3 px-2 text-right">Resultados</th>
                 <th className="pb-3 px-2 text-right">Custo / Ação</th>
                 <th className="pb-3 pl-2 pr-0 w-[48px]"></th>
               </tr>
