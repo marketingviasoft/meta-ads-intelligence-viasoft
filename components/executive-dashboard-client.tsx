@@ -162,8 +162,8 @@ export function ExecutiveDashboardClient({
     <main className="mx-auto w-full max-w-[1280px] overflow-x-clip px-5 py-6 sm:px-6 lg:px-8 space-y-6">
 
       {/* 1. Header Executivo */}
-      <header className="surface-panel relative z-20 bg-gradient-to-br from-viasoft/10 via-white to-white enter-fade p-6 flex flex-col gap-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <header className="surface-panel relative bg-gradient-to-br from-viasoft/10 via-white to-white enter-fade p-6 flex flex-col gap-5">
+        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5 text-viasoft">
               <span className="inline-flex size-6 items-center justify-center rounded-lg bg-viasoft text-white">
@@ -191,7 +191,7 @@ export function ExecutiveDashboardClient({
         </div>
 
         {/* Filtros Internos */}
-        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 mt-2">
+        <div className="relative z-30 flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 mt-2">
           <div className="w-full sm:w-auto sm:min-w-[200px]">
             <VerticalSelector
               verticals={[...SUPPORTED_VERTICALS]}
@@ -221,7 +221,7 @@ export function ExecutiveDashboardClient({
       </header>
 
       {/* 3. Cards KPI Consolidados */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
+      <section className="relative z-20 grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
         <MetricCard
           metricKey="spend"
           title="Investimento Total"
