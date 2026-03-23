@@ -186,7 +186,7 @@ export function MetricCard({
       } ${highlighted ? "metric-card-highlighted" : ""}`}
     >
       {tooltip ? (
-        <div className="group absolute right-3.5 top-3.5 z-20 flex cursor-help items-center justify-center">
+        <div className="tooltip-trigger group absolute right-3.5 top-3.5 z-50 flex cursor-help items-center justify-center">
           <Info size={15} className="text-slate-300 transition-colors group-hover:text-viasoft" />
           <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-48 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100">
             <div className="rounded-lg border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5">
