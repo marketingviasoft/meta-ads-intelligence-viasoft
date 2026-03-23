@@ -221,7 +221,7 @@ export function ExecutiveDashboardClient({
       </header>
 
       {/* 3. Cards KPI Consolidados */}
-      <section className="relative z-20 grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
+      <section className="relative grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
         <MetricCard
           metricKey="spend"
           title="Investimento"

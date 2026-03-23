@@ -181,7 +181,7 @@ export function MetricCard({
     : null);
   return (
     <article
-      className={`metric-card enter-fade relative z-0 hover:z-50 focus-within:z-50 overflow-visible rounded-xl bg-white shadow-sm p-4 ${
+      className={`metric-card enter-fade relative overflow-visible rounded-xl bg-white shadow-sm p-4 ${
         highlighted ? "ring-2 ring-viasoft/35 bg-viasoft/5" : ""
       } ${highlighted ? "metric-card-highlighted" : ""}`}
     >
