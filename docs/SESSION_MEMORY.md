@@ -1,31 +1,30 @@
-# Session Memory
+# Memória Operacional de Retomada (Session Memory)
 
-## Ponto Exato de Retomada (Março/2026)
-A aplicação está consolidada em uma arquitetura Supabase-first real-time (para leitura) e cron-based (para ingestão), com foco recém-aplicado na evolução da visão executiva e na navegação analítica.
-Paramos após aprofundar lógica de **inferência de categorias de objetivo (`objective_category`)** e refatorar a visão executiva com novos KPIs macro (agora equipada com a métrica de Cliques) e tooltips textuais autoexplicativos.
+Este documento atua como memória viva de contexto para as IAs durante a retomada do projeto. Leia sempre este arquivo antes de modificar o código ou inferir status de funcionalidades cruciais.
 
-## O que foi implementado e consolidado recentemente
-- **Visão Executiva Madura**: Layout gerencial com KPIs consolidados (Investimentos, Impressões, Cliques) e tooltips explicativos explícitos nos cards principais.
-- **Top 3 Eficiências por Objetivo**: Painel refatorado contendo exatamente 4 categorias fixas de agrupamento (`Conversão`, `Engajamento`, `Tráfego`, `Reconhecimento`).
-- **Labels Amigáveis e Utilitários Semânticos**: Centralização forte e baseada em `utils/objective.ts` e `utils/labels.ts` para uniformidade semântica da aplicação.
-- **Arquitetura Supabase-first Real**: Não disparamos hooks para a Meta no carregamento dos visões de campanhas. Tudo bate no banco.
-- **Infraestrutura em Código**: Disposição básica e ativa de Vitest (`__tests__/`).
+## Onde Paramos (Março 2026)
+Consolidamos as evoluções da visão executiva e estabelecemos firmemente o Supabase como nossa camada de leitura. Concluímos atualizações textuais diretas e criamos novos componentes de agregação do topo gerencial, além de aprofundar lógica em utilitários semânticos e preparar a categorização de objetivos via schema.
 
-## Pendências Parciais (Tratar como INCOMPLETAS ou PARCIAIS)
-- **Migração de Schema (`objective_category`)**: O recurso depende da consolidação do `docs/sql/add_objective_category.sql` na base do cliente e do cron. A rotina de utilitários possui resiliência (fallback robusto regex) justamente porque a transição é vista como parcial/manual para retrocompatibilidade.
-- **Cobertura de Testes**: Não tratar como robusta ou madura. Há infraestrutura funcional, mas com cobertura em estágio inicial.
-- **Monitoramento/Logging do Cron**: Não temos log consolidado. O cron na Vercel respira via `console.log` isolado puramente em texto.
-- **Constantes de Negócio Reais**: Nem todo o arcabouço lógico foi empurrado para o `lib/constants.ts`; o cron ainda aloja regras hardcoded.
-- **Melhorias de Tela Particionadas**: Há aprofundamentos visuais de resoluções de destino link/imagens parcialmente consolidados.
+## O que foi implementado/consolidado
+- **Visão Executiva Funcional e Madura**: A tela principal reflete um dashboard diretivo funcional.
+- **KPIs do Topo Reformulados**: Foram adicionados tooltips descritivos nas métricas, inserimos o novo **KPI de Cliques**, e procedemos com a remoção de "Ações no Objetivo" para despoluir a visualização.
+- **Top 3 Eficiências por Objetivo**: Institucionalizada a exibição via 4 categorias estritamente fixas: `Conversão`, `Engajamento`, `Tráfego`, e `Reconhecimento`.
+- **Labels Amigáveis Compartilhados**: Unificamos dicionários em `utils/objective.ts` e `utils/labels.ts`.
+- **Arquitetura Imponente**: A manutenção firme de uma arquitetura estrita e puramente Supabase-first no carregamento do dashboard.
 
-## Pontos Sensíveis de Negócio (O que NÃO Quebrar)
-- **Filtros Globais via URL**: Parâmetros como `verticalTag`, `deliveryGroup` e `rangeDays` determinam a fonte da verdade e o elo entre a tela Executiva e a área de Campanhas.
-- **Ciclo do Faturamento Financeiro Meta**: Cuidar da restrição mágica do **dia 24 ao dia 23**.
-- **Imposto Retido**: A aplicação cobra e apresenta logicamente o teto com acréscimo de **12,15%**.
-- **Exceção Exclusiva da Vertical VIASOFT**: Teto cravado total de **R$ 1.000,00** já abraçando o percentual de imposto.
-- **Corte de Período Atual**: A visualização diária no Chart/Performance descarta rigidamente o "hoje"; mas o Card de Orçamento o abrange como fracionado.
+## PENDÊNCIAS PARCIAIS (Não considere finalizadas!)
+- A **cobertura de testes** é ainda preliminar.
+- O **logging e monitoramento do cron** dependem de console.log simples e não estão amadurecidos.
+- A **centralização total de constantes de negócio** ainda é incompleta, existindo lógicas soltas.
+- **Migração do Schema (`objective_category`)**: Há dependência de ação/migração manual do sistema de banco, necessitando fortemente a preservação do status de **fallback** via regex. A tabela de ingestão ainda passa pela transição do campo explícito `objective_category`.
 
-## Próximos Passos Lógicos e Naturais
-1. **Validar Schema Físico de Categorias**: Observar o cruzamento real da coluna nova `objective_category` nos dados do cron versus inferência regex de fallback.
-2. **Investir em Test Coverage da Base de Utilitários**: Aplicar Vitest nas normalizações semânticas e categorizações brutas.
-3. **Maturidade das Rotinas de Logging**: Ampliar telemetria do app/api/cron para escapar do isolamento visual dos `console.log`.
+## O que NÃO deve ser quebrado
+- O período atual (dia de hoje) **não faz parte** dos cálculos de performance, porém faz parte fracionado do orçamento vertical.
+- O ciclo Meta flui invariavelmente do **dia 24 anterior ao 23 atual**.
+- O imposto embutido Meta é de **12,15%**.
+- A veracidade de filtros globais é ancorada puramente pela navegação baseada em URL (`verticalTag`, `deliveryGroup`, `rangeDays`).
+
+## Próximos Passos Naturais
+1. **Auditar Schema**: Avaliar concretamente a execução de `docs/sql/add_objective_category.sql` sobre o banco principal.
+2. **Consolidação Técnica**: Fechar lacunas nas constantes de negócio espalhadas em scripts soltos/cron.
+3. **Observabilidade Contínua**: Elevar métricas operacionais e tracking de erros na ingestão síncrona/cron da Vercel.

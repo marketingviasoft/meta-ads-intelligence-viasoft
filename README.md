@@ -6,6 +6,7 @@ Dashboard corporativo para leitura executiva e analítica de campanhas Meta Ads,
 
 Antes de continuar desenvolvimento em outro ambiente, leia:
 
+- `docs/SESSION_MEMORY.md` (Leitura primordial de contexto de retomada operacional)
 - `docs/DOCUMENTACAO_COMPLETA.md`
 - `docs/HANDOFF.md`
 - `docs/BUSINESS_RULES.md`
