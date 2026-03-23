@@ -267,7 +267,7 @@ export function ExecutiveDashboardClient({
           </h3>
           <p className="text-xs text-slate-500 mb-6 -mt-3">Campanhas com maior volume de resultados gerados dentro de cada objetivo.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {["CONVERSIONS", "ENGAGEMENT", "TRAFFIC", "RECOGNITION"].map((cat) => {
+            {["CONVERSIONS", "ENGAGEMENT", "RECOGNITION", "TRAFFIC"].map((cat) => {
               const campaignsInCategory = (payload?.campaigns || [])
                 .filter(c => c.campaign.objectiveCategory === cat && c.metrics.results > 0)
                 .sort((a, b) => b.metrics.results - a.metrics.results || (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
@@ -279,12 +279,12 @@ export function ExecutiveDashboardClient({
                     {getObjectiveLabel(cat as any)}
                     <div className="tooltip-trigger group relative flex cursor-help items-center justify-center">
                       <Info size={13} className="text-slate-300 transition-colors group-hover:text-viasoft" />
-                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-48 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 z-50">
+                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 z-50">
                         <div className="rounded-lg border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5 whitespace-normal normal-case text-left">
-                          {cat === "CONVERSIONS" && "Campanhas voltadas a gerar ações finais de negócio, como leads, cadastros ou compras."}
-                          {cat === "ENGAGEMENT" && "Campanhas voltadas a estimular interação com o público, como curtidas, comentários, mensagens ou envolvimento com o conteúdo."}
-                          {cat === "TRAFFIC" && "Campanhas voltadas a levar pessoas para um destino, como site, landing page ou link estratégico."}
-                          {cat === "RECOGNITION" && "Campanhas voltadas a ampliar alcance e lembrança de marca, priorizando visibilidade e exposição."}
+                          {cat === "CONVERSIONS" && "Campanhas focadas em geração de leads, cadastros ou vendas."}
+                          {cat === "ENGAGEMENT" && "Campanhas focadas em interações, mensagens ou visualizações de vídeo."}
+                          {cat === "RECOGNITION" && "Campanhas focadas em alcançar o maior número de pessoas."}
+                          {cat === "TRAFFIC" && "Campanhas focadas em levar pessoas a um site ou link específico."}
                         </div>
                       </div>
                     </div>
@@ -295,8 +295,8 @@ export function ExecutiveDashboardClient({
 
                       if (camp) {
                         return (
-                          <Link 
-                            key={camp.campaign.id} 
+                          <Link
+                            key={camp.campaign.id}
                             href={buildDashboardHref({
                               pathname: "/dashboard/campanhas",
                               verticalTag: verticalTag === ALL_VERTICALS_VALUE ? null : verticalTag,
