@@ -261,7 +261,7 @@ export function ExecutiveDashboardClient({
 
       {/* 5. Rankings & Distribuições */}
       <section className="space-y-5 enter-fade" style={{ animationDelay: '100ms' }}>
-        <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-hidden relative">
+        <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-visible relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
             <Sparkles size={18} /> Top 3 Resultados por Objetivo
           </h3>
@@ -275,12 +275,19 @@ export function ExecutiveDashboardClient({
 
               return (
                 <div key={cat} className="flex flex-col">
-                  <h4 
-                    className="flex justify-between items-center text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2 cursor-help group"
-                    title={`Foco principal: ${getPrimaryMetricDefinition(cat as any).label}`}
-                  >
+                  <h4 className="flex justify-between items-center text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">
                     {getObjectiveLabel(cat as any)}
-                    <Info size={13} className="text-slate-300 group-hover:text-viasoft transition-colors" />
+                    <div className="tooltip-trigger group relative flex cursor-help items-center justify-center">
+                      <Info size={13} className="text-slate-300 transition-colors group-hover:text-viasoft" />
+                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-48 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 z-50">
+                        <div className="rounded-lg border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5 whitespace-normal normal-case text-left">
+                          {cat === "CONVERSIONS" && "Campanhas voltadas a gerar ações finais de negócio, como leads, cadastros ou compras."}
+                          {cat === "ENGAGEMENT" && "Campanhas voltadas a estimular interação com o público, como curtidas, comentários, mensagens ou envolvimento com o conteúdo."}
+                          {cat === "TRAFFIC" && "Campanhas voltadas a levar pessoas para um destino, como site, landing page ou link estratégico."}
+                          {cat === "RECOGNITION" && "Campanhas voltadas a ampliar alcance e lembrança de marca, priorizando visibilidade e exposição."}
+                        </div>
+                      </div>
+                    </div>
                   </h4>
                   <div className="flex flex-col gap-3">
                     {Array.from({ length: 3 }).map((_, idx) => {
