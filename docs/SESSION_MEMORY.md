@@ -1,54 +1,31 @@
 # Session Memory
 
-## Estado consolidado em 2026-03
-Este arquivo registra o estado real do projeto depois da migracao para Supabase-first e das evolucoes posteriores feitas fora da sessao original.
+## Ponto Exato de Retomada (Março/2026)
+A aplicação está consolidada em uma arquitetura Supabase-first real-time (para leitura) e cron-based (para ingestão), com foco recém-aplicado na evolução da visão executiva e na navegação analítica.
+Paramos após aprofundar lógica de **inferência de categorias de objetivo (`objective_category`)** e refatorar a visão executiva com novos KPIs macro (agora equipada com a métrica de Cliques) e tooltips textuais autoexplicativos.
 
-## Decisoes estruturais que continuam valendo
-- A camada principal de leitura e o Supabase.
-- A Meta ficou concentrada no cron e em endpoints de preview/enriquecimento.
-- O dashboard nao depende mais de consultas sincronao-pesadas para carregar metricas.
-- O produto nao trabalha mais apenas com campanhas ativas.
-- `Todas as verticais` e a opcao padrao do seletor.
-- Budget mensal usa ciclo Meta 24 -> 23.
-- Budget mensal considera imposto de 12,15%.
-- VIASOFT possui teto total de R$ 1.000,00 com imposto.
-- Comparativos de grupos e anuncios fazem parte do produto.
-- A pagina de comparativos do PDF e condicional.
+## O que foi implementado e consolidado recentemente
+- **Visão Executiva Madura**: Layout gerencial com KPIs consolidados (Investimentos, Impressões, Cliques) e tooltips explicativos explícitos nos cards principais.
+- **Top 3 Eficiências por Objetivo**: Painel refatorado contendo exatamente 4 categorias fixas de agrupamento (`Conversão`, `Engajamento`, `Tráfego`, `Reconhecimento`).
+- **Labels Amigáveis e Utilitários Semânticos**: Centralização forte e baseada em `utils/objective.ts` e `utils/labels.ts` para uniformidade semântica da aplicação.
+- **Arquitetura Supabase-first Real**: Não disparamos hooks para a Meta no carregamento dos visões de campanhas. Tudo bate no banco.
+- **Infraestrutura em Código**: Disposição básica e ativa de Vitest (`__tests__/`).
 
-## Estado funcional atual
-### Dashboard
-- Header institucional e branding VIASOFT
-- Seletores em ordem: Vertical -> Veiculacao -> Campanha -> Periodo
-- Card de budget mensal da vertical
-- Informacoes da campanha
-- Estrutura da campanha
-- Comparativo entre grupos de anuncios (condicional)
-- Comparativo entre anuncios (condicional)
-- Cards de metricas
-- Tendencia consolidada
-- Performance diaria
-- Insights automaticos
-- Recomendacoes por objetivo
+## Pendências Parciais (Tratar como INCOMPLETAS ou PARCIAIS)
+- **Migração de Schema (`objective_category`)**: O recurso depende da consolidação do `docs/sql/add_objective_category.sql` na base do cliente e do cron. A rotina de utilitários possui resiliência (fallback robusto regex) justamente porque a transição é vista como parcial/manual para retrocompatibilidade.
+- **Cobertura de Testes**: Não tratar como robusta ou madura. Há infraestrutura funcional, mas com cobertura em estágio inicial.
+- **Monitoramento/Logging do Cron**: Não temos log consolidado. O cron na Vercel respira via `console.log` isolado puramente em texto.
+- **Constantes de Negócio Reais**: Nem todo o arcabouço lógico foi empurrado para o `lib/constants.ts`; o cron ainda aloja regras hardcoded.
+- **Melhorias de Tela Particionadas**: Há aprofundamentos visuais de resoluções de destino link/imagens parcialmente consolidados.
 
-### PDF
-- Fluxo por campanha com pagina de comparativos opcional
-- Fluxo compacto por vertical quando nao ha `campaignId`
-- Renderizacao com Puppeteer Core + Chromium para Vercel
+## Pontos Sensíveis de Negócio (O que NÃO Quebrar)
+- **Filtros Globais via URL**: Parâmetros como `verticalTag`, `deliveryGroup` e `rangeDays` determinam a fonte da verdade e o elo entre a tela Executiva e a área de Campanhas.
+- **Ciclo do Faturamento Financeiro Meta**: Cuidar da restrição mágica do **dia 24 ao dia 23**.
+- **Imposto Retido**: A aplicação cobra e apresenta logicamente o teto com acréscimo de **12,15%**.
+- **Exceção Exclusiva da Vertical VIASOFT**: Teto cravado total de **R$ 1.000,00** já abraçando o percentual de imposto.
+- **Corte de Período Atual**: A visualização diária no Chart/Performance descarta rigidamente o "hoje"; mas o Card de Orçamento o abrange como fracionado.
 
-### Dados
-- `meta_campaign_insights` na granularidade diaria por campanha/adset/ad
-- `meta_adsets` e `meta_ads` como dimensoes locais
-- Cron com `sync-meta-v3-fallback-safe`
-
-## Limitacoes conhecidas mantidas em memoria
-- Preview de anuncio ainda pode falhar por permissao da Meta.
-- Nome do criativo e destino dependem do nivel de enriquecimento salvo localmente.
-- A paginacao real do PDF precisa ser lida do fluxo do `app/pdf/page.tsx`, porque a quantidade de paginas pode variar conforme o conteudo exportado.
-
-## Quando houver nova alteracao, lembrar de sincronizar
-- `docs/DOCUMENTACAO_COMPLETA.md`
-- `docs/HANDOFF.md`
-- `docs/BUSINESS_RULES.md`
-- `docs/RUNBOOK.md`
-- `docs/PARITY_CONTRACT.json`
-- `docs/sql/meta_campaign_insights.sql`
+## Próximos Passos Lógicos e Naturais
+1. **Validar Schema Físico de Categorias**: Observar o cruzamento real da coluna nova `objective_category` nos dados do cron versus inferência regex de fallback.
+2. **Investir em Test Coverage da Base de Utilitários**: Aplicar Vitest nas normalizações semânticas e categorizações brutas.
+3. **Maturidade das Rotinas de Logging**: Ampliar telemetria do app/api/cron para escapar do isolamento visual dos `console.log`.

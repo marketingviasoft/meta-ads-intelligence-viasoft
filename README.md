@@ -41,18 +41,16 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 
 ## O que a aplicação entrega hoje
 
-- visão executiva interativa para leitura macro consolidada, com distribuições, rankings e insights da carteira de campanhas;
+- visão executiva madura interagindo com leitura macro consolidada;
+- KPIs atuais de topo para leitura executiva (Investimento, Impressões, Cliques, etc.) equipados com tooltips explicativos;
+- ranking "Top 3 Eficiências por Objetivo", com 4 categorias de agrupamento fixas (Conversão, Engajamento, Tráfego, Reconhecimento);
 - visão analítica por campanha com filtros de vertical, veiculação, campanha e período;
 - budget mensal por vertical;
-- comparativo automático com período anterior equivalente;
-- comparativos entre grupos de anúncios e anúncios;
-- KPIs de investimento, impressões, cliques, CTR, CPC e resultado principal por objetivo;
-- tendência consolidada e performance diária;
-- insights automáticos e recomendações por objetivo;
-- labels amigáveis e utilitários semânticos compartilhados (via `utils/`);
-- infraestrutura básica de testes unitários para a lógica de metadados;
-- cache em memória para consultas do dashboard;
-- botão `Atualizar Dados` com invalidação manual de cache;
+- comparativo automático com período anterior equivalente e comparativos entre grupos/anúncios;
+- labels amigáveis e utilitários semânticos fortemente centralizados (via `utils/objective.ts` e `utils/labels.ts`);
+- arquitetura firmemente estabelecida como Supabase-first para leituras do dashboard;
+- infraestrutura básica instalada de testes/checks unitários (cobertura ainda em evolução parcial);
+- cache em memória e recurso de `Atualizar Dados` com invalidação manual;
 - PDF gerado em backend pela rota `/api/pdf`.
 
 ## Navegação atual do dashboard

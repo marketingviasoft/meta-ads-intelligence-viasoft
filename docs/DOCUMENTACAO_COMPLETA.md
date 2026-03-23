@@ -268,12 +268,12 @@ A página analítica está organizada nesta ordem:
 A visão executiva foi refatorada para funcionar como um ambiente gerencial consolidado, robusto e totalmente interativo na própria tela.
 
 Responsabilidade dessa visão:
-- consolidar KPIs executivos globais utilizando seletores na própria interface;
+- consolidar KPIs executivos maduros e globais, agora com KPI dedicado de Cliques e tooltips explicativos na interface;
 - exibir gráfico de desempenho consolidado (independente de objetivos isolados);
 - mostrar painéis de distribuição da carteira por "Objetivo", "Vertical" e "Status";
-- listar os rankings macro, como "Top 3 Eficiências" e "Alocações do Portfólio";
+- listar rankings rigorosos, destacando a seção "Top 3 Eficiências por Objetivo", agrupada em 4 categorias fixas: `Conversão`, `Engajamento`, `Tráfego` e `Reconhecimento`;
 - prover uma tabela interativa de "Listagem e Detalhamento" com um botão dedicado de drill-down;
-- gerar leitura de "Insights de Carteira" amigáveis processados através do motor `utils/executive-insights.ts` via endpoint de dados executivos;
+- gerar leitura de "Insights de Carteira" amigáveis processados através do motor `utils/executive-insights.ts` via endpoint de dados executivos, utilizando o ecossistema de tradução semântica (`utils/objective.ts` e `utils/labels.ts`);
 - permitir navegação fluida para a análise detalhada por `campaignId` através da URL e preservar o estado;
 - manter um consumo limpo e contido sem inflar o `DashboardClient` analítico.
 
@@ -390,10 +390,10 @@ Vercel:
    - imposto de 12,15%;
    - exceção de teto da VIASOFT.
 6. Qualquer alteração na navegação entre visões deve preservar o contrato de query string entre executivo e analítico.
-7. **Testes parciais**: A suíte de testes unitários (`__tests__`) foi iniciada, mas a cobertura ainda é preliminar.
-8. **Persistência de `objective_category`**: A inferência de categorias existe nos utilitários, mas o banco de dados armazena apenas o texto bruto do `objective`.
-9. **Constantes espalhadas**: Embora exista `lib/constants.ts`, scripts como o cron ainda possuem configurações soltas em seu escopo.
-10. **Logging do cron**: O monitoramento das sincronizações na Vercel depende de `console.log` básicos, sem um sistema nativo de telemetria consolidada.
+7. **Testes parciais**: Existe uma infraestrutura básica instalada em `__tests__/`, mas a cobertura de testes é apenas parcial e não deve ser vendida como verdadeiramente robusta.
+8. **Persistência de `objective_category` (Migração Manual / Parcial)**: Os utilitários suportam as categorias derivadas pelo regex avançado nativamente. Um script `docs/sql/add_objective_category.sql` foi criado para suportar a persistência na tabela e aliviar leituras Regex, mas depende de aplicação manual de migração/schema e pode ainda estar em estágio parcial de adoção total na carga cron.
+9. **Constantes parcialmente consolidadas**: Existe a centralização progressiva no `lib/constants.ts`, mas scripts como o cron e certas configurações contêm lógicas soltas. A centralização total ainda é uma melhoria pendente.
+10. **Logging do cron imaturo**: O monitoramento das sincronizações na Vercel utiliza o `console.log` nativo de forma ingênua, carecendo de um fluxo maduro e consolidado de telemetria persistente.
 
 ## Arquivos mais importantes para continuar o desenvolvimento
 - `components/dashboard-client.tsx`

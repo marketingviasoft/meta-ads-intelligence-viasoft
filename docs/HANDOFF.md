@@ -9,7 +9,11 @@ A navegação principal da aplicação também foi reorganizada em duas visões:
 
 A home (`/`) redireciona para `/dashboard/executivo`.
 
-## O que mudou em relação ao estado antigo
+## O que mudou em relação ao estado antigo e consolidação recente
+- o dashboard tem uma visão executiva madura com tooltips e KPI visível de cliques;
+- ranking "Top 3 Eficiências por Objetivo" implementado em quatro blocos fixos (`Conversão`, `Engajamento`, `Tráfego`, `Reconhecimento`);
+- utilitários em `utils/objective.ts` e `utils/labels.ts` fornecem os labels amigáveis unificados;
+- infraestrutura inicial de testes provisionada, ainda que parcial;
 - campanhas deixaram de ser "somente ativas";
 - existe opção padrão `Todas as verticais`;
 - o filtro principal agora é `Veiculação`, com grupos simplificados;
@@ -17,7 +21,7 @@ A home (`/`) redireciona para `/dashboard/executivo`.
 - VIASOFT possui teto total mensal de R$ 1.000,00 já considerando imposto;
 - comparativos entre grupos de anúncios e anúncios passaram a ser parte do produto;
 - PDF passou a ter página condicional de comparativos;
-- Supabase virou a camada central de leitura;
+- Supabase é a camada central e final de leitura;
 - o dashboard passou a operar com duas visões irmãs, preservando filtros globais por query string.
 
 ## Pontos críticos para não quebrar
@@ -87,10 +91,10 @@ Fluxo especial:
 2. **Nome de criativo**: depende da qualidade do enriquecimento salvo no Supabase.
 3. **Paginação do PDF**: deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não.
 4. **Acoplamento analítico/executivo**: as visões devem continuar desacopladas para não inflar o `DashboardClient`.
-5. **Persistência de `objective_category` (Parcial)**: A inferência de categoria semântica está ativa nos utilitários, mas o banco (`meta_campaign_insights`) arquiva apenas a chave original `objective`.
-6. **Logging do Cron (Parcial)**: O motor de sincronização depende estritamente de `console.log` para Vercel. Falta uma camada de logging estruturada nativa.
-7. **Centralização de Constantes (Parcial)**: Existe o hub de variáveis `lib/constants.ts`, mas scripts pesados como o do cron ainda declaram configurações limitadoras direto em seus escopos.
-8. **Cobertura de Testes (Parcial)**: Existe a infraestrutura básica inicial em `__tests__/`, mas não podemos declarar que a cobertura está fechada ou madura.
+5. **Persistência de `objective_category` (Parcial - Migração Pendente)**: Há o script `docs/sql/add_objective_category.sql`. A inferência de categorias suporta fallback regex seguro, mas o pleno arquivamento dinâmico na cron pode depender de finalização. Não assumir como completamente finalizado sem verificar a migration.
+6. **Logging do Cron (Parcial)**: O motor depende puramente de `console.log` na Vercel. Não há monitoramento remoto maduro de cron implementado.
+7. **Centralização de Constantes (Parcial)**: O ecossistema de valores mágicos não está 100% reunido; há resquícios soltos.
+8. **Cobertura de Testes (Parcial)**: A infraestrutura em `__tests__/` existe, mas a cobertura efetiva da aplicação é imatura e em andamento.
 
 ## Arquivos de maior impacto
 - `lib/meta-insights-store.ts`

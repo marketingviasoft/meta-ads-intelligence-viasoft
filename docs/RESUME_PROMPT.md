@@ -12,9 +12,10 @@ Antes de qualquer acao, leia obrigatoriamente estes arquivos:
 7. `docs/sql/meta_campaign_insights.sql`
 
 Depois de ler:
-- resuma objetivamente o estado atual da aplicacao;
-- liste os 3 proximos passos mais importantes em ordem de prioridade;
-- aponte divergencias entre codigo e documentacao, se houver;
+- consulte primariamente o `docs/SESSION_MEMORY.md` para entender o Ponto Exato de Retomada e o que está Parcial vs Concluído;
+- resuma objetivamente o estado atual da aplicacao pontuando onde paramos de fato;
+- liste os 3 proximos passos mais importantes considerando `SESSION_MEMORY.md` e a arquitetura;
+- aponte divergencias entre codigo e documentacao em areas marcadas como parciais, se houver;
 - so entao continue a implementacao.
 
 ## Regras de continuidade
