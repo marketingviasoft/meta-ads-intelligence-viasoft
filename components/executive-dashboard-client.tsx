@@ -225,7 +225,7 @@ export function ExecutiveDashboardClient({
         <MetricCard
           metricKey="spend"
           title="Investimento Total"
-          tooltip="valor investido no período"
+          tooltip="Quanto foi investido nas campanhas no período."
           value={formatCurrency(payload?.globalMetrics.spend || 0)}
           icon={<Wallet size={16} />}
           previousValue={payload?.comparison?.previous?.spend ? formatCurrency(payload.comparison.previous.spend) : undefined}
@@ -236,7 +236,7 @@ export function ExecutiveDashboardClient({
         <MetricCard
           metricKey="impressions"
           title="Impressões Entregues"
-          tooltip="quantidade de vezes que os anúncios foram exibidos"
+          tooltip="Quantas vezes os anúncios apareceram para o público."
           value={formatNumber(payload?.globalMetrics.impressions || 0)}
           icon={<Eye size={16} />}
           previousValue={payload?.comparison?.previous?.impressions ? formatNumber(payload.comparison.previous.impressions) : undefined}
@@ -247,7 +247,7 @@ export function ExecutiveDashboardClient({
         <MetricCard
           metricKey="clicks"
           title="Cliques"
-          tooltip="quantidade total de cliques recebidos no período"
+          tooltip="Quantas interações de clique os anúncios geraram no período."
           value={formatNumber(payload?.globalMetrics.clicks || 0)}
           icon={<MousePointerClick size={16} />}
           previousValue={payload?.comparison?.previous?.clicks ? formatNumber(payload.comparison.previous.clicks) : undefined}
