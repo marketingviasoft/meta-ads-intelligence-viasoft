@@ -224,7 +224,7 @@ export function ExecutiveDashboardClient({
       <section className="relative z-20 grid grid-cols-1 sm:grid-cols-3 gap-4 enter-fade" style={{ animationDelay: '50ms' }}>
         <MetricCard
           metricKey="spend"
-          title="Investimento Total"
+          title="Investimento"
           tooltip="Quanto foi investido nas campanhas no período."
           value={formatCurrency(payload?.globalMetrics.spend || 0)}
           icon={<Wallet size={16} />}
@@ -235,7 +235,7 @@ export function ExecutiveDashboardClient({
         />
         <MetricCard
           metricKey="impressions"
-          title="Impressões Entregues"
+          title="Impressões"
           tooltip="Quantas vezes os anúncios apareceram para o público."
           value={formatNumber(payload?.globalMetrics.impressions || 0)}
           icon={<Eye size={16} />}
@@ -261,34 +261,52 @@ export function ExecutiveDashboardClient({
       <section className="space-y-5 enter-fade" style={{ animationDelay: '100ms' }}>
         <article className="surface-panel border border-viasoft/15 bg-white p-6 overflow-hidden relative">
           <h3 className="text-base font-semibold text-viasoft flex items-center gap-2 mb-6">
-            <Sparkles size={18} /> Top 3 Eficiências
+            <Sparkles size={18} /> Top 3 Eficiências por Objetivo
           </h3>
-          <p className="text-xs text-slate-500 mb-4 -mt-3">Campanhas com o menor custo por resultado válido.</p>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {[...(payload?.campaigns || [])]
-              .filter(c => c.metrics.results > 0 && c.metrics.costPerResult !== null)
-              .sort((a, b) => (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
-              .slice(0, 3)
-              .map((camp, idx) => (
-                <div key={camp.campaign.id} className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 p-4 rounded-xl border border-slate-100 bg-slate-50/50 transition hover:bg-slate-50">
-                  <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
-                    <div className="flex-shrink-0 size-8 rounded-full bg-viasoft text-white flex items-center justify-center font-bold text-xs">
-                      #{idx + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate" title={camp.campaign.name}>{camp.campaign.name}</p>
-                      <p className="text-xs text-slate-500">{getObjectiveLabel(camp.campaign.objectiveCategory as any)}</p>
-                    </div>
-                  </div>
-                  <div className="text-left xl:text-right mt-1 xl:mt-0 w-full xl:w-auto">
-                    <p className="text-sm font-bold text-viasoft">{formatCurrency(camp.metrics.costPerResult!)}</p>
-                    <p className="text-[11px] text-slate-500">{formatNumber(camp.metrics.results)} resultados</p>
+          <p className="text-xs text-slate-500 mb-6 -mt-3">Campanhas com menor custo por resultado dentro de cada objetivo.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {["CONVERSIONS", "ENGAGEMENT", "TRAFFIC", "RECOGNITION"].map((cat) => {
+              const campaignsInCategory = (payload?.campaigns || [])
+                .filter(c => c.campaign.objectiveCategory === cat && c.metrics.results > 0 && c.metrics.costPerResult !== null)
+                .sort((a, b) => (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
+                .slice(0, 3);
+                
+              return (
+                <div key={cat} className="flex flex-col">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">
+                    {getObjectiveLabel(cat as any)}
+                  </h4>
+                  <div className="flex flex-col gap-3">
+                    {Array.from({ length: 3 }).map((_, idx) => {
+                      const camp = campaignsInCategory[idx];
+                      
+                      if (camp) {
+                        return (
+                          <div key={camp.campaign.id} className="flex flex-col justify-between gap-1.5 p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition min-h-[84px]">
+                             <div className="flex items-start gap-2">
+                               <span className="flex-shrink-0 mt-0.5 size-4 rounded-full bg-viasoft/10 text-viasoft flex items-center justify-center font-bold text-[9px]">
+                                 {idx + 1}
+                               </span>
+                               <p className="text-xs font-semibold text-slate-800 line-clamp-2" title={camp.campaign.name}>{camp.campaign.name}</p>
+                             </div>
+                             <div className="flex justify-between items-end pl-6">
+                               <span className="text-sm font-bold text-viasoft">{formatCurrency(camp.metrics.costPerResult!)}</span>
+                               <span className="text-[10px] text-slate-500">{formatNumber(camp.metrics.results)} res.</span>
+                             </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={`empty-${cat}-${idx}`} className="flex items-center justify-center p-3 rounded-lg border border-dashed border-slate-200/80 bg-slate-50/30 min-h-[84px]">
+                          <p className="text-[11px] font-medium text-slate-400">Sem campanha elegível</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            {(!payload?.campaigns || payload.campaigns.filter(c => c.metrics.results > 0).length === 0) && (
-              <p className="text-sm text-slate-500 col-span-3">Métricas de eficiência não consolidadas para as campanhas filtradas.</p>
-            )}
+              );
+            })}
           </div>
         </article>
 
