@@ -287,7 +287,7 @@ export function VerticalSelector({
         </button>
 
         {isOpen && !disabled ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-30 rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
+          <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-300/30">
             <ul id={listboxId} className="max-h-72 overflow-auto" role="listbox" aria-label="Selecao de vertical">
               {options.map((option, index) => {
                 const selected = option.value === value;
