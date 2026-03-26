@@ -157,7 +157,7 @@ export function TrendCard({
 
   return (
     <article
-      className={`surface-panel relative overflow-hidden rounded-xl border border-slate-200/80 bg-white ${compact ? "p-4" : "p-5"} ${isPdf ? "pdf-block" : ""}`}
+      className={`surface-panel relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white ${compact ? "p-4" : "p-5"} ${isPdf ? "pdf-block" : ""}`}
     >
       <header className="flex items-center gap-2">
         <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export function TrendCard({
         <p className={`${compact ? "mt-1.5" : "mt-2"} text-sm text-slate-700`}>{executiveSignal.reason}</p>
       ) : null}
 
-      <div className={`${compact ? "mt-2.5 p-2.5" : "mt-3 p-3"} rounded-lg border border-slate-200 bg-slate-50/80 text-sm text-slate-700`}>
+      <div className={`${compact ? "mt-2.5 p-2.5" : "mt-3 p-3"} rounded-xl border border-slate-200 bg-slate-50/80 text-sm text-slate-700`}>
         <p className="font-medium text-slate-800">Fatores que mais influenciaram o resultado</p>
         <p className="mt-1">
           {primaryDriverLabel}: <span className="font-semibold text-ink">{formatDeltaDriver(primaryDriverValue)}</span>

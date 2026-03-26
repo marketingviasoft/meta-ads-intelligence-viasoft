@@ -125,22 +125,22 @@ export function ExecutivePerformanceChart({
 
   return (
     <div
-      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] min-h-[380px] p-3 sm:p-4`}
+      className={`w-full rounded-2xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] min-h-[380px] p-3 sm:p-4`}
     >
       <div className="mb-3 flex flex-wrap gap-2">
-        <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
+        <div className="rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
             Ações Consolidadas (Multi-objetivo)
           </p>
           <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
         </div>
-        <div className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5">
+        <div className="rounded-xl border border-teal-200 bg-teal-50 px-2.5 py-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-800">
             Investimento Consolidado
           </p>
           <p className="text-sm font-semibold text-teal-800">{formatCurrencyBRL(totalSpend)}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+        <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
             Pico de Investimento Diário
           </p>
@@ -150,7 +150,7 @@ export function ExecutivePerformanceChart({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200/90 bg-white/85 p-2.5 sm:p-3">
+      <div className="rounded-xl border border-slate-200/90 bg-white/85 p-2.5 sm:p-3">
         <div className={isNarrowViewport ? "h-[300px]" : "h-[340px]"}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart

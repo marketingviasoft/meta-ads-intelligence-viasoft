@@ -181,7 +181,7 @@ export function MetricCard({
     : null);
   return (
     <article
-      className={`metric-card enter-fade relative overflow-visible rounded-xl bg-white shadow-sm p-4 ${
+      className={`metric-card enter-fade relative overflow-visible rounded-2xl bg-white shadow-sm p-4 ${
         highlighted ? "ring-2 ring-viasoft/35 bg-viasoft/5" : ""
       } ${highlighted ? "metric-card-highlighted" : ""}`}
     >
@@ -189,7 +189,7 @@ export function MetricCard({
         <div className="tooltip-trigger group absolute right-3.5 top-3.5 z-50 flex cursor-help items-center justify-center">
           <Info size={15} className="text-slate-300 transition-colors group-hover:text-viasoft" />
           <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-48 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100">
-            <div className="rounded-lg border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5">
+            <div className="rounded-xl border border-slate-100 bg-white p-2.5 text-[11px] font-medium leading-relaxed text-slate-600 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] ring-1 ring-slate-900/5">
               {tooltip}
             </div>
           </div>

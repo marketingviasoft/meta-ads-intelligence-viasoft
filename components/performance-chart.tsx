@@ -144,23 +144,23 @@ export function PerformanceChart({
 
   return (
     <div
-      className={`w-full rounded-xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[278px] p-2" : "min-h-[380px] p-3 sm:p-4"}`}
+      className={`w-full rounded-2xl border border-viasoft/20 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] ${isPdf ? "min-h-[278px] p-2" : "min-h-[380px] p-3 sm:p-4"}`}
     >
       {showSummaryCards ? (
         <div className="mb-3 flex flex-wrap gap-2">
-          <div className="rounded-lg border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
+          <div className="rounded-xl border border-viasoft/20 bg-viasoft/5 px-2.5 py-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-viasoft/80">
               {primaryMetricLabel} acumulado
             </p>
             <p className="text-sm font-semibold text-viasoft">{formatNumberBR(totalResults, 0, 2)}</p>
           </div>
-          <div className="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5">
+          <div className="rounded-xl border border-teal-200 bg-teal-50 px-2.5 py-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-800">
               Investimento acumulado
             </p>
             <p className="text-sm font-semibold text-teal-800">{formatCurrencyBRL(totalSpend)}</p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+          <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               Pico diário
             </p>
@@ -172,7 +172,7 @@ export function PerformanceChart({
       ) : null}
 
       <div className={isPdf ? "flex min-h-[246px] flex-col justify-start" : ""}>
-        <div className={`rounded-lg border border-slate-200/90 bg-white/85 ${isPdf ? "p-1.5" : "p-2.5 sm:p-3"}`}>
+        <div className={`rounded-xl border border-slate-200/90 bg-white/85 ${isPdf ? "p-1.5" : "p-2.5 sm:p-3"}`}>
           <div className={isPdf ? "h-[210px]" : isNarrowViewport ? "h-[300px]" : "h-[340px]"}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart

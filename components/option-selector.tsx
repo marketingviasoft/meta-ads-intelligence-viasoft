@@ -218,7 +218,7 @@ export function OptionSelector({
         <button
           ref={triggerRef}
           type="button"
-          className={`flex h-11 w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium outline-none transition ${
+          className={`flex h-11 w-full max-w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-3 text-sm font-medium outline-none transition ${
             disabled
               ? "cursor-default border-[#e4e4e4] bg-[#e4e4e4] text-[#aaaaaa]"
               : "border-slate-300 bg-white text-ink focus-visible:border-viasoft focus-visible:ring-2 focus-visible:ring-viasoft/25"
