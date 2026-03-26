@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import "./globals.css";
 
-const bodyFont = IBM_Plex_Sans({
-  variable: "--font-body",
+const interFont = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
   weight: ["400", "500", "600", "700"]
-});
-
-const headingFont = Space_Grotesk({
-  variable: "--font-heading",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"]
 });
 
 export const metadata: Metadata = {
@@ -29,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${bodyFont.variable} ${headingFont.variable} antialiased`}>
+      <body className={`${interFont.variable} antialiased`}>
         {children}
         <SpeedInsights />
         <Analytics />
