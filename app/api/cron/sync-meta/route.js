@@ -1633,14 +1633,34 @@ export async function GET(request) {
   const startTime = Date.now();
   const isCron = request.headers.get("user-agent")?.toLowerCase().includes("vercel-cron") || !!request.headers.get("x-cron-secret");
   
+  let syncLogId = null;
+  try {
+    const { data: logRow, error: logError } = await supabase
+      .from('meta_sync_logs')
+      .insert([{ status: 'RUNNING', sync_version: SYNC_VERSION }])
+      .select('id')
+      .single();
+    if (!logError && logRow) syncLogId = logRow.id;
+  } catch (e) {
+    console.warn("Falha ao registrar meta_sync_logs inicial:", e.message);
+  }
+
   console.log(JSON.stringify({
     event: "SYNC_START",
     mode: isCron ? "cron" : "manual",
-    time: startTime
+    time: startTime,
+    syncLogId
   }));
 
   if (!isAuthorized(request)) {
     console.warn(JSON.stringify({ event: "SYNC_UNAUTHORIZED", time: Date.now() }));
+    if (syncLogId) {
+      await supabase.from('meta_sync_logs').update({
+        status: 'ERROR_UNAUTHORIZED',
+        completed_at: new Date().toISOString(),
+        error_message: 'Request não autorizada'
+      }).eq('id', syncLogId).catch(() => {});
+    }
     return NextResponse.json({ error: "Não autorizado", syncVersion: SYNC_VERSION }, { status: 401 });
   }
 
@@ -1717,6 +1737,20 @@ export async function GET(request) {
       totalRecords: syncedInsights + syncedAdSets + syncedAds
     }));
 
+    if (syncLogId) {
+      await supabase.from('meta_sync_logs').update({
+        status: 'SUCCESS',
+        completed_at: new Date().toISOString(),
+        fetched_rows: reportRows.length,
+        synced_insights: syncedInsights,
+        synced_adsets: syncedAdSets,
+        synced_ads: syncedAds,
+        range_since: range.since,
+        range_until: range.until,
+        execution_ms: durationMs
+      }).eq('id', syncLogId).catch(() => {});
+    }
+
     return NextResponse.json({
       success: true,
       syncVersion: SYNC_VERSION,
@@ -1728,9 +1762,11 @@ export async function GET(request) {
       range
     });
   } catch (error) {
+    const durationMs = Date.now() - startTime;
     const message = error instanceof Error ? error.message : String(error ?? "Falha ao sincronizar Meta -> Supabase");
     const stack = error instanceof Error ? error.stack : undefined;
     const isSupabaseError = message.toLowerCase().includes("supabase");
+    const isRateLimit = message.toLowerCase().includes("limite") || message.toLowerCase().includes("reduce the amount") || message.toLowerCase().includes("rate limit");
     
     console.error(JSON.stringify({
       event: "SYNC_ERROR",
@@ -1739,6 +1775,16 @@ export async function GET(request) {
       source: isSupabaseError ? "Supabase" : "Meta",
       time: Date.now()
     }));
+
+    if (syncLogId) {
+      await supabase.from('meta_sync_logs').update({
+        status: isRateLimit ? 'ERROR_RATE_LIMIT' : 'ERROR_UNKNOWN',
+        completed_at: new Date().toISOString(),
+        error_message: message,
+        error_stack: stack,
+        execution_ms: durationMs
+      }).eq('id', syncLogId).catch(() => {});
+    }
 
     return NextResponse.json(
       {

@@ -23,7 +23,7 @@ npm run lint
    - cards de KPI consolidados
    - gráfico de evolução da carteira
    - painéis de distribuição (objetivo, vertical, status)
-   - rankings (top eficiências e alocações)
+   - rankings (top resultados e alocações)
    - insights de carteira
    - tabela de listagem e botão de drill-down analítico
 4. Validar Visão Analítica (/dashboard/campanhas):

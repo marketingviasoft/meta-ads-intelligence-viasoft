@@ -11,7 +11,7 @@ A home (`/`) redireciona para `/dashboard/executivo`.
 
 ## O que mudou em relação ao estado antigo e consolidação recente
 - o dashboard tem uma visão executiva madura com tooltips e KPI visível de cliques;
-- ranking "Top 3 Eficiências por Objetivo" implementado em quatro blocos fixos (`Conversão`, `Engajamento`, `Tráfego`, `Reconhecimento`);
+- ranking "Top 3 Resultados por Objetivo" (foco em volume) implementado em quatro blocos fixos (`Conversão`, `Engajamento`, `Tráfego`, `Reconhecimento`);
 - utilitários em `utils/objective.ts` e `utils/labels.ts` fornecem os labels amigáveis unificados;
 - infraestrutura inicial de testes provisionada, ainda que parcial;
 - campanhas deixaram de ser "somente ativas";

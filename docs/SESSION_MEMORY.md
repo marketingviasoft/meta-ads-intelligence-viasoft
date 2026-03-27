@@ -14,7 +14,7 @@ A visão analítica continua sendo a leitura profunda por campanha, com grupos d
 
 - **Dashboard Supabase-first**: a leitura gerencial e analítica ocorre principalmente a partir do Supabase; integrações Meta ficam concentradas na ingestão via cron e em pontos pontuais como preview.
 - **Visão Executiva reestruturada**: topo com KPI de **Cliques**, tooltips nos KPIs e remoção de **“Ações no Objetivo”**.
-- **Top 3 Eficiências por Objetivo**: ranking distribuído em 4 agrupamentos fixos:
+- **Top 3 Resultados por Objetivo**: ranking focado em volume de resultados distribuído em 4 agrupamentos fixos:
   - `Conversão`
   - `Engajamento`
   - `Tráfego`
@@ -50,7 +50,9 @@ A visão analítica continua sendo a leitura profunda por campanha, com grupos d
 - KPI de **Cliques** no topo do Resumo Executivo.
 - Tooltips explicativos nos KPIs do topo.
 - Remoção da métrica **“Ações no Objetivo”** do topo executivo.
-- Reorganização do ranking de eficiência para **Top 3 Eficiências por Objetivo**.
+- Reorganização do ranking para foco em volume: **Top 3 Resultados por Objetivo**.
+- Correção no drill-down para a visão analítica preservando perfeitamente o `initialCampaignId`.
+- Tipografia global alterada para a fonte **Inter**.
 - Consolidação dos labels amigáveis de objetivo e status em utilitários compartilhados.
 - Melhor alinhamento da navegação executiva com a visão analítica.
 - Melhor documentação de retomada e contexto em `README.md`, `HANDOFF.md`, `DOCUMENTACAO_COMPLETA.md` e neste próprio arquivo.

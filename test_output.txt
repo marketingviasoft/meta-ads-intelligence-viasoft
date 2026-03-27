@@ -1,0 +1,70 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90mC:/Users/gustavo.pilotti/Desktop/META-DASHBOARD[39m
+
+[90mstdout[2m | __tests__/vertical-budget.test.ts[2m > [22m[2mVertical Budget Rules[2m > [22m[2mshould calculate budget correctly for typical vertical
+[22m[39mTEST B&M SUMMARY: {
+  verticalTag: [32m'B&M'[39m,
+  monthlyCap: [33m535[39m,
+  monthSince: [32m'2023-09-24'[39m,
+  monthUntil: [32m'2023-10-23'[39m,
+  dataUntil: [32m'2023-10-15'[39m,
+  spentInMonth: [33m0[39m,
+  remainingInMonth: [33m535[39m,
+  overBudgetAmount: [33m0[39m,
+  utilizationPercent: [33m0[39m,
+  hasElapsedDays: [33mtrue[39m,
+  includesCurrentDay: [33mtrue[39m,
+  timezone: [32m'America/Sao_Paulo'[39m
+}
+
+ [31mÔØ»[39m __tests__/vertical-budget.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 7[2mms[22m[39m
+[31m     [31m├ù[31m should calculate budget correctly for typical vertical[39m[32m 5[2mms[22m[39m
+[31m     [31m├ù[31m should enforce exactly R$ 1000 with 12.15% tax cap for VIASOFT vertical (approx 891.66)[39m[32m 1[2mms[22m[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 2 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  __tests__/vertical-budget.test.ts > Vertical Budget Rules > should calculate budget correctly for typical vertical
+AssertionError: expected +0 to be 150 // Object.is equality
+
+- Expected
++ Received
+
+- 150
++ 0
+
+ ÔØ» __tests__/vertical-budget.test.ts:60:34
+     58|     const summary = await getVerticalBudgetSummaryFromStore({ verticalÔÇª
+     59|     console.log("TEST B&M SUMMARY:", summary);
+     60|     expect(summary.spentInMonth).toBe(150);
+       |                                  ^
+     61|   });
+     62|
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/2]ÔÄ»
+
+ FAIL  __tests__/vertical-budget.test.ts > Vertical Budget Rules > should enforce exactly R$ 1000 with 12.15% tax cap for VIASOFT vertical (approx 891.66)
+AssertionError: expected +0 to be 900 // Object.is equality
+
+- Expected
++ Received
+
+- 900
++ 0
+
+ ÔØ» __tests__/vertical-budget.test.ts:78:34
+     76|
+     77|     const summary = await getVerticalBudgetSummaryFromStore({ verticalÔÇª
+     78|     expect(summary.spentInMonth).toBe(900);
+       |                                  ^
+     79|
+     80|     // VIASOFT cap should be approx 891.66 (1000 / 1.1215)
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[2/2]ÔÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 17:53:38
+[2m   Duration [22m 349ms[2m (transform 71ms, setup 0ms, import 100ms, tests 7ms, environment 0ms)[22m
+

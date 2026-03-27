@@ -271,7 +271,7 @@ Responsabilidade dessa visão:
 - consolidar KPIs executivos maduros e globais, agora com KPI dedicado de Cliques e tooltips explicativos na interface;
 - exibir gráfico de desempenho consolidado (independente de objetivos isolados);
 - mostrar painéis de distribuição da carteira por "Objetivo", "Vertical" e "Status";
-- listar rankings rigorosos, destacando a seção "Top 3 Eficiências por Objetivo", agrupada em 4 categorias fixas: `Conversão`, `Engajamento`, `Tráfego` e `Reconhecimento`;
+- listar rankings rigorosos, destacando a seção "Top 3 Resultados por Objetivo" (focada em volume de resultados), agrupada em 4 categorias fixas: `Conversão`, `Engajamento`, `Tráfego` e `Reconhecimento`;
 - prover uma tabela interativa de "Listagem e Detalhamento" com um botão dedicado de drill-down;
 - gerar leitura de "Insights de Carteira" amigáveis processados através do motor `utils/executive-insights.ts` via endpoint de dados executivos, utilizando o ecossistema de tradução semântica (`utils/objective.ts` e `utils/labels.ts`);
 - permitir navegação fluida para a análise detalhada por `campaignId` através da URL e preservar o estado;
