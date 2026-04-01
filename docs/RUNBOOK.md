@@ -10,7 +10,8 @@
 ### Migracoes operacionais recomendadas
 - Aplicar `docs/sql/meta_campaign_insights.sql` no ambiente alvo para garantir a coluna `objective_category` no schema principal.
 - Em ambientes ja existentes, validar tambem `docs/sql/add_objective_category.sql` caso a coluna ainda nao exista.
-- Aplicar `docs/sql/meta_sync_logs.sql` se quiser persistencia de execucoes do cron no Supabase; sem isso o cron segue com fallback em console.
+- Aplicar `docs/sql/meta_sync_logs.sql` para persistencia de execucoes do cron no Supabase.
+- Ambiente auditado em `2026-04-01`: `objective_category` e `meta_sync_logs` disponiveis no schema real.
 
 ### Comandos uteis
 ```bash
@@ -18,6 +19,8 @@ npm install
 npm run dev
 npm run typecheck
 npm run lint
+npm test
+npm run check:quality
 npm run check:schema
 ```
 
@@ -47,6 +50,12 @@ npm run check:schema
 2. Acionar `Gerar PDF`
 3. Validar se a ordem das paginas bate com o contrato atual
 4. Validar se o PDF respeita a mesma leitura do dashboard
+5. Validar Observabilidade (/dashboard/sincronizacoes):
+   - status das ultimas execucoes
+   - duracao
+   - range sincronizado
+   - contagem de insights/adsets/ads
+   - erro detalhado quando houver
 
 ## 3. Sync manual da Meta -> Supabase
 ### Localhost
@@ -64,16 +73,17 @@ Exemplo de sucesso:
 ```json
 {
   "success": true,
-  "syncVersion": "sync-meta-v3-fallback-safe",
-  "fetchedRows": 327,
-  "syncedInsights": 327,
-  "syncedAdSets": 29,
-  "syncedAds": 69,
+  "syncVersion": "sync-meta-v4-shared-resolution",
+  "fetchedRows": 239,
+  "syncedInsights": 239,
+  "syncedAdSets": 27,
+  "syncedAds": 57,
   "jobsExecuted": 1,
   "range": {
-    "since": "2026-02-11",
-    "until": "2026-03-12"
-  }
+    "since": "2026-03-03",
+    "until": "2026-04-01"
+  },
+  "syncLogPersistence": "supabase"
 }
 ```
 
@@ -88,6 +98,27 @@ Importante:
 - a Vercel interpreta cron em UTC;
 - plano Hobby tem limitacoes e precisa respeitar a documentacao oficial da Vercel;
 - quando houver duvida, validar a rota manualmente com `curl`.
+
+## 4.1. CI e governanca
+Workflow continuo:
+- `.github/workflows/ci.yml`
+- roda em `push`/`pull_request` com:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm test`
+  - `npm run check:rules`
+  - `npm run check:parity`
+
+Workflow manual de schema:
+- `.github/workflows/schema-audit.yml`
+- executar apenas por `workflow_dispatch`
+- ambiente recomendado: `schema-audit`
+- requer secrets para montar `.env.local`
+- roda `npm run check:schema`
+
+Importante:
+- `check:schema` depende de ambiente real e nao deve ser promovido a check cego em todo PR;
+- manter a auditoria de schema como passo manual/protegido.
 
 ## 5. Validacao dos filtros
 Ao testar os seletores, sempre verificar:
@@ -125,11 +156,12 @@ Causa comum:
 - permissao da Meta
 - preview indisponivel
 - asset restrito
+- criativo ainda nao enriquecido no Supabase
 
 Acao:
 - validar se o anuncio existe no Supabase
 - validar se o preview depende de rota Meta-direct
-- tratar como limitacao esperada quando a Meta negar acesso
+- usar a mensagem exibida na UI para diferenciar `Preview bloqueado pela Meta`, `Preview indisponivel` e `Criativo ainda nao enriquecido`
 
 ### Nome de criativo ou destino ausente
 Causa comum:

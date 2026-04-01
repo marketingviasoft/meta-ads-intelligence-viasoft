@@ -12,11 +12,18 @@ import {
 const VIEW_TABS = [
   {
     label: "Resumo Executivo",
-    pathname: "/dashboard/executivo"
+    pathname: "/dashboard/executivo",
+    includeCampaignId: false
   },
   {
     label: "Análise por Campanha",
-    pathname: "/dashboard/campanhas"
+    pathname: "/dashboard/campanhas",
+    includeCampaignId: true
+  },
+  {
+    label: "Sincronizações",
+    pathname: "/dashboard/sincronizacoes",
+    includeCampaignId: false
   }
 ] as const;
 
@@ -40,7 +47,7 @@ export function DashboardViewTabs() {
           deliveryGroup: sharedState.initialDeliveryGroup,
           rangeDays: sharedState.initialRangeDays,
           campaignId: currentCampaignId,
-          includeCampaignId: tab.pathname === "/dashboard/campanhas"
+          includeCampaignId: tab.includeCampaignId
         });
 
         return (

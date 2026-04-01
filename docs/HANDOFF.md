@@ -3,9 +3,10 @@
 ## Estado atual
 O projeto está operacional em arquitetura Supabase-first. O dashboard principal lê dados locais do Supabase para campanhas, performance, estrutura, comparativos e budget mensal por vertical. A Meta Graph API ficou concentrada na sincronização (`app/api/cron/sync-meta/route.js`) e em endpoints pontuais de preview/enriquecimento.
 
-A navegação principal da aplicação também foi reorganizada em duas visões:
+A navegação principal da aplicação também foi reorganizada em tres frentes:
 - `Resumo Executivo` em `/dashboard/executivo`
 - `Análise por Campanha` em `/dashboard/campanhas`
+- `Sincronizações` em `/dashboard/sincronizacoes`
 
 A home (`/`) redireciona para `/dashboard/executivo`.
 
@@ -23,6 +24,8 @@ A home (`/`) redireciona para `/dashboard/executivo`.
 - PDF passou a ter página condicional de comparativos;
 - Supabase é a camada central e final de leitura;
 - o dashboard passou a operar com duas visões irmãs, preservando filtros globais por query string.
+- a operação ganhou uma visão interna de observabilidade em `/dashboard/sincronizacoes`, lendo `meta_sync_logs`;
+- a governança ganhou CI mínimo em `.github/workflows/ci.yml` e auditoria manual de schema em `.github/workflows/schema-audit.yml`.
 
 ## Pontos críticos para não quebrar
 1. Não incluir o dia atual nas métricas de performance.
@@ -55,6 +58,7 @@ Fluxo atual:
 ### Rotas
 - `/dashboard/executivo`
 - `/dashboard/campanhas`
+- `/dashboard/sincronizacoes`
 
 ### Parâmetros canônicos
 - `verticalTag`
@@ -87,14 +91,14 @@ Fluxo especial:
 - se houver apenas `verticalTag`, o sistema gera PDF compacto de budget da vertical.
 
 ## Limitações conhecidas e Pendências Parciais
-1. **Preview de anúncio**: ainda pode falhar por permissão/Meta.
-2. **Nome de criativo**: depende da qualidade do enriquecimento salvo no Supabase.
+1. **Preview de anúncio**: ainda pode falhar por permissão/Meta, mas a UI agora diferencia melhor `Preview bloqueado pela Meta`, `Preview indisponivel` e `Criativo ainda nao enriquecido`.
+2. **Nome de criativo**: continua dependente da qualidade do enriquecimento salvo no Supabase.
 3. **Paginação do PDF**: deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não.
 4. **Acoplamento analítico/executivo**: as visões devem continuar desacopladas para não inflar o `DashboardClient`.
-5. **Persistência de `objective_category` (Parcial - Migração Pendente)**: O código já lê/escreve `objective_category`, e o schema principal foi alinhado para incluir a coluna. Ainda assim, ambientes existentes podem depender da aplicação manual de `docs/sql/add_objective_category.sql`; por isso o fallback regex continua obrigatório até a migração estar confirmada.
-6. **Logging do Cron (Parcial)**: O cron já tenta persistir execuções em `meta_sync_logs`, mas isso ainda depende da aplicação manual de `docs/sql/meta_sync_logs.sql` e mantém `console.log`/`console.warn` como fallback operacional. Não tratar como observabilidade madura.
+5. **Persistência de `objective_category` (Auditada no ambiente atual)**: O ambiente auditado em `2026-04-01` ja possui `objective_category` disponivel e populada no schema real. Ainda assim, ambientes paralelos/novos continuam podendo depender de `docs/sql/add_objective_category.sql`; por isso o fallback regex ainda nao deve ser removido sem nova auditoria.
+6. **Logging do Cron (Ativo no ambiente auditado, observabilidade ainda simples)**: O ambiente auditado em `2026-04-01` ja possui `meta_sync_logs` ativo e o cron manual confirmou `syncLogPersistence = supabase`. O fallback `console.log`/`console.warn` continua existindo apenas como trilha de seguranca para ambientes sem a migration.
 7. **Centralização de Constantes (Parcial)**: O ecossistema de valores mágicos avançou para `lib/constants.ts`, incluindo caps de budget compartilhados, mas ainda existem resquícios soltos fora da trilha principal.
-8. **Cobertura de Testes (Parcial)**: A infraestrutura em `__tests__/` existe, mas a cobertura efetiva da aplicação é imatura e em andamento.
+8. **Cobertura de Testes (Parcial, mas ampliada)**: cron, payload executivo, contrato do PDF e fallbacks de preview agora possuem cobertura dedicada em `__tests__/`, mas a cobertura ainda nao e exaustiva em toda a aplicacao.
 
 ## Arquivos de maior impacto
 - `lib/meta-insights-store.ts`

@@ -92,7 +92,6 @@ export function ExecutivePerformanceChart({
 
   const totalResults = useMemo(() => data.reduce((sum, point) => sum + point.results, 0), [data]);
   const totalSpend = useMemo(() => data.reduce((sum, point) => sum + point.spend, 0), [data]);
-  const peakResults = useMemo(() => Math.max(...data.map((point) => point.results), 0), [data]);
   const peakSpend = useMemo(() => Math.max(...data.map((point) => point.spend), 0), [data]);
 
   const xAxisTicks = useMemo(() => {

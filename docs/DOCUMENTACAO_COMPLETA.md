@@ -42,9 +42,10 @@ Tabelas sincronizadas:
 - `meta_campaign_insights`
 - `meta_adsets`
 - `meta_ads`
+- `meta_sync_logs` (observabilidade operacional da sync, quando a migration estiver aplicada)
 
 Versão atual da sincronização:
-- `sync-meta-v3-fallback-safe`
+- `sync-meta-v4-shared-resolution`
 
 ### 2. Camada de leitura analítica
 O arquivo central de leitura e agregação local é `lib/meta-insights-store.ts`.
@@ -96,6 +97,12 @@ A área principal da aplicação foi organizada em duas visões irmãs, com nave
 - foco: leitura operacional profunda
 - objetivo: permitir análise detalhada de campanha, grupos de anúncios, anúncios, comparativos, insights e exportação em PDF
 - pode receber `campaignId` pela URL para drill-down vindo da visão executiva
+
+### 3. Sincronizações
+- rota: `/dashboard/sincronizacoes`
+- foco: observabilidade operacional do cron
+- objetivo: exibir histórico recente de `meta_sync_logs`, incluindo status, início/fim, duração, range sincronizado, contagens e erro
+- não executa sync; apenas leitura server-side do Supabase
 
 ### Fluxo entre as visões
 Fluxo esperado do produto:
@@ -380,6 +387,16 @@ Local:
 Vercel:
 - `curl.exe -X GET "https://SEU-DOMINIO/api/cron/sync-meta" -H "Authorization: Bearer <CRON_SECRET>"`
 
+### Observabilidade interna
+- página operacional: `/dashboard/sincronizacoes`
+- fonte de leitura: `meta_sync_logs`
+- fallback seguro: se a tabela não existir em algum ambiente, a tela informa a ausência da migration em vez de quebrar silenciosamente
+
+### CI e governança
+- workflow contínuo: `.github/workflows/ci.yml`
+- workflow manual de auditoria real: `.github/workflows/schema-audit.yml`
+- `check:schema` permanece manual/protegido porque depende de ambiente real e credenciais
+
 ## Riscos e dívidas técnicas atuais
 1. `docs/PARITY_CONTRACT.json` e `pdf/layout-preset.ts` precisam continuar alinhados sempre que o PDF mudar.
 2. Preview de anúncio ainda não está completamente desacoplado da Meta.
@@ -391,9 +408,9 @@ Vercel:
    - exceção de teto da VIASOFT.
 6. Qualquer alteração na navegação entre visões deve preservar o contrato de query string entre executivo e analítico.
 7. **Testes parciais**: Existe uma infraestrutura básica instalada em `__tests__/`, mas a cobertura de testes é apenas parcial e não deve ser vendida como verdadeiramente robusta.
-8. **Persistência de `objective_category` (Migração Manual / Parcial)**: O código já persiste/lê `objective_category` e o schema principal foi alinhado para incluir a coluna, mas ambientes existentes ainda podem depender da execução manual de `docs/sql/add_objective_category.sql`. Enquanto isso não estiver auditado no banco real, o fallback regex continua obrigatório.
+8. **Persistência de `objective_category` (Auditada no ambiente atual)**: O ambiente auditado em `2026-04-01` ja confirmou `objective_category` disponivel e populada no banco real. Ambientes existentes/paralelos ainda podem depender da execucao manual de `docs/sql/add_objective_category.sql`, entao o fallback regex continua obrigatorio ate nova auditoria por ambiente.
 9. **Constantes parcialmente consolidadas**: Existe a centralização progressiva no `lib/constants.ts`, incluindo os caps compartilhados de budget, mas scripts como o cron e certas configurações ainda contêm lógicas soltas. A centralização total permanece como melhoria pendente.
-10. **Logging do cron imaturo**: O cron já tenta registrar execuções em `meta_sync_logs`, porém isso ainda depende da aplicação manual de `docs/sql/meta_sync_logs.sql` e preserva `console.log` como fallback. A observabilidade persistente ainda não deve ser tratada como madura.
+10. **Logging do cron operacional, ainda nao maduro**: O ambiente auditado em `2026-04-01` ja confirmou `meta_sync_logs` ativo e sync manual com `syncLogPersistence = supabase`. O fallback em `console.log` permanece como trilha de seguranca para ambientes sem migration, e a observabilidade ainda nao deve ser tratada como madura.
 
 ## Arquivos mais importantes para continuar o desenvolvimento
 - `components/dashboard-client.tsx`

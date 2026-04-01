@@ -1,9 +1,8 @@
 "use client";
 
-import { CircleMinus, CircleX, Info, Minus, ShieldCheck, TrendingDown, TrendingUp, TriangleAlert } from "lucide-react";
+import { Info, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatCurrencyBRL, formatNumberBR, formatSignedPercentBR } from "@/utils/formatters";
-import { getMetricStatus, type MetricStatus } from "@/utils/metric-health";
 
 type MetricKey = "spend" | "impressions" | "clicks" | "ctr" | "cpc" | "results";
 
@@ -23,12 +22,6 @@ type MetricCardProps = {
   note?: string;
 };
 
-type StatusBadgeStyle = {
-  backgroundColor: string;
-  color: string;
-  borderColor: string;
-};
-
 function getDeltaTone(deltaPercent: number | null, inverse: boolean, noPrevData: boolean): string {
   if (noPrevData || deltaPercent === null || deltaPercent === 0) {
     return "text-slate-600";
@@ -36,82 +29,6 @@ function getDeltaTone(deltaPercent: number | null, inverse: boolean, noPrevData:
 
   const favorable = inverse ? deltaPercent < 0 : deltaPercent > 0;
   return favorable ? "text-emerald-800" : "text-rose-800";
-}
-
-function getStatusBadgeTone(status: MetricStatus): string {
-  switch (status) {
-    case "healthy":
-      return "border";
-    case "warning":
-      return "border";
-    case "critical":
-      return "border";
-    case "na":
-    default:
-      return "border";
-  }
-}
-
-function getStatusBadgeStyle(status: MetricStatus): StatusBadgeStyle {
-  switch (status) {
-    case "healthy":
-      return {
-        backgroundColor: "#ecfdf5",
-        color: "#047857",
-        borderColor: "#a7f3d0"
-      };
-    case "warning":
-      return {
-        backgroundColor: "#fffbeb",
-        color: "#b45309",
-        borderColor: "#fcd34d"
-      };
-    case "critical":
-      return {
-        backgroundColor: "#fff1f2",
-        color: "#be123c",
-        borderColor: "#fda4af"
-      };
-    case "na":
-    default:
-      return {
-        backgroundColor: "#f1f5f9",
-        color: "#475569",
-        borderColor: "#cbd5e1"
-      };
-  }
-}
-
-function getStatusBadgeIcon(status: MetricStatus): ReactNode {
-  switch (status) {
-    case "healthy":
-      return <ShieldCheck size={12} className="shrink-0" />;
-    case "warning":
-      return <TriangleAlert size={12} className="shrink-0" />;
-    case "critical":
-      return <CircleX size={12} className="shrink-0" />;
-    case "na":
-    default:
-      return <CircleMinus size={12} className="shrink-0" />;
-  }
-}
-
-function getStatusCardTint(status: MetricStatus, showStatusBadge: boolean): string {
-  if (!showStatusBadge) {
-    return "";
-  }
-
-  switch (status) {
-    case "healthy":
-      return "bg-emerald-50/60";
-    case "warning":
-      return "bg-amber-50/60";
-    case "critical":
-      return "bg-rose-50/60";
-    case "na":
-    default:
-      return "";
-  }
 }
 
 function DeltaIcon({ deltaPercent }: { deltaPercent: number }) {

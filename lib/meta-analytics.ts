@@ -5,7 +5,6 @@ import {
 } from "@/services/meta-api";
 import { buildDateRange, isValidRangeDays } from "@/utils/date-range";
 import { buildMetricSnapshot } from "@/utils/metrics";
-import { toNumber } from "@/utils/numbers";
 import {
   fetchStructureRowsByIds,
   fetchStructureInsightRowsByRange,
@@ -17,8 +16,7 @@ import type {
   DemographicBreakdown,
   NormalizedInsightRow,
   RangeDays,
-  VideoMetrics,
-  MetaAd
+  VideoMetrics
 } from "./types";
 
 export async function getAdAnalytics(params: {
@@ -61,8 +59,8 @@ export async function getAdAnalytics(params: {
         // Use synced demographics if available
         const syncedDemographics = ad?.demographics || { age: {}, gender: {} };
         const demographics = {
-          age: processBreakdownMap(syncedDemographics.age, "age"),
-          gender: processBreakdownMap(syncedDemographics.gender, "gender")
+          age: processBreakdownMap(syncedDemographics.age),
+          gender: processBreakdownMap(syncedDemographics.gender)
         };
 
         return {
@@ -119,8 +117,7 @@ export async function getAdAnalytics(params: {
 }
 
 function processBreakdownMap(
-  map: Record<string, number> | undefined,
-  key: string
+  map: Record<string, number> | undefined
 ): DemographicBreakdown[] {
   if (!map || Object.keys(map).length === 0) return [];
 

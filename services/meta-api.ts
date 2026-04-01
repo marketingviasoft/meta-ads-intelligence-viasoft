@@ -31,25 +31,6 @@ type MetaAdPreviewResponseItem = {
   body?: string;
 };
 
-type MetaStoryAttachmentItem = {
-  url?: string;
-  unshimmed_url?: string;
-  target?: {
-    url?: string;
-  };
-  subattachments?: {
-    data?: MetaStoryAttachmentItem[];
-  };
-};
-
-type MetaStoryResponseItem = {
-  id?: string;
-  permalink_url?: string;
-  attachments?: {
-    data?: MetaStoryAttachmentItem[];
-  };
-};
-
 type MetaCampaignResponseItem = {
   id: string;
   name: string;
@@ -272,7 +253,6 @@ const INSIGHT_FIELDS = [
   "date_start",
   "date_stop"
 ].join(",");
-const URL_HINT_KEY_PATTERN = /(url|link|website|destination|href)/i;
 
 function normalizeTagKey(value: string): string {
   return value
@@ -1006,41 +986,6 @@ function resolveCreativePreviewUrl(creative: MetaAdCreativeResponseItem | undefi
   return "";
 }
 
-function collectCreativeCallToActions(
-  creative: MetaAdCreativeResponseItem | undefined
-): MetaAdCreativeCallToAction[] {
-  const objectStorySpec = creative?.object_story_spec;
-
-  const candidates = [
-    objectStorySpec?.video_data?.call_to_action,
-    objectStorySpec?.link_data?.call_to_action,
-    objectStorySpec?.photo_data?.call_to_action,
-    objectStorySpec?.template_data?.call_to_action
-  ];
-
-  return candidates.filter(
-    (candidate): candidate is MetaAdCreativeCallToAction =>
-      Boolean(candidate && typeof candidate === "object")
-  );
-}
-
-function collectCreativeCallToActionLinks(
-  creative: MetaAdCreativeResponseItem | undefined
-): string[] {
-  return collectCreativeCallToActions(creative)
-    .map((cta) => cta.value?.link)
-    .filter((link): link is string => typeof link === "string" && Boolean(link.trim()))
-    .map((link) => link.trim());
-}
-
-function normalizeSignal(value: string | undefined): string {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().toUpperCase();
-}
-
 function extractIframeUrlFromAdPreviewBody(rawBody: string): string {
   const body = rawBody.trim();
   if (!body) {
@@ -1101,13 +1046,16 @@ function isRestrictedPreviewHtml(html: string): boolean {
   );
 }
 
-async function isEmbeddablePreviewIframe(iframeUrl: string): Promise<boolean> {
+async function inspectPreviewIframe(iframeUrl: string): Promise<{
+  embeddable: boolean;
+  restricted: boolean;
+}> {
   if (!iframeUrl) {
-    return false;
+    return { embeddable: false, restricted: false };
   }
 
   if (isLikelyRestrictedIframeUrl(iframeUrl)) {
-    return false;
+    return { embeddable: false, restricted: true };
   }
 
   try {
@@ -1121,17 +1069,21 @@ async function isEmbeddablePreviewIframe(iframeUrl: string): Promise<boolean> {
     });
 
     if (!response.ok) {
-      return false;
+      return { embeddable: false, restricted: false };
     }
 
     const html = await response.text();
     if (!html) {
-      return true;
+      return { embeddable: true, restricted: false };
     }
 
-    return !isRestrictedPreviewHtml(html);
+    if (isRestrictedPreviewHtml(html)) {
+      return { embeddable: false, restricted: true };
+    }
+
+    return { embeddable: true, restricted: false };
   } catch {
-    return false;
+    return { embeddable: false, restricted: false };
   }
 }
 
@@ -1308,6 +1260,8 @@ function isAdPreviewFormatValidationError(error: unknown): boolean {
 
 export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
   let firstError: Error | null = null;
+  let sawRestrictedPreview = false;
+  let sawNonEmbeddablePreview = false;
 
   for (const adFormat of AD_PREVIEW_FORMAT_CANDIDATES) {
     try {
@@ -1321,13 +1275,21 @@ export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
         previews.find((item) => typeof item.body === "string" && item.body.trim())?.body ?? "";
       const iframeUrl = extractIframeUrlFromAdPreviewBody(previewBody);
 
-      if (iframeUrl && (await isEmbeddablePreviewIframe(iframeUrl))) {
+      if (!iframeUrl) {
+        continue;
+      }
+
+      const inspection = await inspectPreviewIframe(iframeUrl);
+      if (inspection.embeddable) {
         return {
           adId,
           adFormat,
           iframeUrl
         };
       }
+
+      sawRestrictedPreview ||= inspection.restricted;
+      sawNonEmbeddablePreview = true;
     } catch (error) {
       if (!firstError && error instanceof Error) {
         firstError = error;
@@ -1343,6 +1305,14 @@ export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
 
   if (firstError) {
     throw firstError;
+  }
+
+  if (sawRestrictedPreview) {
+    throw new Error("A Meta bloqueou este preview por permissão ou política do perfil.");
+  }
+
+  if (sawNonEmbeddablePreview) {
+    throw new Error("A Meta retornou um preview não incorporável para este anúncio.");
   }
 
   throw new Error("Preview avançado indisponível para este anúncio.");

@@ -25,6 +25,7 @@ import {
   getStructureComparisonPayloadFromStore,
   getVerticalBudgetSummaryFromStore
 } from "@/lib/meta-insights-store";
+import { resolvePdfPagePlan } from "@/lib/pdf-page-plan";
 import { PDF_BRAND_SIGNATURE } from "@/pdf/layout-preset";
 import type {
   DailyMetricPoint,
@@ -36,22 +37,13 @@ import type {
 import { resolveSupportedVertical } from "@/lib/verticals";
 import { parseRangeDays } from "@/utils/date-range";
 import { formatCurrencyBRL, formatNumberBR, formatPercentBR } from "@/utils/formatters";
+import { getDeliveryFilterLabel } from "@/utils/labels";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type MetricKey = "spend" | "impressions" | "clicks" | "ctr" | "cpc" | "results";
-type DeliveryFilterValue = "ALL" | "ACTIVE" | "PAUSED" | "WITH_ISSUES" | "PENDING_REVIEW" | "ARCHIVED";
 type ComparisonMetricKey = MetricKey;
-
-const DELIVERY_FILTER_LABELS: Record<DeliveryFilterValue, string> = {
-  ALL: "Todos os status",
-  ACTIVE: "Ativas",
-  PAUSED: "Pausadas",
-  WITH_ISSUES: "Com problemas",
-  PENDING_REVIEW: "Em análise",
-  ARCHIVED: "Arquivadas"
-};
 
 type MetricCardConfig = {
   metricKey: MetricKey;
@@ -218,15 +210,6 @@ function parseCsvIds(rawValue: string | undefined): string[] {
     .filter(Boolean);
 
   return [...new Set(ids)];
-}
-
-function getDeliveryFilterLabel(rawValue: string | undefined): string {
-  if (!rawValue) {
-    return DELIVERY_FILTER_LABELS.ALL;
-  }
-
-  const normalized = rawValue.trim().toUpperCase() as DeliveryFilterValue;
-  return DELIVERY_FILTER_LABELS[normalized] ?? DELIVERY_FILTER_LABELS.ALL;
 }
 
 function getComparisonPrimaryMetricKey(objective: ObjectiveCategory): ComparisonMetricKey {
@@ -679,16 +662,21 @@ export default async function PdfPage({
     }
   }
 
-  const shouldRenderComparisonPage = hasAdSetComparisonSelection || hasAdComparisonSelection;
+  const {
+    shouldRenderComparisonPage,
+    totalPages,
+    metricsPageNumber,
+    trendPageNumber,
+    insightsPageNumber
+  } = resolvePdfPagePlan({
+    hasAdSetComparisonSelection,
+    hasAdComparisonSelection
+  });
   const selectedVerticalLabel =
     selectedVerticalFromQuery ??
     (payload.campaign.verticalTag && payload.campaign.verticalTag !== "Sem vertical"
       ? payload.campaign.verticalTag
       : "Todas as verticais");
-  const totalPages = shouldRenderComparisonPage ? 5 : 4;
-  const metricsPageNumber = shouldRenderComparisonPage ? 3 : 2;
-  const trendPageNumber = shouldRenderComparisonPage ? 4 : 3;
-  const insightsPageNumber = shouldRenderComparisonPage ? 5 : 4;
   const generatedAtLabel = formatGeneratedAtLabel(payload.generatedAt);
   const adSetNameById = new Map(adSets.map((adSet) => [adSet.id, adSet.name]));
   const adNameById = new Map(ads.map((ad) => [ad.id, ad.name]));

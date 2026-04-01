@@ -21,15 +21,18 @@ A visão analítica continua sendo a leitura profunda por campanha, com grupos d
   - `Reconhecimento`
 - **Camada semântica centralizada**: uso de `utils/objective.ts` e `utils/labels.ts` para manter consistência técnica e visual.
 - **Navegação entre visões consolidada**: o fluxo entre `/dashboard/executivo` e `/dashboard/campanhas` preserva o contexto por query string.
+- **Observabilidade interna adicionada**: a rota `/dashboard/sincronizacoes` passou a ler `meta_sync_logs` diretamente para fins operacionais.
 - **Visão Executiva madura visualmente**: KPIs com tooltip, leitura mais limpa e semântica mais amigável para público gerencial.
+- **Governança institucionalizada**: existe CI mínimo em `.github/workflows/ci.yml` e auditoria manual de schema em `.github/workflows/schema-audit.yml`.
 
 ## Pendências Parciais (Não tratar como concluídas)
 
-- **`objective_category`**: o código e o schema principal já foram alinhados para a coluna, mas a transição ainda depende de migração nos ambientes existentes; o fallback por regex continua relevante.
-- **Logging do cron**: o código já tenta persistir em `meta_sync_logs`, porém isso ainda depende de migration manual e mantém `console.log` como fallback, sem telemetria madura.
+- **`objective_category`**: o ambiente auditado em `2026-04-01` ja possui a coluna ativa e populada; ainda assim, o fallback por regex continua relevante para ambientes nao auditados.
+- **Logging do cron**: o ambiente auditado em `2026-04-01` ja possui `meta_sync_logs` ativo e a sync manual confirmou persistencia `supabase`; a telemetria ainda e operacional/simples, nao uma observabilidade completa.
 - **Testes**: infraestrutura com Vitest existe, mas a cobertura ainda é preliminar.
+- **Testes**: cobertura já inclui cron, executivo, contrato do PDF e fallbacks de preview, mas ainda nao e exaustiva em toda a aplicacao.
 - **Constantes**: centralização ainda incompleta, especialmente em partes do cron.
-- **Dependência operacional de schema**: alguns ambientes podem exigir aplicação manual das migrações SQL para suportar `objective_category` e `meta_sync_logs`.
+- **Dependência operacional de schema**: ambientes paralelos ou novos podem exigir aplicação manual das migrações SQL para suportar `objective_category` e `meta_sync_logs`.
 - **Fallback legado**: a inferência por regex ainda não deve ser removida sem validar a consolidação completa do schema e do fluxo de ingestão.
 
 ## Regras que Não Podem Ser Quebradas
@@ -59,21 +62,21 @@ A visão analítica continua sendo a leitura profunda por campanha, com grupos d
 
 ## Dependências Operacionais que Exigem Atenção
 
-- Verificar se a migração `docs/sql/add_objective_category.sql` foi aplicada no banco do ambiente atual.
+- Ambiente auditado em `2026-04-01`: `docs/sql/add_objective_category.sql` e `docs/sql/meta_sync_logs.sql` refletem o schema atualmente validado.
 - Validar se o `.env.local` aponta para o projeto Supabase correto.
 - Ao trocar de máquina/ambiente, não assumir que o schema está atualizado só porque o código está.
 - Se houver erro na rota `/api/meta/executive`, suspeitar primeiro de:
   - variáveis de ambiente;
   - pacote do Supabase não instalado;
-  - schema desatualizado (`objective_category` ausente).
+  - schema desatualizado em algum ambiente paralelo (`objective_category` ausente).
 
 ## Próximos Passos Naturais
 
-1. **Auditar o schema** e validar a consolidação real de `objective_category`.
-2. **Evoluir logging/observabilidade do cron**.
-3. **Aumentar cobertura de testes** nas regras críticas.
-4. **Continuar a limpeza das constantes** ainda espalhadas.
-5. **Continuar refinando a visão executiva**, mas sem quebrar a coerência semântica entre objetivos e métricas.
+1. **Evoluir logging/observabilidade do cron** agora que `meta_sync_logs` esta ativo no ambiente auditado.
+2. **Aumentar cobertura de testes** nas regras críticas.
+3. **Continuar a limpeza das constantes** ainda espalhadas.
+4. **Continuar refinando a visão executiva**, mas sem quebrar a coerência semântica entre objetivos e métricas.
+5. **Institucionalizar a auditoria de schema no CI/processo operacional**.
 
 ## Arquivos/Camadas Mais Sensíveis
 

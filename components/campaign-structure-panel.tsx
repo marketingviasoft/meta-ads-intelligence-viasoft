@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, BarChart3, Clock, ImageOff, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
 import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet, RangeDays } from "@/lib/types";
+import { getCreativeFeedback, getPreviewFailureFeedback } from "@/utils/ad-preview";
 import { formatCurrency, formatNumber } from "@/utils/numbers";
 
 type CampaignStructurePanelProps = {
@@ -23,6 +24,11 @@ type CampaignStructurePanelProps = {
 type AdPreviewResponse = {
   data?: MetaAdPreview;
   error?: string;
+  meta?: {
+    failureCategory?: string;
+    failureLabel?: string;
+    failureDetail?: string;
+  };
 };
 
 type AdAnalyticsResponse = {
@@ -104,7 +110,9 @@ export function CampaignStructurePanel({
 
       const payload = (await response.json().catch(() => null)) as AdPreviewResponse | null;
       if (!response.ok) {
-        throw new Error(payload?.error || `Erro ao buscar preview (${response.status})`);
+        throw new Error(
+          payload?.meta?.failureDetail || payload?.error || `Erro ao buscar preview (${response.status})`
+        );
       }
 
       const preview = payload?.data;
@@ -205,7 +213,12 @@ export function CampaignStructurePanel({
   const activePreview = selectedPreviewAd ? adPreviewByAdId[selectedPreviewAd.id] : undefined;
   const activePreviewLoading = selectedPreviewAd ? adPreviewLoadingByAdId[selectedPreviewAd.id] : false;
   const activePreviewError = selectedPreviewAd ? adPreviewErrorByAdId[selectedPreviewAd.id] : "";
-
+  const activePreviewFeedback = selectedPreviewAd
+    ? getPreviewFailureFeedback({
+        ad: selectedPreviewAd,
+        errorMessage: activePreviewError
+      })
+    : null;
   const markCreativePreviewAsBroken = useCallback((adId: string): void => {
     setBrokenCreativePreviewByAdId((previous) => {
       if (previous[adId]) {
@@ -383,6 +396,7 @@ export function CampaignStructurePanel({
                   const showCreativePreview = Boolean(
                     ad.creativePreviewUrl && !brokenCreativePreviewByAdId[ad.id]
                   );
+                  const creativeFeedback = getCreativeFeedback(ad);
 
                   return (
                     <li
@@ -412,7 +426,7 @@ export function CampaignStructurePanel({
                           ) : (
                             <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-50 px-2 text-center text-[10px] font-medium text-slate-400">
                               <ImageOff size={18} className="text-slate-300" />
-                              <span>Sem miniatura</span>
+                              <span>{creativeFeedback.label}</span>
                             </div>
                           )}
                           <span
@@ -432,6 +446,12 @@ export function CampaignStructurePanel({
                           <p className="mt-1 break-words text-[11px] text-slate-500 line-clamp-1">
                             Criativo: {ad.creativeName}
                           </p>
+
+                          {creativeFeedback.category !== "ready" ? (
+                            <p className="mt-1 text-[11px] font-medium text-amber-700">
+                              {creativeFeedback.detail}
+                            </p>
+                          ) : null}
                         </div>
 
                         <button
@@ -531,6 +551,7 @@ export function CampaignStructurePanel({
                     ) : (
                       <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
                         {selectedPreviewAd.creativePreviewUrl && !brokenCreativePreviewByAdId[selectedPreviewAd.id] ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={selectedPreviewAd.creativePreviewUrl}
                             alt="Ad Preview"
@@ -540,9 +561,11 @@ export function CampaignStructurePanel({
                         ) : (
                           <div className="flex min-h-[320px] w-full flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 px-6 text-center text-sm text-slate-500">
                             <ImageOff size={28} className="text-slate-300" />
-                            <p className="font-medium text-slate-600">Miniatura indisponível</p>
+                            <p className="font-medium text-slate-600">
+                              {activePreviewFeedback?.title ?? "Miniatura indisponível"}
+                            </p>
                             <p className="max-w-sm text-xs text-slate-400">
-                              Este anúncio não retornou uma imagem válida para visualização estática.
+                              {activePreviewFeedback?.detail || "Este anúncio não retornou uma imagem válida para visualização estática."}
                             </p>
                           </div>
                         )}
