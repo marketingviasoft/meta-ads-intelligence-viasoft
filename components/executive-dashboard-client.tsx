@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { AlertCircle, AlertTriangle, ArrowRight, BarChart, BarChart3, Coins, Eye, Info, Lightbulb, Loader2, MousePointerClick, RefreshCw, Sparkles, Target, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, BarChart, BarChart3, Eye, Info, Lightbulb, Loader2, MousePointerClick, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExecutivePerformanceChart } from "@/components/executive-performance-chart";
 import { MetricCard } from "@/components/metric-card";
@@ -13,9 +13,8 @@ import { PeriodSelector } from "@/components/period-selector";
 import { PUBLICATION_NAME } from "@/lib/branding";
 import { buildDashboardHref, type CampaignStatusFilterValue, ALL_VERTICALS_VALUE, CAMPAIGN_STATUS_FILTER_ALL, DELIVERY_STATUS_FILTERS } from "@/lib/dashboard-query";
 import { SUPPORTED_VERTICALS } from "@/lib/verticals";
-import type { RangeDays, ExecutivePayload } from "@/lib/types";
+import type { ObjectiveCategory, RangeDays, ExecutivePayload } from "@/lib/types";
 import { getObjectiveLabel, getDeliveryStatusLabel } from "@/utils/labels";
-import { getPrimaryMetricDefinition } from "@/utils/objective";
 
 
 type ExecutiveDashboardClientProps = {
@@ -28,6 +27,7 @@ type ExecutiveDashboardClientProps = {
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const formatNumber = (value: number) => new Intl.NumberFormat("pt-BR").format(value);
 const formatPercent = (value: number | null) => value === null ? "-" : new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 1 }).format(value / 100);
+const OBJECTIVE_CATEGORIES: ObjectiveCategory[] = ["CONVERSIONS", "ENGAGEMENT", "RECOGNITION", "TRAFFIC"];
 
 function getInsightTone(type: string): string {
   switch (type) {
@@ -100,8 +100,7 @@ export function ExecutiveDashboardClient({
 
   const loadData = useCallback(async (refresh = false) => {
     try {
-      const isRefreshing = refresh || !loading;
-      if (!isRefreshing) setLoading(true);
+      if (!refresh) setLoading(true);
       if (refresh) setRefreshing(true);
 
       const params = new URLSearchParams({
@@ -120,8 +119,8 @@ export function ExecutiveDashboardClient({
 
       setPayload(json.data);
       setError("");
-    } catch (err: any) {
-      setError(err.message || "Erro de conexão ao buscar resumo executivo.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro de conexão ao buscar resumo executivo.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -267,7 +266,7 @@ export function ExecutiveDashboardClient({
           </h3>
           <p className="text-xs text-slate-500 mb-6 -mt-3">Campanhas com maior volume de resultados gerados dentro de cada objetivo.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {["CONVERSIONS", "ENGAGEMENT", "RECOGNITION", "TRAFFIC"].map((cat) => {
+            {OBJECTIVE_CATEGORIES.map((cat) => {
               const campaignsInCategory = (payload?.campaigns || [])
                 .filter(c => c.campaign.objectiveCategory === cat && c.metrics.results > 0)
                 .sort((a, b) => b.metrics.results - a.metrics.results || (a.metrics.costPerResult || Infinity) - (b.metrics.costPerResult || Infinity))
@@ -276,7 +275,7 @@ export function ExecutiveDashboardClient({
               return (
                 <div key={cat} className="flex flex-col">
                   <h4 className="flex justify-between items-center text-sm font-semibold text-slate-700 mb-4 border-b border-slate-100 pb-2">
-                    {getObjectiveLabel(cat as any)}
+                    {getObjectiveLabel(cat)}
                     <div className="tooltip-trigger group relative flex cursor-help items-center justify-center">
                       <Info size={13} className="text-slate-300 transition-colors group-hover:text-viasoft" />
                       <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 -translate-y-1 opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 z-50">
@@ -347,7 +346,7 @@ export function ExecutiveDashboardClient({
                 {payload?.objectiveDistribution.map((dist) => (
                   <div key={dist.objectiveCategory}>
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="font-medium text-slate-800 truncate pr-2" title={getObjectiveLabel(dist.objectiveCategory as any)}>{getObjectiveLabel(dist.objectiveCategory as any)}</span>
+                      <span className="font-medium text-slate-800 truncate pr-2" title={getObjectiveLabel(dist.objectiveCategory)}>{getObjectiveLabel(dist.objectiveCategory)}</span>
                       <span className="text-slate-600 font-semibold">{formatCurrency(dist.spend)}</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -477,7 +476,7 @@ export function ExecutiveDashboardClient({
                   </td>
                   <td className="py-3 px-2 text-left">
                     <span className="-ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
-                      {getObjectiveLabel(row.campaign.objectiveCategory as any)}
+                      {getObjectiveLabel(row.campaign.objectiveCategory)}
                     </span>
                   </td>
                   <td className="py-3 px-2 text-right font-medium text-slate-900">{formatCurrency(row.metrics.spend)}</td>

@@ -18,6 +18,7 @@ npm install
 npm run dev
 npm run typecheck
 npm run lint
+npm run check:schema
 ```
 
 ### Dashboard

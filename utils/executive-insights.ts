@@ -2,7 +2,8 @@ import type {
   DashboardCampaignSummary, 
   ExecutiveGlobalMetrics, 
   ExecutiveMetricComparison, 
-  InsightMessage 
+  InsightMessage,
+  ObjectiveCategory
 } from "@/lib/types";
 import { getObjectiveLabel } from "@/utils/labels";
 
@@ -59,6 +60,7 @@ export function generateExecutiveInsights({
   // 2. Alerta de concentração excessiva
   const sortedBySpend = [...campaigns].sort((a, b) => b.metrics.spend - a.metrics.spend);
   const topSpender = sortedBySpend[0];
+  const formatAsBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format;
   
   if (topSpender && globalMetrics.spend > 0) {
     const topSpenderShare = (topSpender.metrics.spend / globalMetrics.spend) * 100;
@@ -81,21 +83,29 @@ export function generateExecutiveInsights({
   if (objectiveDistribution.length > 0) {
     const topObjectiveSpend = [...objectiveDistribution].sort((a, b) => b.spend - a.spend)[0];
     const topObjectiveResults = [...objectiveDistribution].sort((a, b) => b.results - a.results)[0];
+    const topObjectiveSpendCategory = topObjectiveSpend?.objectiveCategory as ObjectiveCategory | undefined;
+    const topObjectiveResultsCategory = topObjectiveResults?.objectiveCategory as ObjectiveCategory | undefined;
 
-    if (topObjectiveSpend.percent >= 80) {
+    if (topObjectiveSpend && topObjectiveSpendCategory && topObjectiveSpend.percent >= 80) {
       insights.push({
         type: "info",
         title: "Estratégia Focada",
-        message: `Quase todo o orçamento (${topObjectiveSpend.percent.toFixed(1)}%) está direcionado para o objetivo de ${getObjectiveLabel(topObjectiveSpend.objectiveCategory as any)}.`
+        message: `Quase todo o orçamento (${topObjectiveSpend.percent.toFixed(1)}%) está direcionado para o objetivo de ${getObjectiveLabel(topObjectiveSpendCategory)}.`
       });
     }
 
-    if (topObjectiveSpend.objectiveCategory !== topObjectiveResults?.objectiveCategory && topObjectiveResults?.results > 0) {
-      const formatAsBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format;
+    if (
+      topObjectiveSpend &&
+      topObjectiveResults &&
+      topObjectiveSpendCategory &&
+      topObjectiveResultsCategory &&
+      topObjectiveSpend.objectiveCategory !== topObjectiveResults.objectiveCategory &&
+      topObjectiveResults.results > 0
+    ) {
       insights.push({
         type: "opportunity",
         title: "Oportunidade de Alocação",
-        message: `A maior parte da verba vai para ${getObjectiveLabel(topObjectiveSpend.objectiveCategory as any)} (${formatAsBRL(topObjectiveSpend.spend)}), mas o volume primário de resultados vem de campanhas de ${getObjectiveLabel(topObjectiveResults.objectiveCategory as any)}.`
+        message: `A maior parte da verba vai para ${getObjectiveLabel(topObjectiveSpendCategory)} (${formatAsBRL(topObjectiveSpend.spend)}), mas o volume primário de resultados vem de campanhas de ${getObjectiveLabel(topObjectiveResultsCategory)}.`
       });
     }
   }
@@ -111,13 +121,11 @@ export function generateExecutiveInsights({
     
     // Evita comparar campanhas de objetivos diferentes sob o mesmo prisma de "pior" ou "melhor" a menos que sejam do mesmo tipo.
     // Vamos filtrar apenas se comparadas no mesmo objetivo majoritario ou fazer o alerta restrito
-    const formatAsBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format;
-
     if (bestEfficiency) {
        insights.push({
          type: "info",
          title: "Destaque de Eficiência",
-         message: `A campanha "${bestEfficiency.campaign.name}" apresenta o menor custo por resultado (${formatAsBRL(bestEfficiency.metrics.costPerResult!)}) para o objetivo de ${getObjectiveLabel(bestEfficiency.campaign.objectiveCategory as any)}.`
+         message: `A campanha "${bestEfficiency.campaign.name}" apresenta o menor custo por resultado (${formatAsBRL(bestEfficiency.metrics.costPerResult!)}) para o objetivo de ${getObjectiveLabel(bestEfficiency.campaign.objectiveCategory)}.`
        });
     }
 
@@ -138,7 +146,6 @@ export function generateExecutiveInsights({
   // 5. Alerta de Verba sem Retorno (Gasto alto, 0 conversões)
   const highSpendZeroResults = campaigns.filter(c => c.metrics.results === 0 && c.metrics.spend > globalMetrics.spend * 0.15);
   for (const campaignZero of highSpendZeroResults) {
-    const formatAsBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format;
     insights.push({
       type: "alert",
       title: "Verba sem Resultados",

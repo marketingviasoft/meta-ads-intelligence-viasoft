@@ -113,7 +113,7 @@ export type MetaAdStoreRow = {
   status: string | null;
   creative_name: string | null;
   creative_thumb: string | null;
-  demographics: Record<string, any> | null;
+  demographics: MetaAd["demographics"] | null;
 };
 
 const TABLE_NAME = "meta_campaign_insights";
@@ -1242,7 +1242,7 @@ export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false
       creativeId: row.id,
       creativeName,
       creativePreviewUrl: row.creative_thumb ?? "",
-      demographics: (row.demographics as any) ?? {}
+      demographics: row.demographics ?? { age: {}, gender: {} }
     };
   });
 

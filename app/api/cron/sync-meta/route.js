@@ -19,6 +19,7 @@ const MAX_POLL_ATTEMPTS = 90;
 const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 1200;
 const SYNC_VERSION = "sync-meta-v4-shared-resolution";
+const SYNC_LOGS_TABLE_NAME = "meta_sync_logs";
 const AD_PREVIEW_FORMAT_CANDIDATES = [
   "DESKTOP_FEED_STANDARD",
   "MOBILE_FEED_STANDARD",
@@ -1629,37 +1630,127 @@ function validateSupabaseEnv() {
   }
 }
 
+function isMissingSyncLogsTableError(error) {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("meta_sync_logs") &&
+    (normalized.includes("schema cache") ||
+      normalized.includes("could not find the table") ||
+      normalized.includes("does not exist") ||
+      normalized.includes("relation"))
+  );
+}
+
+async function insertSyncLogRow(values) {
+  try {
+    const { data, error } = await supabase
+      .from(SYNC_LOGS_TABLE_NAME)
+      .insert([values])
+      .select("id")
+      .single();
+
+    if (error) {
+      return {
+        available: false,
+        missingTable: isMissingSyncLogsTableError(error),
+        id: null,
+        error
+      };
+    }
+
+    return {
+      available: true,
+      missingTable: false,
+      id: data?.id ?? null,
+      error: null
+    };
+  } catch (error) {
+    return {
+      available: false,
+      missingTable: isMissingSyncLogsTableError(error),
+      id: null,
+      error
+    };
+  }
+}
+
+async function updateSyncLogRow(syncLogId, values) {
+  if (!syncLogId) {
+    return { available: false, missingTable: false, error: null };
+  }
+
+  try {
+    const { error } = await supabase
+      .from(SYNC_LOGS_TABLE_NAME)
+      .update(values)
+      .eq("id", syncLogId);
+
+    if (error) {
+      return {
+        available: false,
+        missingTable: isMissingSyncLogsTableError(error),
+        error
+      };
+    }
+
+    return { available: true, missingTable: false, error: null };
+  } catch (error) {
+    return {
+      available: false,
+      missingTable: isMissingSyncLogsTableError(error),
+      error
+    };
+  }
+}
+
 export async function GET(request) {
   const startTime = Date.now();
   const isCron = request.headers.get("user-agent")?.toLowerCase().includes("vercel-cron") || !!request.headers.get("x-cron-secret");
-  
+
   let syncLogId = null;
-  try {
-    const { data: logRow, error: logError } = await supabase
-      .from('meta_sync_logs')
-      .insert([{ status: 'RUNNING', sync_version: SYNC_VERSION }])
-      .select('id')
-      .single();
-    if (!logError && logRow) syncLogId = logRow.id;
-  } catch (e) {
-    console.warn("Falha ao registrar meta_sync_logs inicial:", e.message);
+  let syncLogPersistence = "console-fallback";
+  const syncLogInsert = await insertSyncLogRow({
+    status: "RUNNING",
+    sync_version: SYNC_VERSION
+  });
+
+  if (syncLogInsert.id) {
+    syncLogId = syncLogInsert.id;
+    syncLogPersistence = "supabase";
+  } else if (syncLogInsert.error) {
+    const message =
+      syncLogInsert.error instanceof Error
+        ? syncLogInsert.error.message
+        : String(syncLogInsert.error ?? "falha desconhecida");
+    console.warn(
+      JSON.stringify({
+        event: "SYNC_LOG_PERSISTENCE_UNAVAILABLE",
+        reason: syncLogInsert.missingTable ? "missing_table" : "write_error",
+        message,
+        time: Date.now()
+      })
+    );
   }
 
   console.log(JSON.stringify({
     event: "SYNC_START",
     mode: isCron ? "cron" : "manual",
     time: startTime,
-    syncLogId
+    syncLogId,
+    syncLogPersistence
   }));
 
   if (!isAuthorized(request)) {
     console.warn(JSON.stringify({ event: "SYNC_UNAUTHORIZED", time: Date.now() }));
     if (syncLogId) {
-      await supabase.from('meta_sync_logs').update({
-        status: 'ERROR_UNAUTHORIZED',
+      await updateSyncLogRow(syncLogId, {
+        status: "ERROR_UNAUTHORIZED",
         completed_at: new Date().toISOString(),
-        error_message: 'Request não autorizada'
-      }).eq('id', syncLogId).catch(() => {});
+        error_message: "Request não autorizada"
+      });
     }
     return NextResponse.json({ error: "Não autorizado", syncVersion: SYNC_VERSION }, { status: 401 });
   }
@@ -1734,12 +1825,13 @@ export async function GET(request) {
       event: "SYNC_SUCCESS",
       time: Date.now(),
       durationMs,
-      totalRecords: syncedInsights + syncedAdSets + syncedAds
+      totalRecords: syncedInsights + syncedAdSets + syncedAds,
+      syncLogPersistence
     }));
 
     if (syncLogId) {
-      await supabase.from('meta_sync_logs').update({
-        status: 'SUCCESS',
+      await updateSyncLogRow(syncLogId, {
+        status: "SUCCESS",
         completed_at: new Date().toISOString(),
         fetched_rows: reportRows.length,
         synced_insights: syncedInsights,
@@ -1748,7 +1840,7 @@ export async function GET(request) {
         range_since: range.since,
         range_until: range.until,
         execution_ms: durationMs
-      }).eq('id', syncLogId).catch(() => {});
+      });
     }
 
     return NextResponse.json({
@@ -1759,7 +1851,8 @@ export async function GET(request) {
       syncedAdSets,
       syncedAds,
       jobsExecuted: insightResult.jobs,
-      range
+      range,
+      syncLogPersistence
     });
   } catch (error) {
     const durationMs = Date.now() - startTime;
@@ -1773,24 +1866,26 @@ export async function GET(request) {
       message,
       stack,
       source: isSupabaseError ? "Supabase" : "Meta",
-      time: Date.now()
+      time: Date.now(),
+      syncLogPersistence
     }));
 
     if (syncLogId) {
-      await supabase.from('meta_sync_logs').update({
-        status: isRateLimit ? 'ERROR_RATE_LIMIT' : 'ERROR_UNKNOWN',
+      await updateSyncLogRow(syncLogId, {
+        status: isRateLimit ? "ERROR_RATE_LIMIT" : "ERROR_UNKNOWN",
         completed_at: new Date().toISOString(),
         error_message: message,
         error_stack: stack,
         execution_ms: durationMs
-      }).eq('id', syncLogId).catch(() => {});
+      });
     }
 
     return NextResponse.json(
       {
         success: false,
         error: message,
-        syncVersion: SYNC_VERSION
+        syncVersion: SYNC_VERSION,
+        syncLogPersistence
       },
       {
         status: 500

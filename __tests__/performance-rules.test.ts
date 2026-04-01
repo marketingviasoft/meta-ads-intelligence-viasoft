@@ -37,6 +37,10 @@ vi.mock("@/utils/date-range", () => ({
 import { getDashboardPayloadFromStore } from "@/lib/meta-insights-store";
 import { supabase } from "@/lib/supabaseClient.js";
 
+type MockableFrom = {
+  mockImplementation: (implementation: (table: string) => unknown) => unknown;
+};
+
 describe("Performance Rules (Visual Aggregation)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -54,26 +58,48 @@ describe("Performance Rules (Visual Aggregation)", () => {
       { date: "2023-09-30", spend: "50", clicks: "5", impressions: "50", campaign_id: "idx", campaign_name: "Campanha Teste" }
     ];
 
-    (supabase.from as any).mockImplementation((table: string) => {
-      return {
+    const mockedFrom = supabase.from as unknown as MockableFrom;
+    mockedFrom.mockImplementation((table: string) => {
+      void table;
+      let since = "";
+      let until = "";
+      let rangeCallCount = 0;
+
+      const resolveRows = () => {
+        if (since === "2023-10-01" && until === "2023-10-14") {
+          return rangeCallCount === 1 ? currentRows : [];
+        }
+
+        if (since === "2023-09-17" && until === "2023-09-30") {
+          return rangeCallCount === 1 ? previousRows : [];
+        }
+
+        return [];
+      };
+
+      const chain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        gte: vi.fn().mockReturnThis(),
-        lte: vi.fn().mockReturnThis(),
+        gte: vi.fn((field: string, value: string) => {
+          if (field === "date") since = value;
+          return chain;
+        }),
+        lte: vi.fn((field: string, value: string) => {
+          if (field === "date") until = value;
+          return chain;
+        }),
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ 
           data: { campaign_name: "Campanha Teste", objective: "CONVERSIONS" }, 
           error: null 
         }),
-        range: vi.fn()
-          // First fetch is current range
-          .mockResolvedValueOnce({ data: currentRows, error: null })
-          .mockResolvedValueOnce({ data: [], error: null })
-          // Second fetch is previous range
-          .mockResolvedValueOnce({ data: previousRows, error: null })
-          .mockResolvedValueOnce({ data: [], error: null })
+        range: vi.fn(async () => {
+          rangeCallCount += 1;
+          return { data: resolveRows(), error: null };
+        })
       };
+      return chain;
     });
 
     const payload = await getDashboardPayloadFromStore({
