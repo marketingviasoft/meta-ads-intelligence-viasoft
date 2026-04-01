@@ -39,6 +39,7 @@ create table if not exists public.meta_campaign_insights (
   quality_ranking text,
   engagement_rate_ranking text,
   conversion_rate_ranking text,
+  objective_category text,
   actions jsonb not null default '{}'::jsonb,
   cost_per_action_type jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -72,6 +73,7 @@ alter table public.meta_campaign_insights add column if not exists cost_per_resu
 alter table public.meta_campaign_insights add column if not exists quality_ranking text;
 alter table public.meta_campaign_insights add column if not exists engagement_rate_ranking text;
 alter table public.meta_campaign_insights add column if not exists conversion_rate_ranking text;
+alter table public.meta_campaign_insights add column if not exists objective_category text;
 alter table public.meta_campaign_insights add column if not exists actions jsonb not null default '{}'::jsonb;
 alter table public.meta_campaign_insights add column if not exists cost_per_action_type jsonb not null default '{}'::jsonb;
 alter table public.meta_campaign_insights add column if not exists updated_at timestamptz not null default now();
@@ -222,6 +224,8 @@ comment on column public.meta_campaign_insights.engagement_rate_ranking is
   'Ranking de taxa de engajamento do anuncio.';
 comment on column public.meta_campaign_insights.conversion_rate_ranking is
   'Ranking de taxa de conversao do anuncio.';
+comment on column public.meta_campaign_insights.objective_category is
+  'Categoria canônica inferida (TRAFFIC, ENGAGEMENT, RECOGNITION, CONVERSIONS).';
 comment on column public.meta_campaign_insights.actions is
   'Mapa bruto action_type -> value retornado pela Meta.';
 comment on column public.meta_campaign_insights.cost_per_action_type is

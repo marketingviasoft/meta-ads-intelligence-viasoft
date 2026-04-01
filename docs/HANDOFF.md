@@ -91,9 +91,9 @@ Fluxo especial:
 2. **Nome de criativo**: depende da qualidade do enriquecimento salvo no Supabase.
 3. **Paginação do PDF**: deve continuar sendo derivada do fluxo real em `app/pdf/page.tsx`, inclusive quando a página de comparativos existir ou não.
 4. **Acoplamento analítico/executivo**: as visões devem continuar desacopladas para não inflar o `DashboardClient`.
-5. **Persistência de `objective_category` (Parcial - Migração Pendente)**: Há o script `docs/sql/add_objective_category.sql`. A inferência de categorias suporta fallback regex seguro, mas o pleno arquivamento dinâmico na cron pode depender de finalização. Não assumir como completamente finalizado sem verificar a migration.
-6. **Logging do Cron (Parcial)**: O motor depende puramente de `console.log` na Vercel. Não há monitoramento remoto maduro de cron implementado.
-7. **Centralização de Constantes (Parcial)**: O ecossistema de valores mágicos não está 100% reunido; há resquícios soltos.
+5. **Persistência de `objective_category` (Parcial - Migração Pendente)**: O código já lê/escreve `objective_category`, e o schema principal foi alinhado para incluir a coluna. Ainda assim, ambientes existentes podem depender da aplicação manual de `docs/sql/add_objective_category.sql`; por isso o fallback regex continua obrigatório até a migração estar confirmada.
+6. **Logging do Cron (Parcial)**: O cron já tenta persistir execuções em `meta_sync_logs`, mas isso ainda depende da aplicação manual de `docs/sql/meta_sync_logs.sql` e mantém `console.log`/`console.warn` como fallback operacional. Não tratar como observabilidade madura.
+7. **Centralização de Constantes (Parcial)**: O ecossistema de valores mágicos avançou para `lib/constants.ts`, incluindo caps de budget compartilhados, mas ainda existem resquícios soltos fora da trilha principal.
 8. **Cobertura de Testes (Parcial)**: A infraestrutura em `__tests__/` existe, mas a cobertura efetiva da aplicação é imatura e em andamento.
 
 ## Arquivos de maior impacto

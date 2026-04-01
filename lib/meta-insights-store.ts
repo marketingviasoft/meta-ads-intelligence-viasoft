@@ -52,9 +52,8 @@ import {
   normalizeString
 } from "@/lib/objective-helpers";
 import {
-  META_INVESTMENT_TAX_RATE,
   DEFAULT_VERTICAL_MONTHLY_CAP,
-  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX,
+  VIASOFT_VERTICAL_MONTHLY_CAP,
   CAMPAIGN_STATUS_LOOKBACK_DAYS
 } from "@/lib/constants";
 
@@ -161,11 +160,6 @@ const STORE_SELECT_FIELDS = [
   "updated_at"
 ].join(",");
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const VIASOFT_VERTICAL_MONTHLY_CAP =
-  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
-
-
-  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
 
 
 function resolveVerticalMonthlyCap(verticalTag: string): number {

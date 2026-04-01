@@ -391,9 +391,9 @@ Vercel:
    - exceção de teto da VIASOFT.
 6. Qualquer alteração na navegação entre visões deve preservar o contrato de query string entre executivo e analítico.
 7. **Testes parciais**: Existe uma infraestrutura básica instalada em `__tests__/`, mas a cobertura de testes é apenas parcial e não deve ser vendida como verdadeiramente robusta.
-8. **Persistência de `objective_category` (Migração Manual / Parcial)**: Os utilitários suportam as categorias derivadas pelo regex avançado nativamente. Um script `docs/sql/add_objective_category.sql` foi criado para suportar a persistência na tabela e aliviar leituras Regex, mas depende de aplicação manual de migração/schema e pode ainda estar em estágio parcial de adoção total na carga cron.
-9. **Constantes parcialmente consolidadas**: Existe a centralização progressiva no `lib/constants.ts`, mas scripts como o cron e certas configurações contêm lógicas soltas. A centralização total ainda é uma melhoria pendente.
-10. **Logging do cron imaturo**: O monitoramento das sincronizações na Vercel utiliza o `console.log` nativo de forma ingênua, carecendo de um fluxo maduro e consolidado de telemetria persistente.
+8. **Persistência de `objective_category` (Migração Manual / Parcial)**: O código já persiste/lê `objective_category` e o schema principal foi alinhado para incluir a coluna, mas ambientes existentes ainda podem depender da execução manual de `docs/sql/add_objective_category.sql`. Enquanto isso não estiver auditado no banco real, o fallback regex continua obrigatório.
+9. **Constantes parcialmente consolidadas**: Existe a centralização progressiva no `lib/constants.ts`, incluindo os caps compartilhados de budget, mas scripts como o cron e certas configurações ainda contêm lógicas soltas. A centralização total permanece como melhoria pendente.
+10. **Logging do cron imaturo**: O cron já tenta registrar execuções em `meta_sync_logs`, porém isso ainda depende da aplicação manual de `docs/sql/meta_sync_logs.sql` e preserva `console.log` como fallback. A observabilidade persistente ainda não deve ser tratada como madura.
 
 ## Arquivos mais importantes para continuar o desenvolvimento
 - `components/dashboard-client.tsx`

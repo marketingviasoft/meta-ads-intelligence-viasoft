@@ -329,7 +329,10 @@ function PdfComparisonSection({
   const secondSelectedName = comparison ? nameById.get(comparison.items[1]?.id) ?? comparison.items[1]?.id : selectedIds[1];
 
   return (
-    <section className="surface-panel avoid-page-break p-4">
+    <section
+      data-pdf-block={entityType === "ADSET" ? "adset-comparison" : "ad-comparison"}
+      className="surface-panel avoid-page-break p-4"
+    >
       <header className="mb-3 flex items-start justify-between gap-2">
         <h3 className="pdf-section-title flex items-center gap-2 text-base font-semibold text-viasoft">
           {entityType === "ADSET" ? <Layers size={16} /> : <Megaphone size={16} />}
@@ -845,12 +848,16 @@ export default async function PdfPage({
         </div>
 
         <div className="pdf-landscape-page" data-pdf-page={String(insightsPageNumber)}>
-          <div className="flex-1" data-pdf-block="insights-recommendations">
-            <InsightsPanel
-              insights={payload.insights}
-              recommendations={payload.recommendations}
-              isPdf
-            />
+          <div className="flex-1">
+            <div data-pdf-block="insights">
+              <div data-pdf-block="recommendations">
+                <InsightsPanel
+                  insights={payload.insights}
+                  recommendations={payload.recommendations}
+                  isPdf
+                />
+              </div>
+            </div>
           </div>
           <PdfPageFooter
             pageNumber={insightsPageNumber}

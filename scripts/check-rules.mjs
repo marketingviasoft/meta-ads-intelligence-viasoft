@@ -48,8 +48,13 @@ try {
   const budgetPanelSource = readFile("components/dashboard-report.tsx");
   assertContains(
     budgetPanelSource,
-    "const META_INVESTMENT_TAX_RATE = 0.1215;",
+    'import { META_INVESTMENT_TAX_RATE } from "@/lib/constants";',
     "Regra crítica quebrada: imposto fixo de 12,15% não encontrado no card de orçamento."
+  );
+  assertContains(
+    budgetPanelSource,
+    "const taxAmount = verticalBudget.spentInMonth * META_INVESTMENT_TAX_RATE;",
+    "Regra crítica quebrada: card de orçamento não está calculando imposto a partir da constante compartilhada."
   );
   assertContains(
     budgetPanelSource,
@@ -75,13 +80,36 @@ try {
   );
 
   const pdfPageSource = readFile("app/pdf/page.tsx");
-  for (const pageMarker of ['data-pdf-page="1"', 'data-pdf-page="2"', 'data-pdf-page="3"', 'data-pdf-page="4"', 'data-pdf-page="5"']) {
-    assertContains(
-      pdfPageSource,
-      pageMarker,
-      `Regra crítica quebrada: marcador ${pageMarker} ausente no layout de PDF.`
-    );
-  }
+  assertContains(
+    pdfPageSource,
+    'data-pdf-page="1"',
+    'Regra crítica quebrada: marcador base da página 1 ausente no layout de PDF.'
+  );
+  assertContains(
+    pdfPageSource,
+    'data-pdf-block="metrics"',
+    'Regra crítica quebrada: bloco de métricas ausente no layout de PDF.'
+  );
+  assertContains(
+    pdfPageSource,
+    'data-pdf-block="trend"',
+    'Regra crítica quebrada: bloco de tendência ausente no layout de PDF.'
+  );
+  assertContains(
+    pdfPageSource,
+    'data-pdf-block="daily-performance"',
+    'Regra crítica quebrada: bloco de performance diária ausente no layout de PDF.'
+  );
+  assertContains(
+    pdfPageSource,
+    'data-pdf-block="insights"',
+    'Regra crítica quebrada: bloco de insights ausente no layout de PDF.'
+  );
+  assertContains(
+    pdfPageSource,
+    'data-pdf-block="recommendations"',
+    'Regra crítica quebrada: bloco de recomendações ausente no layout de PDF.'
+  );
 
   console.log("[rules-check] OK: regras críticas validadas.");
 } catch (error) {

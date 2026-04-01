@@ -44,14 +44,13 @@ import {
   buildMetricComparison,
   buildMetricSnapshot
 } from "@/utils/metrics";
+import {
+  DEFAULT_VERTICAL_MONTHLY_CAP,
+  VIASOFT_VERTICAL_MONTHLY_CAP
+} from "@/lib/constants";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_MAX_AGE_MS = 15 * 60 * 1000;
-const DEFAULT_VERTICAL_MONTHLY_CAP = 535;
-const META_INVESTMENT_TAX_RATE = 0.1215;
-const VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX = 1000;
-const VIASOFT_VERTICAL_MONTHLY_CAP =
-  VIASOFT_TOTAL_MONTHLY_CAP_WITH_TAX / (1 + META_INVESTMENT_TAX_RATE);
 const structureComparisonInFlight = new Map<string, Promise<StructureComparisonPayload>>();
 
 function isMetaRateLimitOrCooldownError(error: unknown): boolean {

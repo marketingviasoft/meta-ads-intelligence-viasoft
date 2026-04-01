@@ -25,11 +25,11 @@ A visão analítica continua sendo a leitura profunda por campanha, com grupos d
 
 ## Pendências Parciais (Não tratar como concluídas)
 
-- **`objective_category`**: a transição ainda depende de schema/migração e o fallback por regex continua relevante.
-- **Logging do cron**: observabilidade ainda baseada em `console.log`, sem telemetria madura.
+- **`objective_category`**: o código e o schema principal já foram alinhados para a coluna, mas a transição ainda depende de migração nos ambientes existentes; o fallback por regex continua relevante.
+- **Logging do cron**: o código já tenta persistir em `meta_sync_logs`, porém isso ainda depende de migration manual e mantém `console.log` como fallback, sem telemetria madura.
 - **Testes**: infraestrutura com Vitest existe, mas a cobertura ainda é preliminar.
 - **Constantes**: centralização ainda incompleta, especialmente em partes do cron.
-- **Dependência operacional de schema**: alguns ambientes podem exigir aplicação manual da migração SQL para suportar `objective_category`.
+- **Dependência operacional de schema**: alguns ambientes podem exigir aplicação manual das migrações SQL para suportar `objective_category` e `meta_sync_logs`.
 - **Fallback legado**: a inferência por regex ainda não deve ser removida sem validar a consolidação completa do schema e do fluxo de ingestão.
 
 ## Regras que Não Podem Ser Quebradas

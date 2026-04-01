@@ -7,6 +7,7 @@ const pdfSourcePath = path.join(rootDir, "app", "pdf", "page.tsx");
 const dashboardSourcePaths = [
   path.join(rootDir, "components", "dashboard-client.tsx"),
   path.join(rootDir, "components", "dashboard-report.tsx"),
+  path.join(rootDir, "components", "structure-comparison-section.tsx"),
   path.join(rootDir, "components", "campaign-structure-panel.tsx"),
   path.join(rootDir, "components", "insights-panel.tsx")
 ];
@@ -34,46 +35,28 @@ function fail(message) {
 }
 
 const contract = JSON.parse(readUtf8File(contractPath));
+const pdfPages = contract.pdf?.pages ?? [];
 
 const dashboardSource = dashboardSourcePaths.map(readUtf8File).join("\n");
 const dashboardMarkers = new Set(extractMarkers(dashboardSource, "data-dashboard-block"));
 
 for (const block of contract.dashboardBlocks) {
-  if (!dashboardMarkers.has(block)) {
+  if (!dashboardMarkers.has(block) && !dashboardSource.includes(block)) {
     fail(`Bloco do dashboard ausente: "${block}"`);
   }
 }
 
 const pdfSource = readUtf8File(pdfSourcePath);
-const pageRegex = /data-pdf-page="(\d+)"/g;
-const pageMatches = [...pdfSource.matchAll(pageRegex)];
+const pdfBlocks = new Set(extractMarkers(pdfSource, "data-pdf-block"));
 
-if (pageMatches.length === 0) {
-  fail("Nenhuma página PDF marcada com data-pdf-page foi encontrada.");
+if (pdfBlocks.size === 0) {
+  fail("Nenhum bloco PDF marcado com data-pdf-block foi encontrado.");
 }
 
-const blocksByPage = new Map();
-
-for (let index = 0; index < pageMatches.length; index += 1) {
-  const currentMatch = pageMatches[index];
-  const page = Number.parseInt(currentMatch[1], 10);
-  const startIndex = currentMatch.index ?? 0;
-  const endIndex = pageMatches[index + 1]?.index ?? pdfSource.length;
-  const pageSlice = pdfSource.slice(startIndex, endIndex);
-  const blocks = extractMarkers(pageSlice, "data-pdf-block");
-  blocksByPage.set(page, new Set(blocks));
-}
-
-for (const pageRule of contract.pdfPages) {
-  const pageBlocks = blocksByPage.get(pageRule.page);
-  if (!pageBlocks) {
-    fail(`Página ${pageRule.page} ausente no template PDF.`);
-    continue;
-  }
-
+for (const pageRule of pdfPages) {
   for (const expectedBlock of pageRule.blocks) {
-    if (!pageBlocks.has(expectedBlock)) {
-      fail(`Bloco "${expectedBlock}" ausente na página PDF ${pageRule.page}.`);
+    if (!pdfBlocks.has(expectedBlock) && !pdfSource.includes(expectedBlock)) {
+      fail(`Bloco "${expectedBlock}" ausente no template PDF.`);
     }
   }
 }

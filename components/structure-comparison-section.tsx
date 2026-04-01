@@ -142,7 +142,10 @@ export function StructureComparisonSection({
   const secondItemName = selectedIds[1] ? resolveName(selectedIds[1]) : "";
 
   return (
-    <section className="surface-panel border border-viasoft/15 bg-gradient-to-b from-white to-viasoft/5 p-5 sm:p-6">
+    <section
+      data-dashboard-block={entityType === "ADSET" ? "adset-comparison (conditional)" : "ad-comparison (conditional)"}
+      className="surface-panel border border-viasoft/15 bg-gradient-to-b from-white to-viasoft/5 p-5 sm:p-6"
+    >
       <header className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">

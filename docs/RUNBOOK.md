@@ -7,6 +7,11 @@
 - Supabase acessivel pelas variaveis do projeto
 - Meta token configurado server-side
 
+### Migracoes operacionais recomendadas
+- Aplicar `docs/sql/meta_campaign_insights.sql` no ambiente alvo para garantir a coluna `objective_category` no schema principal.
+- Em ambientes ja existentes, validar tambem `docs/sql/add_objective_category.sql` caso a coluna ainda nao exista.
+- Aplicar `docs/sql/meta_sync_logs.sql` se quiser persistencia de execucoes do cron no Supabase; sem isso o cron segue com fallback em console.
+
 ### Comandos uteis
 ```bash
 npm install
