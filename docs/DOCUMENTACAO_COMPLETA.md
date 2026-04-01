@@ -5,7 +5,7 @@ Este projeto é um dashboard corporativo para leitura, análise e exportação d
 
 O produto atende três objetivos principais:
 - centralizar leitura executiva de campanhas em um dashboard único;
-- permitir análise operacional de campanha, grupos de anúncios e anúncios;
+- permitir análise operacional de campanha, conjuntos de anúncios e anúncios;
 - gerar PDF institucional com layout de apresentação.
 
 ## Stack atual
@@ -95,7 +95,7 @@ A área principal da aplicação foi organizada em duas visões irmãs, com nave
 ### 2. Análise por Campanha
 - rota: `/dashboard/campanhas`
 - foco: leitura operacional profunda
-- objetivo: permitir análise detalhada de campanha, grupos de anúncios, anúncios, comparativos, insights e exportação em PDF
+- objetivo: permitir análise detalhada de campanha, conjuntos de anúncios, anúncios, comparativos, insights e exportação em PDF
 - pode receber `campaignId` pela URL para drill-down vindo da visão executiva
 
 ### 3. Sincronizações
@@ -109,7 +109,7 @@ Fluxo esperado do produto:
 1. usuário observa o panorama geral no `Resumo Executivo`;
 2. identifica uma campanha relevante;
 3. navega para `Análise por Campanha` com `campaignId` e filtros globais preservados;
-4. aprofunda a leitura em grupos de anúncios, anúncios e comparativos.
+4. aprofunda a leitura em conjuntos de anúncios, anúncios e comparativos.
 
 ### Parâmetros canônicos da URL
 Os nomes canônicos usados para a navegação entre visões são:
@@ -227,7 +227,7 @@ KPI principal por objetivo:
 
 ### 4. Estrutura da campanha
 A seção `Estrutura da campanha` mostra:
-- grupos de anúncios da campanha;
+- conjuntos de anúncios da campanha;
 - anúncios do grupo selecionado;
 - miniatura quando disponível;
 - nome do criativo quando disponível;
@@ -241,12 +241,12 @@ Observação importante:
 Os comparativos não usam seletor extra.
 
 Fluxo atual:
-- o usuário marca até 2 grupos de anúncios na seção de estrutura;
+- o usuário marca até 2 conjuntos de anúncios na seção de estrutura;
 - o usuário marca até 2 anúncios na seção de estrutura;
 - as seções de comparativo aparecem apenas quando existem exatamente 2 seleções válidas.
 
 Seções existentes:
-- `Comparativo entre grupos de anúncios`
+- `Comparativo entre conjuntos de anúncios`
 - `Comparativo entre anúncios`
 
 Premissas atuais:
@@ -263,7 +263,7 @@ A página analítica está organizada nesta ordem:
 3. Orçamento mensal da vertical
 4. Informações da campanha
 5. Estrutura da campanha
-6. Comparativo entre grupos de anúncios (condicional)
+6. Comparativo entre conjuntos de anúncios (condicional)
 7. Comparativo entre anúncios (condicional)
 8. Cards de métricas
 9. Tendência consolidada

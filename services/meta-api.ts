@@ -8,6 +8,10 @@ import type {
   MetaCampaign,
   NormalizedInsightRow
 } from "@/lib/types";
+import {
+  extractPreviewRenderHeightFromHtml,
+  extractPreviewRenderWidthFromHtml
+} from "@/utils/ad-preview";
 import { extractVerticalTagFromCampaignName, FALLBACK_VERTICAL_TAG } from "@/utils/campaign-tags";
 import { toNumber } from "@/utils/numbers";
 import { getObjectiveCategory } from "@/utils/objective";
@@ -1049,13 +1053,15 @@ function isRestrictedPreviewHtml(html: string): boolean {
 async function inspectPreviewIframe(iframeUrl: string): Promise<{
   embeddable: boolean;
   restricted: boolean;
+  renderWidth: number | null;
+  renderHeight: number | null;
 }> {
   if (!iframeUrl) {
-    return { embeddable: false, restricted: false };
+    return { embeddable: false, restricted: false, renderWidth: null, renderHeight: null };
   }
 
   if (isLikelyRestrictedIframeUrl(iframeUrl)) {
-    return { embeddable: false, restricted: true };
+    return { embeddable: false, restricted: true, renderWidth: null, renderHeight: null };
   }
 
   try {
@@ -1066,26 +1072,31 @@ async function inspectPreviewIframe(iframeUrl: string): Promise<{
       headers: {
         "User-Agent": "MetaAdsIntelligencePreviewChecker/1.0"
       }
-    });
+      });
 
-    if (!response.ok) {
-      return { embeddable: false, restricted: false };
+      if (!response.ok) {
+      return { embeddable: false, restricted: false, renderWidth: null, renderHeight: null };
+      }
+
+      const html = await response.text();
+      if (!html) {
+      return { embeddable: true, restricted: false, renderWidth: null, renderHeight: null };
+      }
+
+      if (isRestrictedPreviewHtml(html)) {
+      return { embeddable: false, restricted: true, renderWidth: null, renderHeight: null };
+      }
+
+      return {
+        embeddable: true,
+        restricted: false,
+        renderWidth: extractPreviewRenderWidthFromHtml(html),
+        renderHeight: extractPreviewRenderHeightFromHtml(html)
+      };
+    } catch {
+    return { embeddable: false, restricted: false, renderWidth: null, renderHeight: null };
     }
-
-    const html = await response.text();
-    if (!html) {
-      return { embeddable: true, restricted: false };
-    }
-
-    if (isRestrictedPreviewHtml(html)) {
-      return { embeddable: false, restricted: true };
-    }
-
-    return { embeddable: true, restricted: false };
-  } catch {
-    return { embeddable: false, restricted: false };
   }
-}
 
 function normalizeAdSet(item: MetaAdSetResponseItem, campaignIdFromContext: string): MetaAdSet {
   return {
@@ -1284,7 +1295,9 @@ export async function fetchAdPreview(adId: string): Promise<MetaAdPreview> {
         return {
           adId,
           adFormat,
-          iframeUrl
+          iframeUrl,
+          renderWidth: inspection.renderWidth ?? undefined,
+          renderHeight: inspection.renderHeight ?? undefined
         };
       }
 

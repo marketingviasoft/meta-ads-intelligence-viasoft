@@ -329,7 +329,7 @@ export function DashboardClient({
 
       try {
         const response = await requestJson<AdSetsResponse>(
-          `/api/meta/adsets?campaignId=${encodeURIComponent(campaignId)}${refresh ? "&refresh=1" : ""}`
+          `/api/meta/adsets?campaignId=${encodeURIComponent(campaignId)}&rangeDays=${rangeDays}${refresh ? "&refresh=1" : ""}`
         );
 
         const nextAdSets = response.data ?? [];
@@ -347,13 +347,13 @@ export function DashboardClient({
         setSelectedAdSetId("");
         setAds([]);
         setStructureErrorMessage(
-          `Estrutura: ${error instanceof Error ? error.message : "Erro ao carregar grupos de anúncios"}`
+          `Estrutura: ${error instanceof Error ? error.message : "Erro ao carregar conjuntos de anúncios"}`
         );
       } finally {
         setLoadingAdSets(false);
       }
     },
-    []
+    [rangeDays]
   );
 
   const loadAdSetAds = useCallback(async (adSetId: string, refresh = false): Promise<void> => {
@@ -450,7 +450,7 @@ export function DashboardClient({
           return;
         }
         const message =
-          error instanceof Error ? error.message : "Erro ao comparar grupos de anúncios";
+          error instanceof Error ? error.message : "Erro ao comparar conjuntos de anúncios";
         const retryAfterSeconds = extractRetryAfterSecondsFromMessage(message);
         setAdSetComparison(null);
         setAdSetComparisonErrorMessage(

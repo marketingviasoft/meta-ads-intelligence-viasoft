@@ -24,12 +24,12 @@ Hoje a aplicação está em arquitetura `Supabase-first`:
   - barra de progresso do teto.
 - Mostra métricas principais da campanha.
 - Mostra estrutura hierárquica:
-  - grupos de anúncios;
+  - conjuntos de anúncios;
   - anúncios;
   - miniaturas de criativos;
   - preview do anúncio.
 - Permite comparativos opcionais entre:
-  - 2 grupos de anúncios;
+  - 2 conjuntos de anúncios;
   - 2 anúncios.
 - Exporta PDF executivo com paginação por blocos funcionais.
 

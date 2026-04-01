@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCampaignAdSetsFromStore } from "@/lib/meta-insights-store";
+import { getCampaignAdSetsWithMetricsFromStore } from "@/lib/meta-insights-store";
+import { isValidRangeDays } from "@/utils/date-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const campaignId = request.nextUrl.searchParams.get("campaignId");
+  const rawRangeDays = request.nextUrl.searchParams.get("rangeDays");
   const refresh = request.nextUrl.searchParams.get("refresh") === "1";
 
   if (!campaignId) {
@@ -55,20 +57,38 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const parsedRangeDays = Number.parseInt(rawRangeDays ?? "7", 10);
+
+  if (!isValidRangeDays(parsedRangeDays)) {
+    return NextResponse.json(
+      {
+        error: "Período inválido. Use 7, 14, 28 ou 30"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
   try {
-    const adSets = await getCampaignAdSetsFromStore(campaignId, refresh);
+    const adSets = await getCampaignAdSetsWithMetricsFromStore({
+      campaignId,
+      rangeDays: parsedRangeDays,
+      forceRefresh: refresh
+    });
 
     return NextResponse.json({
       data: adSets,
       meta: {
         campaignId,
+        rangeDays: parsedRangeDays,
         count: adSets.length,
         refreshed: refresh
       }
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Erro ao buscar grupos de anúncios no Supabase";
+      error instanceof Error ? error.message : "Erro ao buscar conjuntos de anúncios no Supabase";
     return NextResponse.json(
       {
         error: message

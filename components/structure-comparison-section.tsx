@@ -110,7 +110,7 @@ function getMetrics(objective: ObjectiveCategory): MetricConfig[] {
 
 function getEntityTitle(entityType: "ADSET" | "AD"): string {
   return entityType === "ADSET"
-    ? "Comparativo entre grupos de anúncios"
+    ? "Comparativo entre conjuntos de anúncios"
     : "Comparativo entre anúncios";
 }
 

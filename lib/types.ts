@@ -45,6 +45,10 @@ export interface MetaAdSet {
   campaignId: string;
   effectiveStatus: string;
   configuredStatus: string;
+  objectiveCategory?: ObjectiveCategory;
+  metrics?: MetricSnapshot;
+  previousMetrics?: MetricSnapshot;
+  deltas?: MetricComparison["deltas"];
 }
 
 export interface MetaAd {
@@ -67,6 +71,8 @@ export interface MetaAdPreview {
   adId: string;
   adFormat: string;
   iframeUrl: string;
+  renderWidth?: number;
+  renderHeight?: number;
 }
 
 export interface DateRangeSelection {

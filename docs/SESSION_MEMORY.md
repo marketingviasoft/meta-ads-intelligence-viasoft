@@ -8,7 +8,7 @@ Leia este documento antes de inferir status de funcionalidades, propor arquitetu
 O projeto está operando com arquitetura **Supabase-first** para leitura do dashboard.  
 A visão executiva deixou de ser placeholder e passou a ser uma tela gerencial funcional, com KPIs consolidados, filtros interativos, ranking por objetivo, gráfico consolidado, insights e drill-down para a visão analítica.
 
-A visão analítica continua sendo a leitura profunda por campanha, com grupos de anúncios, anúncios, comparativos, relatório e PDF.
+A visão analítica continua sendo a leitura profunda por campanha, com conjuntos de anúncios, anúncios, comparativos, relatório e PDF.
 
 ## Estado Atual Consolidado
 

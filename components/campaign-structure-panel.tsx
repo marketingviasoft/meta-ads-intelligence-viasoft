@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, BarChart3, Clock, ImageOff, Layers, Megaphone, Users, Video, X, ZoomIn } from "lucide-react";
 import type { AdAnalytics, MetaAd, MetaAdPreview, MetaAdSet, RangeDays } from "@/lib/types";
-import { getCreativeFeedback, getPreviewFailureFeedback } from "@/utils/ad-preview";
+import {
+  getCreativeFeedback,
+  getPreviewFailureFeedback,
+  resolvePreviewCanvasHeight,
+  resolvePreviewCanvasWidth
+} from "@/utils/ad-preview";
 import { formatCurrency, formatNumber } from "@/utils/numbers";
 
 type CampaignStructurePanelProps = {
@@ -44,6 +49,118 @@ function listCountLabel(count: number, singular: string, plural: string): string
   return `${count} ${plural}`;
 }
 
+function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value)}%`;
+}
+
+function getAdSetEfficiencyMetric(adSet: MetaAdSet): { label: string; value: string } | null {
+  if (!adSet.metrics) {
+    return null;
+  }
+
+  switch (adSet.objectiveCategory) {
+    case "TRAFFIC":
+      return {
+        label: "CPC",
+        value: formatCurrency(adSet.metrics.cpc)
+      };
+    case "ENGAGEMENT":
+    case "CONVERSIONS":
+      return adSet.metrics.costPerResult !== null
+        ? {
+            label: "Custo/resultado",
+            value: formatCurrency(adSet.metrics.costPerResult)
+          }
+        : {
+            label: "CPC",
+            value: formatCurrency(adSet.metrics.cpc)
+          };
+    case "RECOGNITION":
+    default:
+      return {
+        label: "CPC",
+        value: formatCurrency(adSet.metrics.cpc)
+      };
+  }
+}
+
+function getAdSetComparisonRows(adSet: MetaAdSet): Array<{
+  label: string;
+  current: string;
+  previous: string;
+  delta: number | null;
+}> {
+  const currentMetrics = adSet.metrics;
+  const previousMetrics = adSet.previousMetrics;
+  const deltas = adSet.deltas;
+
+  if (!currentMetrics || !previousMetrics || !deltas) {
+    return [];
+  }
+
+  const efficiencyLabel =
+    getAdSetEfficiencyMetric(adSet)?.label ??
+    (currentMetrics.costPerResult !== null ? "Custo/resultado" : "CTR");
+  const previousEfficiencyValue =
+    efficiencyLabel === "CTR"
+      ? formatPercent(previousMetrics.ctr)
+      : efficiencyLabel === "CPC"
+        ? formatCurrency(previousMetrics.cpc)
+        : previousMetrics.costPerResult !== null
+          ? formatCurrency(previousMetrics.costPerResult)
+          : "-";
+
+  return [
+    {
+      label: currentMetrics.primaryMetricLabel,
+      current: formatNumber(currentMetrics.results),
+      previous: formatNumber(previousMetrics.results),
+      delta: deltas.results.percent
+    },
+    {
+      label: "Investimento",
+      current: formatCurrency(currentMetrics.spend),
+      previous: formatCurrency(previousMetrics.spend),
+      delta: deltas.spend.percent
+    },
+    {
+      label: "Impressões",
+      current: formatNumber(currentMetrics.impressions),
+      previous: formatNumber(previousMetrics.impressions),
+      delta: deltas.impressions.percent
+    },
+    {
+      label: "CTR",
+      current: formatPercent(currentMetrics.ctr),
+      previous: formatPercent(previousMetrics.ctr),
+      delta: deltas.ctr.percent
+    },
+    {
+      label: efficiencyLabel,
+      current: getAdSetEfficiencyMetric(adSet)?.value ?? "-",
+      previous: previousEfficiencyValue,
+      delta:
+        efficiencyLabel === "CTR"
+          ? deltas.ctr.percent
+          : efficiencyLabel === "CPC"
+            ? deltas.cpc.percent
+            : deltas.costPerResult.percent
+    }
+  ];
+}
+
+function hasAdSetComparisonData(adSet: MetaAdSet | null): boolean {
+  if (!adSet?.previousMetrics) {
+    return false;
+  }
+
+  const { spend, impressions, clicks, results } = adSet.previousMetrics;
+  return spend > 0 || impressions > 0 || clicks > 0 || results > 0;
+}
+
 export function CampaignStructurePanel({
   adSets,
   selectedAdSetId,
@@ -59,6 +176,7 @@ export function CampaignStructurePanel({
   errorMessage
 }: CampaignStructurePanelProps) {
   const [selectedPreviewAd, setSelectedPreviewAd] = useState<MetaAd | null>(null);
+  const [selectedPerformanceAdSet, setSelectedPerformanceAdSet] = useState<MetaAdSet | null>(null);
   const [adPreviewByAdId, setAdPreviewByAdId] = useState<Record<string, MetaAdPreview>>({});
   const [adPreviewLoadingByAdId, setAdPreviewLoadingByAdId] = useState<Record<string, boolean>>({});
   const [adPreviewErrorByAdId, setAdPreviewErrorByAdId] = useState<Record<string, string>>({});
@@ -72,7 +190,8 @@ export function CampaignStructurePanel({
   const loadedAdAnalyticsIdsRef = useRef<Set<string>>(new Set());
   const loadingAdAnalyticsIdsRef = useRef<Set<string>>(new Set());
 
-  const selectedAdSetName = adSets.find((adSet) => adSet.id === selectedAdSetId)?.name ?? "";
+  const selectedAdSet = adSets.find((adSet) => adSet.id === selectedAdSetId) ?? null;
+  const selectedAdSetName = selectedAdSet?.name ?? "";
   const adSetSelectionLimitReached = selectedCompareAdSetIds.length >= 2;
   const adSelectionLimitReached = selectedCompareAdIds.length >= 2;
   const adSetCompareCount = selectedCompareAdSetIds.length;
@@ -81,6 +200,16 @@ export function CampaignStructurePanel({
   useEffect(() => {
     setSelectedPreviewAd(null);
   }, [selectedAdSetId]);
+
+  useEffect(() => {
+    setSelectedPerformanceAdSet((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      return adSets.find((adSet) => adSet.id === previous.id) ?? null;
+    });
+  }, [adSets]);
 
   useEffect(() => {
     // Reset loaded IDs AND actual data when range changes to force refetch and avoid stale UI
@@ -180,6 +309,10 @@ export function CampaignStructurePanel({
     setSelectedPreviewAd(null);
   }, []);
 
+  const closeAdSetPerformanceModal = useCallback((): void => {
+    setSelectedPerformanceAdSet(null);
+  }, []);
+
   useEffect(() => {
     if (!selectedPreviewAd) {
       return;
@@ -198,6 +331,23 @@ export function CampaignStructurePanel({
   }, [closePreviewModal, selectedPreviewAd]);
 
   useEffect(() => {
+    if (!selectedPerformanceAdSet) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        closeAdSetPerformanceModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [closeAdSetPerformanceModal, selectedPerformanceAdSet]);
+
+  useEffect(() => {
     if (!selectedPreviewAd) {
       return;
     }
@@ -210,9 +360,30 @@ export function CampaignStructurePanel({
     };
   }, [selectedPreviewAd]);
 
+  useEffect(() => {
+    if (!selectedPerformanceAdSet) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedPerformanceAdSet]);
+
   const activePreview = selectedPreviewAd ? adPreviewByAdId[selectedPreviewAd.id] : undefined;
   const activePreviewLoading = selectedPreviewAd ? adPreviewLoadingByAdId[selectedPreviewAd.id] : false;
   const activePreviewError = selectedPreviewAd ? adPreviewErrorByAdId[selectedPreviewAd.id] : "";
+  const previewViewportWidth = 520;
+  const previewIframeWidth = Math.max(resolvePreviewCanvasWidth(activePreview), previewViewportWidth);
+  const previewCanvasHeight = resolvePreviewCanvasHeight(activePreview);
+  const previewSurfaceWidth = previewViewportWidth + 16;
+  const selectedAdSetComparisonRows = selectedPerformanceAdSet
+    ? getAdSetComparisonRows(selectedPerformanceAdSet)
+    : [];
+  const showAdSetComparison = hasAdSetComparisonData(selectedPerformanceAdSet);
   const activePreviewFeedback = selectedPreviewAd
     ? getPreviewFailureFeedback({
         ad: selectedPreviewAd,
@@ -241,7 +412,7 @@ export function CampaignStructurePanel({
             Estrutura da campanha
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Navegue pelos grupos de anúncios e pelos anúncios dentro de cada grupo.
+            Navegue pelos conjuntos de anúncios, compare públicos e abra a performance detalhada de cada grupo quando precisar.
           </p>
         </div>
       </header>
@@ -255,8 +426,9 @@ export function CampaignStructurePanel({
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
-              Grupos de anúncios
+            <p className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-viasoft">
+              <Layers size={14} />
+              Conjuntos de anúncios
             </p>
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-viasoft/20 bg-viasoft/5 px-2 py-0.5 text-[11px] font-semibold text-viasoft">
@@ -306,7 +478,7 @@ export function CampaignStructurePanel({
                       className="flex w-full flex-col p-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-viasoft/35 rounded-xl"
                     >
                       <div className="flex w-full items-center justify-between gap-3">
-                        <div className="max-w-[calc(100%-40px)] flex-1">
+                        <div className="max-w-[calc(100%-88px)] flex-1">
                           <p
                             className={`break-words text-sm font-medium leading-5 transition-colors ${selected ? "text-viasoft" : "text-slate-700 group-hover:text-viasoft/80"
                               }`}
@@ -315,26 +487,50 @@ export function CampaignStructurePanel({
                           </p>
                         </div>
 
-                        <button
-                          type="button"
-                          disabled={compareDisabled}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleCompareAdSet(adSet.id);
-                          }}
-                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${compareChecked
-                            ? "border-viasoft/40 bg-viasoft/20 text-viasoft shadow-sm"
-                            : compareDisabled
-                              ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
-                              : "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!adSet.metrics}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPerformanceAdSet(adSet);
+                            }}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${
+                              adSet.metrics
+                                ? "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                                : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
                             }`}
-                          title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
-                        >
-                          <ArrowLeftRight
-                            size={15}
-                            className={`transition-transform duration-300 ${compareChecked ? "rotate-180" : ""}`}
-                          />
-                        </button>
+                            title={
+                              adSet.metrics
+                                ? "Abrir performance do conjunto"
+                                : "Sem métricas para este conjunto"
+                            }
+                            aria-label={`Abrir performance do conjunto ${adSet.name}`}
+                          >
+                            <BarChart3 size={15} />
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={compareDisabled}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleCompareAdSet(adSet.id);
+                            }}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all duration-200 ${compareChecked
+                              ? "border-viasoft/40 bg-viasoft/20 text-viasoft shadow-sm"
+                              : compareDisabled
+                                ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 opacity-50"
+                                : "border-slate-200 bg-white text-slate-400 hover:border-viasoft/30 hover:bg-viasoft/10 hover:text-viasoft"
+                              }`}
+                            title={compareChecked ? "Remover da comparação" : "Adicionar à comparação"}
+                          >
+                            <ArrowLeftRight
+                              size={15}
+                              className={`transition-transform duration-300 ${compareChecked ? "rotate-180" : ""}`}
+                            />
+                          </button>
+                        </div>
                       </div>
 
                       {compareChecked && (
@@ -491,28 +687,140 @@ export function CampaignStructurePanel({
         </div>
       </div>
 
+      {selectedPerformanceAdSet ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm"
+          onClick={closeAdSetPerformanceModal}
+        >
+          <div
+            className="flex max-h-[92vh] w-[min(calc(100vw-2rem),1094px)] flex-col overflow-hidden rounded-2xl border border-viasoft/15 bg-white shadow-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-4 border-b border-viasoft/10 bg-gradient-to-br from-viasoft/10 via-white to-white px-6 py-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col items-start gap-2">
+                  <span className="rounded-md border border-viasoft/20 bg-viasoft/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-viasoft">
+                    Performance do Conjunto
+                  </span>
+                  <p className="max-w-[min(100%,760px)] text-[20px] font-bold leading-tight text-slate-900">
+                    {selectedPerformanceAdSet.name}
+                  </p>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1">
+                    <Layers size={12} className="text-slate-400" />
+                    <span>Leitura detalhada do público/conjunto selecionado</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeAdSetPerformanceModal}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-500 transition-colors hover:bg-viasoft/10 hover:text-viasoft"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff] p-5 sm:p-6">
+              <div className="space-y-5">
+                <section className="surface-panel border border-viasoft/15 bg-white p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
+                      <BarChart3 size={16} className="text-viasoft" /> Período Atual
+                    </h3>
+                    <span className="rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1 text-[10px] font-bold text-viasoft">
+                      Últimos {rangeDays} dias
+                    </span>
+                  </div>
+
+                  {selectedPerformanceAdSet.metrics ? (
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                      <MetricCard
+                        label={selectedPerformanceAdSet.metrics.primaryMetricLabel}
+                        value={formatNumber(selectedPerformanceAdSet.metrics.results)}
+                      />
+                      <MetricCard
+                        label="Investimento"
+                        value={formatCurrency(selectedPerformanceAdSet.metrics.spend)}
+                      />
+                      <MetricCard
+                        label="Impressões"
+                        value={formatNumber(selectedPerformanceAdSet.metrics.impressions)}
+                      />
+                      <MetricCard
+                        label="CTR"
+                        value={formatPercent(selectedPerformanceAdSet.metrics.ctr)}
+                      />
+                      <MetricCard
+                        label={getAdSetEfficiencyMetric(selectedPerformanceAdSet)?.label ?? "CTR"}
+                        value={getAdSetEfficiencyMetric(selectedPerformanceAdSet)?.value ?? "-"}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-viasoft/15 bg-viasoft/5 text-slate-500">
+                      <BarChart3 size={32} className="mb-2 text-viasoft/35" />
+                      <p className="text-xs">Métricas não disponíveis para o período.</p>
+                    </div>
+                  )}
+                </section>
+
+                <section className="surface-panel border border-viasoft/15 bg-white p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="text-base font-semibold text-viasoft">
+                      Comparativo com o Período Anterior
+                    </h3>
+                    <span className="rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1 text-[10px] font-bold text-viasoft">
+                      Mesmo intervalo anterior
+                    </span>
+                  </div>
+
+                  {showAdSetComparison ? (
+                    <div className="space-y-3">
+                      {selectedAdSetComparisonRows.map((row, index) => (
+                        <ComparisonRow
+                          key={`${row.label}-${index}`}
+                          label={row.label}
+                          currentValue={row.current}
+                          previousValue={row.previous}
+                          deltaPercent={row.delta}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-viasoft/15 bg-viasoft/5 px-4 py-8 text-center text-sm text-slate-500">
+                      Sem dados suficientes para comparação com o período anterior equivalente.
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {selectedPreviewAd ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm"
           onClick={closePreviewModal}
         >
           <div
-            className="flex h-[92vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in duration-200"
+            className="flex h-[92vh] w-[min(calc(100vw-2rem),1094px)] flex-col overflow-hidden rounded-2xl border border-viasoft/15 bg-white shadow-2xl animate-in fade-in zoom-in duration-200"
             onClick={(event) => event.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-4">
+            <div className="flex items-center justify-between gap-4 border-b border-viasoft/10 bg-gradient-to-br from-viasoft/10 via-white to-white px-6 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-viasoft/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-viasoft">
+                  <span className="rounded-md border border-viasoft/20 bg-viasoft/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-viasoft">
                     Preview do Anúncio
                   </span>
                   <p className="truncate text-lg font-bold text-slate-900">{selectedPreviewAd.name}</p>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-500">
                   <div className="flex items-center gap-1">
-                    <Megaphone size={12} className="text-slate-400" /> 
-                    <span className="font-medium text-slate-400">Criativo: </span> 
+                    <Megaphone size={12} className="text-viasoft/70" /> 
+                    <span className="font-medium text-slate-500">Criativo: </span> 
                     <span className="font-semibold text-slate-700">{selectedPreviewAd.creativeName}</span>
                   </div>
                 </div>
@@ -520,7 +828,7 @@ export function CampaignStructurePanel({
               <button
                 type="button"
                 onClick={closePreviewModal}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-500 transition-colors hover:bg-viasoft/10 hover:text-viasoft"
               >
                 <X size={20} />
               </button>
@@ -529,38 +837,63 @@ export function CampaignStructurePanel({
             {/* Modal Body (Two-Column) */}
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
               {/* Left Column: Preview */}
-              <div className="relative flex-1 overflow-auto border-r border-slate-100 bg-[#f5f5f5]">
-                <div className="flex min-h-full w-full items-start justify-center p-4 sm:p-6 lg:p-10">
-                  <div className="w-full max-w-[540px] flex-shrink-0">
+              <div className="relative flex-1 overflow-auto border-r border-viasoft/10 bg-gradient-to-b from-[#f9fcff] via-white to-[#f6fbff]">
+                <div className="flex min-h-full w-full items-center justify-center p-4 sm:p-6 lg:p-10">
+                  <div className="mx-auto flex-shrink-0" style={{ width: `${previewSurfaceWidth}px` }}>
                     {activePreview?.iframeUrl ? (
-                      <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                        <iframe
-                          src={activePreview.iframeUrl}
-                          title="Meta Ad Preview"
-                          className="w-full border-0"
-                          style={{ height: "850px", minHeight: "600px" }}
-                        />
+                      <div
+                        className="mx-auto overflow-hidden rounded-xl border border-viasoft/15 bg-white p-2 shadow-xl"
+                        style={{ width: `${previewSurfaceWidth}px` }}
+                      >
+                        <div
+                          className="overflow-auto rounded-lg"
+                          style={{
+                            width: `${previewViewportWidth}px`,
+                            height: `${previewCanvasHeight}px`,
+                            minHeight: "600px"
+                          }}
+                        >
+                          <iframe
+                            src={activePreview.iframeUrl}
+                            title="Meta Ad Preview"
+                            className="border-0"
+                            style={{
+                              width: `${previewIframeWidth}px`,
+                              height: `${previewCanvasHeight}px`
+                            }}
+                          />
+                        </div>
                       </div>
                     ) : activePreviewLoading ? (
-                      <div className="mx-auto flex w-full max-w-[400px] flex-col gap-4 rounded-xl border border-slate-100 bg-white p-8 shadow-sm">
+                      <div
+                        className="mx-auto flex flex-col gap-4 rounded-xl border border-viasoft/15 bg-white p-8 shadow-sm"
+                        style={{ width: `${previewSurfaceWidth}px` }}
+                      >
                         <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
                         <div className="h-40 animate-pulse rounded bg-slate-100" />
                         <div className="h-60 animate-pulse rounded bg-slate-100" />
                         <p className="text-center text-xs text-slate-400">Carregando visualização interativa...</p>
                       </div>
                     ) : (
-                      <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                      <div
+                        className="mx-auto flex justify-center rounded-xl border border-viasoft/15 bg-white p-1 shadow-xl"
+                        style={{ width: `${previewSurfaceWidth}px` }}
+                      >
                         {selectedPreviewAd.creativePreviewUrl && !brokenCreativePreviewByAdId[selectedPreviewAd.id] ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={selectedPreviewAd.creativePreviewUrl}
                             alt="Ad Preview"
-                            className="h-auto w-full rounded-lg object-contain"
+                            className="h-auto rounded-lg object-contain"
+                            style={{ width: `${previewViewportWidth}px` }}
                             onError={() => markCreativePreviewAsBroken(selectedPreviewAd.id)}
                           />
                         ) : (
-                          <div className="flex min-h-[320px] w-full flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 px-6 text-center text-sm text-slate-500">
-                            <ImageOff size={28} className="text-slate-300" />
+                          <div
+                            className="flex min-h-[320px] flex-col items-center justify-center gap-2 rounded-lg bg-viasoft/5 px-6 text-center text-sm text-slate-500"
+                            style={{ width: `${previewViewportWidth}px` }}
+                          >
+                            <ImageOff size={28} className="text-viasoft/30" />
                             <p className="font-medium text-slate-600">
                               {activePreviewFeedback?.title ?? "Miniatura indisponível"}
                             </p>
@@ -579,10 +912,10 @@ export function CampaignStructurePanel({
               <div className="flex w-full flex-col overflow-y-auto bg-white lg:w-[420px] xl:w-[480px]">
                 <div className="p-6">
                   <header className="mb-6 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-400">
-                      <BarChart3 size={16} /> Performance Estimada
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-viasoft">
+                      <BarChart3 size={16} className="text-viasoft" /> Performance Estimada
                     </h3>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                    <span className="rounded-full border border-viasoft/20 bg-viasoft/5 px-2.5 py-1 text-[10px] font-bold text-viasoft">
                       Últimos {rangeDays} dias
                     </span>
                   </header>
@@ -623,12 +956,12 @@ export function CampaignStructurePanel({
 
                       {/* Video Retain (if exists) */}
                       {adAnalyticsByAdId[selectedPreviewAd.id].video && (
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-5">
-                          <h4 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-                            <Video size={14} /> Retenção de Vídeo
+                        <div className="rounded-2xl border border-viasoft/15 bg-viasoft/5 p-5">
+                          <h4 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase text-viasoft/80">
+                            <Video size={14} className="text-viasoft" /> Retenção de Vídeo
                           </h4>
                           <div className="space-y-4">
-                            <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div className="mb-2 flex items-center justify-between border-b border-viasoft/10 pb-3">
                               <span className="text-xs font-bold text-slate-500">Reproduções do vídeo</span>
                               <span className="text-sm font-bold text-slate-900">
                                 {formatNumber(adAnalyticsByAdId[selectedPreviewAd.id].video!.plays)}
@@ -657,8 +990,8 @@ export function CampaignStructurePanel({
                       {/* Demographics */}
                       <div className="space-y-6">
                         <div className="space-y-3">
-                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-                            <Users size={14} /> Distribuição por Idade
+                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-viasoft/80">
+                            <Users size={14} className="text-viasoft" /> Distribuição por Idade
                           </h4>
                           <div className="space-y-2">
                             {adAnalyticsByAdId[selectedPreviewAd.id].demographics.age.slice(0, 4).map((item) => (
@@ -668,7 +1001,7 @@ export function CampaignStructurePanel({
                         </div>
 
                         <div className="space-y-3">
-                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                          <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-viasoft/80">
                             Gênero
                           </h4>
                           <div className="space-y-2">
@@ -680,8 +1013,8 @@ export function CampaignStructurePanel({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 text-slate-400">
-                      <BarChart3 size={32} className="mb-2 opacity-20" />
+                    <div className="flex h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-viasoft/15 bg-viasoft/5 text-slate-500">
+                      <BarChart3 size={32} className="mb-2 text-viasoft/35" />
                       <p className="text-xs">Métricas não disponíveis para o período.</p>
                     </div>
                   )}
@@ -692,6 +1025,67 @@ export function CampaignStructurePanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function formatDeltaLabel(percent: number | null): string {
+  if (percent === null) {
+    return "Sem base";
+  }
+
+  const formatted = new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(Math.abs(percent));
+
+  if (percent > 0) {
+    return `+${formatted}%`;
+  }
+
+  if (percent < 0) {
+    return `-${formatted}%`;
+  }
+
+  return "0,0%";
+}
+
+function ComparisonRow({
+  label,
+  currentValue,
+  previousValue,
+  deltaPercent
+}: {
+  label: string;
+  currentValue: string;
+  previousValue: string;
+  deltaPercent: number | null;
+}) {
+  const deltaTone =
+    deltaPercent === null
+      ? "bg-slate-100 text-slate-500"
+      : deltaPercent > 0
+        ? "bg-emerald-50 text-emerald-700"
+        : deltaPercent < 0
+          ? "bg-rose-50 text-rose-700"
+          : "bg-viasoft/5 text-viasoft";
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-viasoft/10 bg-white px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-700">{label}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Atual</p>
+        <p className="text-sm font-semibold text-slate-900">{currentValue}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Anterior</p>
+        <p className="text-sm font-semibold text-slate-700">{previousValue}</p>
+      </div>
+      <div className={`inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-bold ${deltaTone}`}>
+        {formatDeltaLabel(deltaPercent)}
+      </div>
+    </div>
   );
 }
 
@@ -707,9 +1101,9 @@ function MetricCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-xl border border-viasoft/15 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-viasoft/80">{label}</span>
         {icon}
       </div>
       <p className="text-2xl font-bold text-slate-900">{value}</p>

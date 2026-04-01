@@ -287,7 +287,7 @@ function getComparisonMetrics(objective: ObjectiveCategory): ComparisonMetricCon
 }
 
 function getComparisonTitle(entityType: StructureComparisonEntityType): string {
-  return entityType === "ADSET" ? "Comparativo entre grupos de anúncios" : "Comparativo entre anúncios";
+  return entityType === "ADSET" ? "Comparativo entre conjuntos de anúncios" : "Comparativo entre anúncios";
 }
 
 function PdfComparisonSection({
@@ -644,7 +644,7 @@ export default async function PdfPage({
       });
     } catch (error) {
       adSetComparisonErrorMessage =
-        error instanceof Error ? error.message : "Falha ao montar comparativo entre grupos de anúncios.";
+        error instanceof Error ? error.message : "Falha ao montar comparativo entre conjuntos de anúncios.";
     }
   }
 

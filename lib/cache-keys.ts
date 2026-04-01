@@ -3,7 +3,7 @@ import type { RangeDays } from "@/lib/types";
 export const CAMPAIGNS_CACHE_KEY = "campaigns:active";
 const CAMPAIGNS_CATALOG_CACHE_PREFIX = "campaigns:catalog";
 const ADS_CACHE_VERSION = "v2";
-const AD_PREVIEW_CACHE_VERSION = "v1";
+const AD_PREVIEW_CACHE_VERSION = "v2";
 const STRUCTURE_COMPARISON_CACHE_VERSION = "v1";
 
 export function adSetsCacheKey(campaignId: string): string {

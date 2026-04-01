@@ -22,7 +22,7 @@ A aplicação deixou de ser um MVP local focado apenas em campanhas ativas. Hoje
 - usa a Meta Graph API apenas na sincronização e em endpoints pontuais de preview/enriquecimento;
 - suporta campanhas fora do estado estritamente ativo;
 - possui budget mensal por vertical com ciclo Meta e imposto;
-- possui comparativos entre grupos de anúncios e anúncios;
+- possui comparativos entre conjuntos de anúncios e anúncios;
 - possui duas visões principais no dashboard:
   - `Resumo Executivo` em `/dashboard/executivo` (dashboard gerencial consolidado com leitura macro e filtros interativos nativos)
   - `Análise por Campanha` em `/dashboard/campanhas` (leitura operacional profunda com drill-down)
@@ -68,7 +68,7 @@ A área principal do produto fica em `/dashboard` e possui duas visões irmãs:
 
 ### 2. Análise por Campanha
 - rota: `/dashboard/campanhas`
-- leitura profunda de campanha, grupos de anúncios e anúncios
+- leitura profunda de campanha, conjuntos de anúncios e anúncios
 - pode receber `campaignId` pela URL para drill-down
 
 ### Parâmetros canônicos da URL

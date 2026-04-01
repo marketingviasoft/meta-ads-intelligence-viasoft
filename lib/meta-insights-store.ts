@@ -1216,6 +1216,117 @@ export async function getCampaignAdSetsFromStore(
   return adSets;
 }
 
+export async function getCampaignAdSetsWithMetricsFromStore(params: {
+  campaignId: string;
+  rangeDays: RangeDays;
+  forceRefresh?: boolean;
+}): Promise<MetaAdSet[]> {
+  const { campaignId, rangeDays, forceRefresh = false } = params;
+
+  if (!isValidRangeDays(rangeDays)) {
+    throw new Error("Período inválido. Use 7, 14, 28 ou 30 dias.");
+  }
+
+  const range = buildDateRange(rangeDays);
+  const cacheKey = `${adSetsCacheKey(campaignId)}:${rangeDays}:${range.until}:supabase`;
+  const cached = cache.get<MetaAdSet[]>(cacheKey);
+
+  if (cached && !forceRefresh) {
+    return cached;
+  }
+
+  const [latestRow, rows] = await Promise.all([
+    fetchLatestCampaignRow(campaignId),
+    fetchAdSetRowsByCampaignId(campaignId)
+  ]);
+
+  if (rows.length === 0) {
+    cache.set(cacheKey, [], CACHE_TTL_MS);
+    return [];
+  }
+
+  const adSetIds = rows.map((row) => row.id);
+  const [currentRows, previousRows] = await Promise.all([
+    fetchStructureInsightRowsByRange({
+      campaignId,
+      entityType: "ADSET",
+      entityIds: adSetIds,
+      since: range.since,
+      until: range.until
+    }),
+    fetchStructureInsightRowsByRange({
+      campaignId,
+      entityType: "ADSET",
+      entityIds: adSetIds,
+      since: range.previousSince,
+      until: range.previousUntil
+    })
+  ]);
+
+  const objective =
+    latestRow?.objective?.trim() ||
+    inferObjectiveFromCampaignName(latestRow?.campaign_name?.trim() || `Campanha ${campaignId}`);
+  const objectiveCategory =
+    latestRow?.objective_category === "TRAFFIC" ||
+    latestRow?.objective_category === "ENGAGEMENT" ||
+    latestRow?.objective_category === "RECOGNITION" ||
+    latestRow?.objective_category === "CONVERSIONS"
+      ? latestRow.objective_category
+      : inferObjectiveCategory(objective);
+
+  const adSetIdSet = new Set(adSetIds);
+  const currentRowsByAdSet = new Map<string, MetaCampaignInsightStoreRow[]>();
+  const previousRowsByAdSet = new Map<string, MetaCampaignInsightStoreRow[]>();
+
+  for (const row of currentRows) {
+    if (!row.adset_id || !adSetIdSet.has(row.adset_id)) {
+      continue;
+    }
+
+    const bucket = currentRowsByAdSet.get(row.adset_id) ?? [];
+    bucket.push(row);
+    currentRowsByAdSet.set(row.adset_id, bucket);
+  }
+
+  for (const row of previousRows) {
+    if (!row.adset_id || !adSetIdSet.has(row.adset_id)) {
+      continue;
+    }
+
+    const bucket = previousRowsByAdSet.get(row.adset_id) ?? [];
+    bucket.push(row);
+    previousRowsByAdSet.set(row.adset_id, bucket);
+  }
+
+  const adSets: MetaAdSet[] = rows.map((row) => {
+    const status = String(row.status ?? "").trim().toUpperCase() || "UNKNOWN";
+    const current = buildMetricSnapshotFromStoreRows(
+      currentRowsByAdSet.get(row.id) ?? [],
+      objectiveCategory
+    );
+    const previous = buildMetricSnapshotFromStoreRows(
+      previousRowsByAdSet.get(row.id) ?? [],
+      objectiveCategory
+    );
+    const comparison = buildMetricComparison(current, previous);
+
+    return {
+      id: row.id,
+      name: row.name,
+      campaignId: row.campaign_id,
+      effectiveStatus: status,
+      configuredStatus: status,
+      objectiveCategory,
+      metrics: current,
+      previousMetrics: previous,
+      deltas: comparison.deltas
+    };
+  });
+
+  cache.set(cacheKey, adSets, CACHE_TTL_MS);
+  return adSets;
+}
+
 export async function getAdSetAdsFromStore(adSetId: string, forceRefresh = false): Promise<MetaAd[]> {
   const cacheKey = `${adsCacheKey(adSetId)}:supabase`;
   const cached = cache.get<MetaAd[]>(cacheKey);

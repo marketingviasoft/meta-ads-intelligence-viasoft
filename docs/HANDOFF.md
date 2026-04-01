@@ -20,7 +20,7 @@ A home (`/`) redireciona para `/dashboard/executivo`.
 - o filtro principal agora é `Veiculação`, com grupos simplificados;
 - o budget mensal por vertical considera ciclo 24 -> 23 e imposto de 12,15%;
 - VIASOFT possui teto total mensal de R$ 1.000,00 já considerando imposto;
-- comparativos entre grupos de anúncios e anúncios passaram a ser parte do produto;
+- comparativos entre conjuntos de anúncios e anúncios passaram a ser parte do produto;
 - PDF passou a ter página condicional de comparativos;
 - Supabase é a camada central e final de leitura;
 - o dashboard passou a operar com duas visões irmãs, preservando filtros globais por query string.
